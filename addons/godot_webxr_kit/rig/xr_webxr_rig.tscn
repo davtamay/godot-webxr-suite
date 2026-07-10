@@ -1,7 +1,6 @@
-[gd_scene load_steps=11 format=3 uid="uid://b8xrwebxrrig01"]
+[gd_scene format=3]
 
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/rig/xr_webxr_rig.gd" id="0_rig"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/rig/flatscreen_camera_controller.gd" id="8_flatcam"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_manager.gd" id="1_manager"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_input_adapter.gd" id="2_adapter"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_screen_ray_interactor.gd" id="3_screen"]
@@ -9,6 +8,7 @@
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ray_interactor.gd" id="5_ray"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interactor_line_visual.gd" id="6_line"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_visual.gd" id="7_reticle"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/rig/flatscreen_camera_controller.gd" id="8_flatcam"]
 
 [node name="XRWebXRRig" type="Node3D"]
 script = ExtResource("0_rig")
