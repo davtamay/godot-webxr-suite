@@ -1,0 +1,6 @@
+# Godot convention: LF everywhere.
+* text=auto eol=lf
+*.png binary
+*.glb binary
+*.jpg binary
+*.webp binary
