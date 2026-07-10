@@ -454,9 +454,13 @@ func _update_hand_startup_state(hand_data: Dictionary, anchor) -> void:
     var anchor_position := anchor as Vector3
     var last_anchor = hand_data["last_anchor"]
     if last_anchor != null:
+        # Accumulate ANY nonzero change: a frozen last-known pose repeats
+        # bit-identical positions (delta exactly 0) while live tracking always
+        # jitters, so no per-frame floor is needed. A floor here would be
+        # frame-rate dependent (1mm @ 90fps demanded 9cm/s of sustained motion,
+        # which made the mesh never start when hands were held still).
         var delta := anchor_position.distance_to(last_anchor as Vector3)
-        if delta > 0.001:
-            hand_data["live_anchor_delta"] = float(hand_data["live_anchor_delta"]) + delta
+        hand_data["live_anchor_delta"] = float(hand_data["live_anchor_delta"]) + delta
 
     hand_data["last_anchor"] = anchor_position
     if float(hand_data["live_anchor_delta"]) >= startup_live_anchor_delta:
