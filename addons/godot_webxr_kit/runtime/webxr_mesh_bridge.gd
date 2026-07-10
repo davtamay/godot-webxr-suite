@@ -17,7 +17,10 @@ extends Node3D
 signal mesh_added(id: int, instance: MeshInstance3D, semantic_label: String)
 signal mesh_updated(id: int, instance: MeshInstance3D)
 
-@export var auto_visualize := true
+## Meshes are tracked (and collidable) regardless; this only controls the
+## translucent visualization. Toggle at runtime with set_visualize().
+@export var auto_visualize := false
+@export var mesh_color := Color(0.08, 0.72, 1.0, 0.25)
 @export var generate_collision := false
 @export var poll_interval := 0.75
 
@@ -28,6 +31,7 @@ var _webxr: XRInterface
 var _poll_accum := 0.0
 var _installed := false
 var _instances := {}
+var _material: StandardMaterial3D
 
 func _ready() -> void:
 	if not OS.has_feature("web") or not Engine.has_singleton("JavaScriptBridge"):
@@ -37,6 +41,11 @@ func _ready() -> void:
 	if _webxr:
 		_webxr.session_started.connect(_on_session_started)
 		_webxr.session_ended.connect(_on_session_ended)
+	add_to_group("webxr_mesh_bridge")
+	# Duplicate of a baked .tres; the tint is a uniform, so the baked
+	# shader hash is kept.
+	_material = MESH_MATERIAL.duplicate() as StandardMaterial3D
+	_material.albedo_color = mesh_color
 	_install_js_hook()
 
 func _install_js_hook() -> void:
@@ -53,6 +62,8 @@ func _install_js_hook() -> void:
 	XRSession.prototype.requestAnimationFrame = function (cb) {
 		return orig.call(this, function (t, frame) {
 			try {
+				bridge.meshProp = (frame.detectedMeshes !== undefined) ? ('set:' + frame.detectedMeshes.size) : 'ABSENT';
+				bridge.planeProp = (frame.detectedPlanes !== undefined) ? ('set:' + frame.detectedPlanes.size) : 'ABSENT';
 				if (!bridge._ref && !bridge._refPending) {
 					bridge._refPending = true;
 					frame.session.requestReferenceSpace(bridge.refType)
@@ -95,6 +106,29 @@ func _on_session_started() -> void:
 
 func _on_session_ended() -> void:
 	set_process(false)
+	# Scene data is session-scoped; drop stale geometry on exit.
+	Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRMeshBridge && (window.GodotWebXRMeshBridge.meshes = {});", true)
+	for id in _instances:
+		_instances[id].queue_free()
+	_instances.clear()
+
+func set_visualize(p_enabled: bool) -> void:
+	auto_visualize = p_enabled
+	for id in _instances:
+		_instances[id].visible = p_enabled
+
+func get_status() -> String:
+	var js := Engine.get_singleton("JavaScriptBridge")
+	var prop = js.eval("window.GodotWebXRMeshBridge ? String(window.GodotWebXRMeshBridge.meshProp) : 'NO BRIDGE'", true)
+	var prop_str := str(prop)
+	if _instances.size() > 0:
+		return "Room mesh: %d surface(s), %s." % [_instances.size(), "shown" if auto_visualize else "hidden"]
+	if prop_str == "ABSENT":
+		return "Room mesh unsupported by this browser."
+	if prop_str.begins_with("set:"):
+		return "No room scan available - run Space Setup on the headset."
+	return "Room mesh: waiting for an immersive session."
+
 
 func _process(delta: float) -> void:
 	_poll_accum += delta
@@ -158,7 +192,7 @@ func _build_mesh(id: int, rec: Dictionary) -> void:
 		instance = MeshInstance3D.new()
 		instance.name = "DetectedMesh%d" % id
 		instance.visible = auto_visualize
-		instance.material_override = MESH_MATERIAL
+		instance.material_override = _material
 		add_child(instance)
 		_instances[id] = instance
 	else:
