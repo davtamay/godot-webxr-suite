@@ -18,6 +18,10 @@ extends Node3D
 ## requested as an optional feature and still granted where available.
 @export var require_hand_tracking := false
 @export var ar_hide_group := "ar_passthrough_hidden"
+## Nodes in this group are hidden during ANY immersive session (VR or AR)
+## and restored on exit. Put screen-space UI (CanvasLayer HUDs) here:
+## Godot composites the 2D canvas into each eye's view otherwise.
+@export var session_hide_group := "xr_session_hidden"
 
 ## Preloaded so the shader baker can precompile it for web/WebGPU exports.
 const HIGHLIGHT_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/highlight_material.tres")
@@ -44,6 +48,7 @@ var _base_clear_color := Color.BLACK
 var _base_environment_background_mode := -1
 var _base_environment_background_color := Color.BLACK
 var _ar_hidden_node_visibility := {}
+var _session_hidden_node_visibility := {}
 
 func _ready() -> void:
     _vr_button = get_node_or_null(enter_vr_button_path) as Button
@@ -156,12 +161,14 @@ func _on_session_started() -> void:
     if _active_session_mode.is_empty():
         _active_session_mode = _webxr.session_mode
     _apply_ar_scene_mode(_active_session_mode == "immersive-ar")
+    _apply_session_hidden(true)
     get_viewport().use_xr = true
     _set_status("%s session started. Reference space: %s. Enabled features: %s." % [_session_label(_active_session_mode), _webxr.reference_space_type, _webxr.enabled_features])
 
 func _on_session_ended() -> void:
     get_viewport().use_xr = false
     _apply_ar_scene_mode(false)
+    _apply_session_hidden(false)
     _requested_session_mode = ""
     _active_session_mode = ""
     if _last_session_failed:
@@ -172,6 +179,7 @@ func _on_session_failed(message: String) -> void:
     _last_session_failed = true
     get_viewport().use_xr = false
     _apply_ar_scene_mode(false)
+    _apply_session_hidden(false)
     _requested_session_mode = ""
     _active_session_mode = ""
     _set_status("WEBXR FAILED: " + message)
@@ -224,7 +232,10 @@ func _session_label(session_mode: String) -> String:
 func _reference_space_types_for(session_mode: String) -> String:
     if session_mode == "immersive-ar":
         return "local-floor, local"
-    return "bounded-floor, local-floor, local"
+    # local-floor first: its forward is where the user faces at session
+    # start, so the scene spawns in front of them. bounded-floor anchors to
+    # the room's calibrated (arbitrary) forward instead.
+    return "local-floor, bounded-floor, local"
 
 func _required_features_for(_session_mode: String) -> String:
     var features: Array[String] = ["layers"]
@@ -268,6 +279,20 @@ func _apply_ar_scene_mode(enabled: bool) -> void:
 
     if not enabled:
         _ar_hidden_node_visibility.clear()
+
+func _apply_session_hidden(enabled: bool) -> void:
+    for node in get_tree().get_nodes_in_group(session_hide_group):
+        if not (node is CanvasItem or node is Node3D or node is CanvasLayer):
+            continue
+        if enabled:
+            if not _session_hidden_node_visibility.has(node):
+                _session_hidden_node_visibility[node] = node.visible
+            node.visible = false
+        elif _session_hidden_node_visibility.has(node):
+            node.visible = bool(_session_hidden_node_visibility[node])
+
+    if not enabled:
+        _session_hidden_node_visibility.clear()
 
 func _show_browser_failure(message: String) -> void:
     if not OS.has_feature("web") or not Engine.has_singleton("JavaScriptBridge"):
