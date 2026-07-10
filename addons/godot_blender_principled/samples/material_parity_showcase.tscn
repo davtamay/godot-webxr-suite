@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_blender_principled/samples/material_parity_showcase.gd" id="1_show"]
+
+[node name="MaterialParityShowcase" type="Node3D"]
+script = ExtResource("1_show")

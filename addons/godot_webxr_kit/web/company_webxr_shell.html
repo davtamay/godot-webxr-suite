@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>$GODOT_PROJECT_NAME</title>
+  $GODOT_HEAD_INCLUDE
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #101014;
+      color: #f5f5f5;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    #canvas {
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      background: #000;
+    }
+    #overlay {
+      position: fixed;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at center, rgba(20, 28, 40, 0.98), rgba(5, 5, 8, 0.98));
+      z-index: 10;
+    }
+    #panel {
+      width: min(760px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      overflow: auto;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 16px;
+      padding: 24px;
+      background: rgba(0,0,0,0.35);
+      box-shadow: 0 20px 80px rgba(0,0,0,0.35);
+    }
+    h1 { margin: 0 0 8px; font-size: 24px; }
+    p { line-height: 1.45; color: #d4d4d8; }
+    table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+    td { padding: 8px 6px; border-bottom: 1px solid rgba(255,255,255,0.12); }
+    td:first-child { color: #a1a1aa; width: 45%; }
+    .ok { color: #86efac; }
+    .bad { color: #fca5a5; }
+    .warn { color: #fde68a; }
+    button {
+      appearance: none;
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-weight: 700;
+      cursor: pointer;
+      background: #38bdf8;
+      color: #001018;
+    }
+    button:disabled { opacity: 0.55; cursor: wait; }
+    #progress { margin-top: 12px; color: #a1a1aa; font-size: 14px; }
+    #error { margin-top: 12px; color: #fca5a5; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="overlay">
+    <div id="panel">
+      <h1>$GODOT_PROJECT_NAME</h1>
+      <p>
+        This shell proves browser capability detection and starts the Godot WebGL2 app.
+        WebGPU below is detection only; Godot rendering remains WebGL2 Compatibility unless source-level renderer work is implemented.
+      </p>
+      <table id="capabilities"></table>
+      <button id="start-button" disabled>Checking capabilities…</button>
+      <div id="progress"></div>
+      <div id="error"></div>
+    </div>
+  </div>
+
+  <script src="runtime_metrics_overlay.js"></script>
+  <script src="$GODOT_URL"></script>
+  <script>
+    (function installRawWebXRHandBridge() {
+      const handJointNames = [
+        'wrist',
+        'thumb-metacarpal',
+        'thumb-phalanx-proximal',
+        'thumb-phalanx-distal',
+        'thumb-tip',
+        'index-finger-metacarpal',
+        'index-finger-phalanx-proximal',
+        'index-finger-phalanx-intermediate',
+        'index-finger-phalanx-distal',
+        'index-finger-tip',
+        'middle-finger-metacarpal',
+        'middle-finger-phalanx-proximal',
+        'middle-finger-phalanx-intermediate',
+        'middle-finger-phalanx-distal',
+        'middle-finger-tip',
+        'ring-finger-metacarpal',
+        'ring-finger-phalanx-proximal',
+        'ring-finger-phalanx-intermediate',
+        'ring-finger-phalanx-distal',
+        'ring-finger-tip',
+        'pinky-finger-metacarpal',
+        'pinky-finger-phalanx-proximal',
+        'pinky-finger-phalanx-intermediate',
+        'pinky-finger-phalanx-distal',
+        'pinky-finger-tip',
+      ];
+
+      const bridge = {
+        available: !!navigator.xr,
+        referenceSpaceType: '',
+        latest: { frame: 0, hands: {} },
+      };
+      const depthBridge = {
+        available: !!navigator.xr,
+        latest: {
+          frame: 0,
+          enabled: false,
+          sampleCount: 0,
+          error: 'Enter AR and request depth mesh.',
+        },
+      };
+      window.CompanyWebXRHandBridge = bridge;
+      window.CompanyWebXRDepthBridge = depthBridge;
+
+      if (!navigator.xr || navigator.xr.__companyHandBridgePatched) return;
+      navigator.xr.__companyHandBridgePatched = true;
+
+      const originalRequestSession = navigator.xr.requestSession.bind(navigator.xr);
+      navigator.xr.requestSession = async function patchedRequestSession(mode, options) {
+        const session = await originalRequestSession(mode, withOptionalDepthSensing(mode, options || {}));
+        // XRSession has no `mode` attribute; remember it here for the depth gate.
+        depthBridge.sessionMode = mode;
+        patchSession(session);
+        return session;
+      };
+
+      function patchSession(session) {
+        if (session.__companyHandBridgePatched) return;
+        session.__companyHandBridgePatched = true;
+        bridge.session = session;
+
+        const originalRequestReferenceSpace = session.requestReferenceSpace.bind(session);
+        session.requestReferenceSpace = async function patchedRequestReferenceSpace(type) {
+          const space = await originalRequestReferenceSpace(type);
+          bridge.referenceSpace = space;
+          bridge.referenceSpaceType = type;
+          return space;
+        };
+
+        const originalRequestAnimationFrame = session.requestAnimationFrame.bind(session);
+        session.requestAnimationFrame = function patchedRequestAnimationFrame(callback) {
+          return originalRequestAnimationFrame(function handBridgeFrame(time, frame) {
+            updateHandsFromFrame(frame, time);
+            updateDepthFromFrame(frame, time);
+            return callback(time, frame);
+          });
+        };
+
+        session.addEventListener('end', () => {
+          bridge.session = null;
+          bridge.referenceSpace = null;
+          depthBridge.sessionMode = '';
+          bridge.latest = { frame: bridge.latest.frame || 0, hands: {} };
+          depthBridge.latest = {
+            frame: depthBridge.latest.frame || 0,
+            enabled: false,
+            sampleCount: 0,
+            error: 'WebXR session ended.',
+          };
+        });
+      }
+
+      function withOptionalDepthSensing(mode, options) {
+        const next = Object.assign({}, options);
+        if (mode !== 'immersive-ar') return next;
+
+        const optionalFeatures = new Set(Array.from(next.optionalFeatures || []));
+        optionalFeatures.add('depth-sensing');
+        next.optionalFeatures = Array.from(optionalFeatures);
+        if (!next.depthSensing) {
+          // This bridge reads depth on the CPU (frame.getDepthInformation +
+          // getDepthInMeters -> XRCPUDepthInformation), which is ONLY valid
+          // when the session is granted cpu-optimized usage. Request CPU only
+          // and CPU-friendly formats first; listing float32/gpu here makes
+          // Quest Browser negotiate gpu-optimized, after which the CPU call
+          // throws InvalidStateError.
+          next.depthSensing = {
+            usagePreference: ['cpu-optimized'],
+            dataFormatPreference: ['luminance-alpha', 'unsigned-short', 'float32'],
+            matchDepthView: true,
+          };
+        }
+        return next;
+      }
+
+      function updateHandsFromFrame(frame, time) {
+        if (!bridge.referenceSpace) return;
+
+        const hands = {};
+        for (const inputSource of frame.session.inputSources) {
+          if (!inputSource.hand) continue;
+          if (inputSource.handedness !== 'left' && inputSource.handedness !== 'right') continue;
+          const handedness = inputSource.handedness;
+          const joints = {};
+          let jointCount = 0;
+
+          for (const jointName of handJointNames) {
+            const jointSpace = inputSource.hand.get(jointName);
+            if (!jointSpace) continue;
+            const pose = frame.getJointPose(jointSpace, bridge.referenceSpace);
+            if (!pose) continue;
+
+            const p = pose.transform.position;
+            joints[jointName] = {
+              x: p.x,
+              y: p.y,
+              z: p.z,
+              r: pose.radius || 0.014,
+            };
+            jointCount += 1;
+          }
+
+          hands[handedness] = {
+            jointCount,
+            joints,
+            targetRay: poseToPayload(frame.getPose(inputSource.targetRaySpace, bridge.referenceSpace)),
+            grip: inputSource.gripSpace ? poseToPayload(frame.getPose(inputSource.gripSpace, bridge.referenceSpace)) : null,
+          };
+        }
+
+        bridge.latest = {
+          frame: (bridge.latest.frame || 0) + 1,
+          time,
+          referenceSpaceType: bridge.referenceSpaceType,
+          hands,
+        };
+      }
+
+      function updateDepthFromFrame(frame, time) {
+        if (!bridge.referenceSpace || depthBridge.sessionMode !== 'immersive-ar') return;
+        if (depthBridge.lastCaptureTime && time - depthBridge.lastCaptureTime < 250) return;
+        depthBridge.lastCaptureTime = time;
+
+        if (!frame.getDepthInformation || !frame.getViewerPose) {
+          depthBridge.latest = depthFailure('XRFrame.getDepthInformation is unavailable.');
+          return;
+        }
+
+        let usage = 'unknown';
+        let dataFormat = 'unknown';
+        let active = null;
+        try {
+          usage = frame.session.depthUsage || usage;
+          dataFormat = frame.session.depthDataFormat || dataFormat;
+          active = frame.session.depthActive;
+        } catch (_) {}
+
+        let pose = null;
+        try {
+          pose = frame.getViewerPose(bridge.referenceSpace);
+        } catch (error) {
+          depthBridge.latest = depthFailure(`viewer pose failed: ${error}`);
+          return;
+        }
+        if (!pose || !pose.views || pose.views.length === 0) {
+          depthBridge.latest = depthFailure('No viewer pose for depth capture.');
+          return;
+        }
+
+        // frame.getDepthInformation() requires cpu-optimized usage. If the UA
+        // granted gpu-optimized, calling it throws InvalidStateError, so report
+        // a legible reason instead of the raw exception.
+        if (usage && usage !== 'unknown' && usage !== 'cpu-optimized') {
+          // Known Quest Browser limitation (Horizon 146.0, experimental WebXR
+          // depth): only gpu-optimized depth is granted, so the CPU readback
+          // path is unavailable here. See docs/DECISION_LOG.md 2026-07-06.
+          depthBridge.latest = depthFailure(
+            `depth granted "${usage}" (Quest offers GPU depth only); CPU depth-mesh needs cpu-optimized depth.`,
+            usage, dataFormat, active);
+          return;
+        }
+
+        const view = pose.views.find((candidate) => candidate.eye === 'left') || pose.views[0];
+        let depthInfo = null;
+        try {
+          depthInfo = frame.getDepthInformation(view);
+        } catch (error) {
+          depthBridge.latest = depthFailure(`${error.name || 'DepthError'}: ${error.message || error}`, usage, dataFormat, active);
+          return;
+        }
+        if (!depthInfo || !depthInfo.getDepthInMeters) {
+          depthBridge.latest = depthFailure('No CPU depth information this frame.', usage, dataFormat, active);
+          return;
+        }
+
+        const sampleWidth = 28;
+        const sampleHeight = 18;
+        const samples = [];
+        const viewMatrix = view.transform.matrix;
+        const projection = view.projectionMatrix;
+        const fx = Math.abs(projection[0]) > 0.00001 ? projection[0] : 1.0;
+        const fy = Math.abs(projection[5]) > 0.00001 ? projection[5] : 1.0;
+        let validCount = 0;
+
+        for (let y = 0; y < sampleHeight; y += 1) {
+          const v = (y + 0.5) / sampleHeight;
+          for (let x = 0; x < sampleWidth; x += 1) {
+            const u = (x + 0.5) / sampleWidth;
+            let depthMeters = 0.0;
+            try {
+              depthMeters = depthInfo.getDepthInMeters(u, v);
+            } catch (_) {
+              depthMeters = 0.0;
+            }
+
+            if (!Number.isFinite(depthMeters) || depthMeters <= 0.05 || depthMeters > 6.0) {
+              samples.push({ valid: false, d: 0.0 });
+              continue;
+            }
+
+            const localX = (u * 2.0 - 1.0) * depthMeters / fx;
+            const localY = (1.0 - v * 2.0) * depthMeters / fy;
+            const localZ = -depthMeters;
+            const point = transformPoint(viewMatrix, localX, localY, localZ);
+            samples.push({
+              valid: true,
+              u,
+              v,
+              d: depthMeters,
+              x: point.x,
+              y: point.y,
+              z: point.z,
+            });
+            validCount += 1;
+          }
+        }
+
+        depthBridge.latest = {
+          frame: (depthBridge.latest.frame || 0) + 1,
+          time,
+          enabled: true,
+          active,
+          usage,
+          dataFormat,
+          depthWidth: depthInfo.width || 0,
+          depthHeight: depthInfo.height || 0,
+          sampleWidth,
+          sampleHeight,
+          sampleCount: validCount,
+          samples,
+          error: '',
+        };
+      }
+
+      function depthFailure(error, usage = 'unknown', dataFormat = 'unknown', active = null) {
+        return {
+          frame: (depthBridge.latest.frame || 0) + 1,
+          enabled: false,
+          active,
+          usage,
+          dataFormat,
+          sampleCount: 0,
+          samples: [],
+          error,
+        };
+      }
+
+      function transformPoint(matrix, x, y, z) {
+        return {
+          x: matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12],
+          y: matrix[1] * x + matrix[5] * y + matrix[9] * z + matrix[13],
+          z: matrix[2] * x + matrix[6] * y + matrix[10] * z + matrix[14],
+        };
+      }
+
+      function poseToPayload(pose) {
+        if (!pose) return null;
+        const p = pose.transform.position;
+        const m = pose.transform.matrix;
+        return {
+          x: p.x,
+          y: p.y,
+          z: p.z,
+          dx: -m[8],
+          dy: -m[9],
+          dz: -m[10],
+        };
+      }
+    })();
+
+    const capabilityRows = document.getElementById('capabilities');
+    const startButton = document.getElementById('start-button');
+    const progressEl = document.getElementById('progress');
+    const errorEl = document.getElementById('error');
+    const overlay = document.getElementById('overlay');
+    const canvas = document.getElementById('canvas');
+
+    window.CompanyWebCaps = null;
+    window.CompanyRuntimeMetrics && window.CompanyRuntimeMetrics.mark('capability_detection_started');
+    window.CompanyWebCapsReady = detectCapabilities();
+
+    function boolText(value) {
+      if (value === true) return '<span class="ok">true</span>';
+      if (value === false) return '<span class="bad">false</span>';
+      return '<span class="warn">unknown</span>';
+    }
+
+    function row(label, value, isBool = true) {
+      return `<tr><td>${label}</td><td>${isBool ? boolText(value) : String(value ?? 'unknown')}</td></tr>`;
+    }
+
+    async function detectCapabilities() {
+      const glCanvas = document.createElement('canvas');
+      const webgl2 = !!glCanvas.getContext('webgl2');
+
+      const hasXR = !!navigator.xr;
+      let immersiveVr = false;
+      let immersiveAr = false;
+      if (hasXR && navigator.xr.isSessionSupported) {
+        try { immersiveVr = await navigator.xr.isSessionSupported('immersive-vr'); } catch (_) {}
+        try { immersiveAr = await navigator.xr.isSessionSupported('immersive-ar'); } catch (_) {}
+      }
+
+      const hasWebGPU = !!navigator.gpu;
+      let webgpuAdapter = false;
+      let webgpuAdapterInfo = null;
+      if (hasWebGPU) {
+        try {
+          const adapter = await navigator.gpu.requestAdapter();
+          webgpuAdapter = !!adapter;
+          if (adapter) {
+            webgpuAdapterInfo = {
+              features: Array.from(adapter.features || []),
+              limits: adapter.limits ? Object.fromEntries(Object.entries(adapter.limits)) : null
+            };
+          }
+        } catch (error) {
+          webgpuAdapterInfo = { error: String(error) };
+        }
+      }
+
+      const caps = {
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        platform: navigator.platform,
+        language: navigator.language,
+        secureContext: window.isSecureContext,
+        crossOriginIsolated: window.crossOriginIsolated,
+        sharedArrayBuffer: typeof SharedArrayBuffer !== 'undefined',
+        devicePixelRatio: window.devicePixelRatio,
+        webgl2,
+        webxr: hasXR,
+        immersiveVr,
+        immersiveAr,
+        webgpuApi: hasWebGPU,
+        webgpuAdapter,
+        webgpuAdapterInfo
+      };
+
+      window.CompanyWebCaps = caps;
+      window.CompanyRuntimeMetrics && window.CompanyRuntimeMetrics.mark('capability_detection_complete');
+      renderCapabilities(caps);
+      startButton.disabled = false;
+      startButton.textContent = 'Start Godot App';
+      return caps;
+    }
+
+    function renderCapabilities(caps) {
+      capabilityRows.innerHTML = [
+        row('Secure context', caps.secureContext),
+        row('WebGL2', caps.webgl2),
+        row('WebXR API', caps.webxr),
+        row('WebXR immersive-vr', caps.immersiveVr),
+        row('WebXR immersive-ar', caps.immersiveAr),
+        row('WebGPU API', caps.webgpuApi),
+        row('WebGPU adapter', caps.webgpuAdapter),
+        row('SharedArrayBuffer', caps.sharedArrayBuffer),
+        row('crossOriginIsolated', caps.crossOriginIsolated),
+        row('Device pixel ratio', caps.devicePixelRatio, false),
+        row('Platform', caps.platform, false),
+      ].join('');
+    }
+
+    async function startGodot() {
+      startButton.disabled = true;
+      errorEl.textContent = '';
+      progressEl.textContent = 'Loading Godot…';
+      window.CompanyRuntimeMetrics && window.CompanyRuntimeMetrics.mark('godot_load_requested');
+
+      try {
+        await window.CompanyWebCapsReady;
+        const engine = new Engine($GODOT_CONFIG);
+        window.CompanyRuntimeMetrics && window.CompanyRuntimeMetrics.startFrameCapture();
+        await engine.startGame({
+          canvas,
+          onProgress: (current, total) => {
+            if (total > 0) {
+              const pct = Math.round((current / total) * 100);
+              progressEl.textContent = `Loading ${pct}%`;
+            } else {
+              progressEl.textContent = `Loading ${current} bytes`;
+            }
+          },
+          onPrint: (text) => console.log('[Godot]', text),
+          onPrintError: (text) => console.warn('[Godot]', text),
+        });
+        window.CompanyRuntimeMetrics && window.CompanyRuntimeMetrics.mark('godot_start_complete');
+        overlay.style.display = 'none';
+      } catch (error) {
+        console.error(error);
+        errorEl.textContent = String(error && error.stack ? error.stack : error);
+        startButton.disabled = false;
+        startButton.textContent = 'Retry Start';
+      }
+    }
+
+    startButton.addEventListener('click', startGodot);
+  </script>
+</body>
+</html>
