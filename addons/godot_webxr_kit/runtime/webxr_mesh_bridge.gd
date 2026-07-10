@@ -26,12 +26,14 @@ signal mesh_updated(id: int, instance: MeshInstance3D)
 
 ## Preloaded so the shader baker can precompile it for web/WebGPU exports.
 const MESH_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/depth_mesh_material.tres")
+const PUNCH_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/mesh_punch_material.tres")
 
 var _webxr: XRInterface
 var _poll_accum := 0.0
 var _installed := false
 var _instances := {}
 var _material: StandardMaterial3D
+var occlusion_enabled := false
 
 func _ready() -> void:
 	if not OS.has_feature("web") or not Engine.has_singleton("JavaScriptBridge"):
@@ -114,8 +116,27 @@ func _on_session_ended() -> void:
 
 func set_visualize(p_enabled: bool) -> void:
 	auto_visualize = p_enabled
+	if p_enabled:
+		occlusion_enabled = false
+	_apply_instance_mode()
+
+## Room-mesh occlusion: the meshes draw an alpha punch (depth-tested), so
+## passthrough shows wherever the scanned room is closer than virtual
+## content. Static geometry only; sensor-depth occlusion supersedes this
+## where the browser supports it.
+func set_occlusion(p_enabled: bool) -> void:
+	occlusion_enabled = p_enabled
+	if p_enabled:
+		auto_visualize = false
+	_apply_instance_mode()
+
+func _apply_instance_mode() -> void:
 	for id in _instances:
-		_instances[id].visible = p_enabled
+		_apply_instance_mode_to(_instances[id])
+
+func _apply_instance_mode_to(instance: MeshInstance3D) -> void:
+	instance.visible = auto_visualize or occlusion_enabled
+	instance.material_override = PUNCH_MATERIAL if occlusion_enabled else _material
 
 func get_status() -> String:
 	var js := Engine.get_singleton("JavaScriptBridge")
@@ -191,8 +212,7 @@ func _build_mesh(id: int, rec: Dictionary) -> void:
 	if is_new:
 		instance = MeshInstance3D.new()
 		instance.name = "DetectedMesh%d" % id
-		instance.visible = auto_visualize
-		instance.material_override = _material
+		_apply_instance_mode_to(instance)
 		add_child(instance)
 		_instances[id] = instance
 	else:
