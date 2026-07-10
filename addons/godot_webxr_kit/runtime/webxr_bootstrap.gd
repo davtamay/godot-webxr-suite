@@ -244,7 +244,7 @@ func _required_features_for(_session_mode: String) -> String:
     return ", ".join(features)
 
 func _optional_features_for(session_mode: String) -> String:
-    var features: Array[String] = ["local-floor"]
+    var features: Array[String] = ["local-floor", "mesh-detection"]
     if session_mode == "immersive-vr":
         features.append("bounded-floor")
     if session_mode == "immersive-ar":
