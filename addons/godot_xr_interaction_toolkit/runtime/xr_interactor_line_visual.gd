@@ -4,6 +4,11 @@ extends MeshInstance3D
 ## Straight-line beam for an XRRayInteractor parent. Draws in world space
 ## (top_level), so the interactor's transform never bends the visual.
 
+## Preloaded so the shader baker can precompile it for web/WebGPU exports
+## (runtime-constructed materials cannot be baked). Tinting a duplicate only
+## changes uniforms, so the baked shader still matches.
+const LINE_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_line_material.tres")
+
 @export var color := Color(0.7, 0.88, 1.0, 0.85)
 
 var _ray: Node
@@ -18,12 +23,8 @@ func _ready() -> void:
     top_level = true
     cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 
-    var material := StandardMaterial3D.new()
-    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    var material := LINE_MATERIAL.duplicate() as StandardMaterial3D
     material.albedo_color = color
-    material.emission_enabled = true
-    material.emission = color
     material_override = material
 
 func _process(_delta: float) -> void:

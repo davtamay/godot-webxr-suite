@@ -3,6 +3,9 @@ extends Node3D
 ## Procedural hand-tracking visualizer for WebXR/OpenXR.
 ## Attach under XROrigin3D so XRHandTracker joint transforms can be used directly.
 
+## Preloaded so the shader baker can precompile it for web/WebGPU exports.
+const JOINT_MATERIAL := preload("res://addons/godot_xr_hands/runtime/hand_joint_material.tres")
+
 @export var status_label_path: NodePath
 @export var joint_radius_min := 0.012
 @export var joint_radius_max := 0.026
@@ -241,9 +244,10 @@ func _create_hand(hand_name: String, hand_id: int, fallback_pose_path: NodePath,
     _last_hand_debug[hand_name] = "pending"
 
 func _create_material(color: Color) -> StandardMaterial3D:
-    var material := StandardMaterial3D.new()
+    # Duplicate of a baked .tres so web/WebGPU exports have the shader
+    # precompiled; colors/roughness are uniforms, so the hash is kept.
+    var material := JOINT_MATERIAL.duplicate() as StandardMaterial3D
     material.albedo_color = color
-    material.emission_enabled = true
     material.emission = color
     material.emission_energy_multiplier = 0.45
     material.roughness = 0.7

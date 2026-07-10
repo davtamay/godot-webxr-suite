@@ -19,6 +19,9 @@ extends Node3D
 @export var require_hand_tracking := false
 @export var ar_hide_group := "ar_passthrough_hidden"
 
+## Preloaded so the shader baker can precompile it for web/WebGPU exports.
+const HIGHLIGHT_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/highlight_material.tres")
+
 var _webxr: XRInterface
 var _vr_supported := false
 var _ar_supported := false
@@ -71,9 +74,10 @@ func _ready() -> void:
     if _inspect_object:
         _base_scale = _inspect_object.scale
         _base_material = _inspect_object.get_active_material(0)
-        _highlight_material = StandardMaterial3D.new()
+        # Duplicate of a baked .tres; colors/energy are uniforms, so the
+        # baked shader hash is kept.
+        _highlight_material = HIGHLIGHT_MATERIAL.duplicate() as StandardMaterial3D
         _highlight_material.albedo_color = Color(0.25, 0.95, 0.68, 1.0)
-        _highlight_material.emission_enabled = true
         _highlight_material.emission = Color(0.25, 0.95, 0.68, 1.0)
         _highlight_material.emission_energy_multiplier = 1.2
     else:

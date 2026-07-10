@@ -13,6 +13,10 @@ extends Node3D
 
 const RIG := preload("res://addons/godot_webxr_kit/rig/xr_webxr_rig.tscn")
 
+## Preloaded so the shader baker can precompile it for web/WebGPU exports
+## (the opaque combos below match the always-baked default material).
+const TRANSPARENT_MATERIAL := preload("res://addons/godot_blender_principled/samples/stress_transparent_material.tres")
+
 const TARGET_FPS := 72.0
 const RAMP_STEP := 512
 const STEP := 512
@@ -226,11 +230,10 @@ func _remove_batch(count: int) -> void:
 func _material_for(index: int) -> StandardMaterial3D:
 	if _kind == Kind.SHARED and not _transparent:
 		return _shared_material
-	var m := StandardMaterial3D.new()
+	var m := (TRANSPARENT_MATERIAL.duplicate() as StandardMaterial3D) if _transparent else StandardMaterial3D.new()
 	m.albedo_color = Color.from_hsv(fmod(index * 0.011, 1.0), 0.55, 0.95)
 	m.roughness = 0.5
 	if _transparent:
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		m.albedo_color.a = 0.55
 	return m
 

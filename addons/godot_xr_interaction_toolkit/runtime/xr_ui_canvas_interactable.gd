@@ -4,6 +4,9 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactable.
 ## 3D interactable surface that forwards XR ray hover/select to a SubViewport
 ## as mouse input, letting ordinary Godot Control buttons/sliders work in XR.
 
+## Preloaded so the shader baker can precompile it for web/WebGPU exports.
+const PANEL_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_panel_material.tres")
+
 @export_group("Panel")
 @export var viewport_path: NodePath
 @export var panel_mesh_path: NodePath
@@ -96,11 +99,10 @@ func _apply_viewport_material() -> void:
     if _viewport == null or _panel_mesh == null:
         return
 
-    var material := StandardMaterial3D.new()
-    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    # Preloaded so the shader baker can precompile it for web/WebGPU exports;
+    # the viewport texture is a uniform, so assigning it keeps the baked hash.
+    var material := PANEL_MATERIAL.duplicate() as StandardMaterial3D
     material.albedo_texture = _viewport.get_texture()
-    material.cull_mode = BaseMaterial3D.CULL_DISABLED
-    material.roughness = 0.6
     _panel_mesh.set_surface_override_material(0, material)
 
 func _get_pointer_camera() -> Camera3D:

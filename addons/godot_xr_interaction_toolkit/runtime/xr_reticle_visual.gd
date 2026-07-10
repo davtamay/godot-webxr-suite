@@ -4,6 +4,9 @@ extends MeshInstance3D
 ## Hit-point reticle for an XRRayInteractor parent. Visible only when the ray
 ## hits geometry; grows when the hit is a hoverable interactable.
 
+## Preloaded so the shader baker can precompile it for web/WebGPU exports.
+const RETICLE_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_material.tres")
+
 @export var color := Color(1.0, 0.9, 0.25, 1.0)
 @export var hit_radius := 0.02
 @export var hover_radius := 0.04
@@ -25,11 +28,8 @@ func _ready() -> void:
     sphere.rings = 8
     mesh = sphere
 
-    var material := StandardMaterial3D.new()
-    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    var material := RETICLE_MATERIAL.duplicate() as StandardMaterial3D
     material.albedo_color = color
-    material.emission_enabled = true
-    material.emission = color
     material_override = material
 
 func _process(_delta: float) -> void:

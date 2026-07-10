@@ -5,6 +5,10 @@ extends Node3D
 
 const GROUP_NAME := "webxr_depth_mesh_visualizer"
 
+## Preloaded so the shader baker can precompile them for web/WebGPU exports.
+const MESH_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/depth_mesh_material.tres")
+const BOUNDS_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/depth_bounds_material.tres")
+
 @export_range(0.01, 10.0, 0.01, "or_greater") var min_depth_meters := 0.05
 @export_range(0.1, 20.0, 0.1, "or_greater") var max_depth_meters := 6.0
 @export_range(0.01, 5.0, 0.01, "or_greater") var max_triangle_depth_delta := 0.45
@@ -141,21 +145,13 @@ func _append_depth_triangle(vertices: PackedVector3Array, points: Array[Vector3]
     vertices.append(points[c])
 
 func _create_visuals() -> void:
-    _mesh_material = StandardMaterial3D.new()
-    _mesh_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    # Preloaded so the shader baker can precompile them for web/WebGPU
+    # exports; colors are uniforms, so tinting keeps the baked shader hash.
+    _mesh_material = MESH_MATERIAL.duplicate() as StandardMaterial3D
     _mesh_material.albedo_color = mesh_color
-    _mesh_material.emission_enabled = true
-    _mesh_material.emission = mesh_color
-    _mesh_material.emission_energy_multiplier = 0.55
-    _mesh_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-    _mesh_material.cull_mode = BaseMaterial3D.CULL_DISABLED
 
-    _bounds_material = StandardMaterial3D.new()
-    _bounds_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    _bounds_material = BOUNDS_MATERIAL.duplicate() as StandardMaterial3D
     _bounds_material.albedo_color = bounds_color
-    _bounds_material.emission_enabled = true
-    _bounds_material.emission = bounds_color
-    _bounds_material.emission_energy_multiplier = 1.4
 
     _mesh_instance = MeshInstance3D.new()
     _mesh_instance.name = "DepthMeshSurface"
