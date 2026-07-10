@@ -301,6 +301,14 @@ func _update_hand(hand_data: Dictionary) -> bool:
     var anchor = _joint_anchor_position(joint_positions, joint_valid)
     _update_hand_startup_state(hand_data, anchor)
     if _hand_waiting_for_startup(hand_data):
+        if _xr_elapsed >= startup_mesh_warmup_seconds and float(hand_data["live_anchor_delta"]) == 0.0:
+            # Valid joints with EXACTLY zero cumulative motion past warm-up is
+            # impossible for a live sensor: the browser is serving the previous
+            # session'''s last-known pose as "valid" (seen on Quest Browser
+            # after AR<->VR switches) and will not re-acquire on its own.
+            _last_hand_debug[hand_name] = "%d joints FROZEN by the browser - hide your hands, then show them to the cameras (src=%s)" % [valid_joint_count, source]
+            root.visible = false
+            return false
         if _xr_elapsed >= startup_mesh_warmup_seconds and render_fallback_for_unproven_joints:
             if _update_fallback_hand(hand_data, "%d joints unproven src=%s" % [valid_joint_count, source]):
                 return true
