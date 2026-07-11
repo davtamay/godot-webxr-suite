@@ -231,14 +231,21 @@ func _session_label(session_mode: String) -> String:
 
 func _reference_space_types_for(session_mode: String) -> String:
     if session_mode == "immersive-ar":
-        return "local-floor, local"
+        return "local" # XPERIMENT: no floor establishment - revert
     # local-floor first: its forward is where the user faces at session
     # start, so the scene spawns in front of them. bounded-floor anchors to
     # the room's calibrated (arbitrary) forward instead.
     return "local-floor, bounded-floor, local"
 
 func _required_features_for(_session_mode: String) -> String:
-    var features: Array[String] = ["layers"]
+    # Deliberately NOT declaring the 'layers' feature: Godot only ever uses
+    # a single projection layer, which Chromium serves without the
+    # declaration - while DECLARING it makes Android XR spin up its full
+    # multi-layer compositor at session start (a 2-3s head-locked system
+    # transition; found by feature-set bisection on a Galaxy XR). Verified
+    # working without it on Quest 3 (WebGL+WebGPU paths) and Galaxy XR.
+    # Re-add (conditionally) only if quad/cylinder layers are ever used.
+    var features: Array[String] = []
     if require_hand_tracking:
         features.append("hand-tracking")
     return ", ".join(features)
