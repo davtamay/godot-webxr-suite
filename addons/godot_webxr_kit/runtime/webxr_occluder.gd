@@ -104,7 +104,7 @@ func _no_sensor_reason(info: Dictionary) -> String:
 		"unsupported_by_browser":
 			return "Sensor occlusion is an UPCOMING WebGPU browser feature: this browser's XRGPUBinding has no getDepthInformation() yet. Re-toggle after a browser update ships it and this switches to the live sensor."
 		"webgl_session":
-			return "No depth sensor: the sensor path needs the WebGPU renderer; this session runs on WebGL."
+			return "Depth sensor detected, but the WebGL rendering path does not consume it yet (sensor occlusion on WebGL is a planned feature)."
 		"no_depth_data":
 			return "No depth sensor: the session did not grant depth-sensing."
 		"no_session":
