@@ -170,7 +170,7 @@ func _process(delta: float) -> void:
 
     var active_hands: Array[String] = []
     for hand_name in _hands.keys():
-        if _update_hand(_hands[hand_name]):
+        if _update_hand(_hands[hand_name], delta):
             active_hands.append(hand_name)
 
     if _status_elapsed >= 0.5:
@@ -240,6 +240,8 @@ func _create_hand(hand_name: String, hand_id: int, fallback_pose_path: NodePath,
         "last_anchor": null,
         "live_anchor_delta": 0.0,
         "startup_ready": false,
+        "prev_anchor": null,
+        "static_time": 0.0,
     }
     _last_hand_debug[hand_name] = "pending"
 
@@ -253,7 +255,7 @@ func _create_material(color: Color) -> StandardMaterial3D:
     material.roughness = 0.7
     return material
 
-func _update_hand(hand_data: Dictionary) -> bool:
+func _update_hand(hand_data: Dictionary, p_delta: float) -> bool:
     var hand_name: String = hand_data["label"]
     var hand_id: int = hand_data["hand"]
     var root := hand_data["root"] as Node3D
@@ -299,6 +301,20 @@ func _update_hand(hand_data: Dictionary) -> bool:
 
     var source := XRHandTrackerResolver.tracker_debug_name(hand_id, tracker)
     var anchor = _joint_anchor_position(joint_positions, joint_valid)
+    if anchor != null:
+        # Continuous freeze watchdog: live tracking always jitters, so a
+        # bit-identical anchor for this long means the platform froze the
+        # pose mid-session (e.g. hands occluded). Hide and re-prove.
+        if hand_data["prev_anchor"] != null and (anchor as Vector3) == (hand_data["prev_anchor"] as Vector3):
+            hand_data["static_time"] = float(hand_data["static_time"]) + p_delta
+        else:
+            hand_data["static_time"] = 0.0
+        hand_data["prev_anchor"] = anchor
+        if bool(hand_data["startup_ready"]) and float(hand_data["static_time"]) > 0.75:
+            _reset_hand_startup_state(hand_data)
+            _last_hand_debug[hand_name] = "%d joints FROZEN mid-session - waiting for live tracking (src=%s)" % [valid_joint_count, source]
+            root.visible = false
+            return false
     _update_hand_startup_state(hand_data, anchor)
     if _hand_waiting_for_startup(hand_data):
         if _xr_elapsed >= startup_mesh_warmup_seconds and float(hand_data["live_anchor_delta"]) == 0.0:
@@ -452,6 +468,8 @@ func _reset_hand_startup_state(hand_data: Dictionary) -> void:
     hand_data["last_anchor"] = null
     hand_data["live_anchor_delta"] = 0.0
     hand_data["startup_ready"] = false
+    hand_data["prev_anchor"] = null
+    hand_data["static_time"] = 0.0
 
 func _update_hand_startup_state(hand_data: Dictionary, anchor) -> void:
     if bool(hand_data["startup_ready"]):
