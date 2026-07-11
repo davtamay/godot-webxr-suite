@@ -271,6 +271,14 @@ func _update_hand(hand_data: Dictionary, p_delta: float) -> bool:
         root.visible = false
         return false
 
+    if not tracker.has_tracking_data:
+        # The engine invalidates the tracker when the browser drops the
+        # hand's input source; its joints are stale until tracking resumes.
+        _reset_hand_startup_state(hand_data)
+        _last_hand_debug[hand_name] = "tracking lost - waiting for the platform to re-acquire"
+        root.visible = false
+        return false
+
     var joint_positions := {}
     var joint_valid := {}
     var joint_nodes := hand_data["joints"] as Dictionary
