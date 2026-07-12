@@ -22,6 +22,11 @@ extends Node3D
 ## and restored on exit. Put screen-space UI (CanvasLayer HUDs) here:
 ## Godot composites the 2D canvas into each eye's view otherwise.
 @export var session_hide_group := "xr_session_hidden"
+## Snap the camera back to the design forward when a session ends. XR leaves
+## the camera at your last head orientation, which on the flat page can face
+## you away from the scene and its UI. Turn off for apps that deliberately
+## want to keep the last look direction.
+@export var reset_view_on_exit := true
 
 ## Preloaded so the shader baker can precompile it for web/WebGPU exports.
 const HIGHLIGHT_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/highlight_material.tres")
@@ -172,11 +177,20 @@ func _on_session_ended() -> void:
     # web the window doesn't resize after session exit, so the viewport
     # stays stuck at the XR per-eye size (2D draws shrunken while input
     # maps to the real layout). Nudging the content scale factor forces
-    # that update to run against the (correct) window size.
+    # that update to run against the (correct) window size. Godot builds that
+    # re-derive the size on Window::set_use_xr teardown make this redundant,
+    # but it keeps the addon working on stock engines that lack that fix.
     var win := get_window()
     var scale_factor := win.content_scale_factor
     win.content_scale_factor = scale_factor * 1.000001 + 0.000001
     win.content_scale_factor = scale_factor
+    if reset_view_on_exit:
+        # XR leaves the camera at the last head orientation; on the flat
+        # page that can face you away from the scene and its UI. Snap the
+        # camera back to face the design forward (its parent/origin -Z).
+        var cam := get_viewport().get_camera_3d()
+        if cam:
+            cam.rotation = Vector3.ZERO
     _apply_ar_scene_mode(false)
     _apply_session_hidden(false)
     _requested_session_mode = ""
@@ -184,6 +198,7 @@ func _on_session_ended() -> void:
     if _last_session_failed:
         return
     _set_status("WebXR session ended.")
+
 
 func _on_session_failed(message: String) -> void:
     _last_session_failed = true
