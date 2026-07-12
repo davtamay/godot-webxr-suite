@@ -91,7 +91,7 @@ func get_status() -> String:
 	var info := _webxr.get_system_info()
 	if not info.has("webxr_depth_texture_rd"):
 		var bridges := get_tree().get_nodes_in_group("webxr_mesh_bridge")
-		var mesh_count: int = bridges[0]._instances.size() if not bridges.is_empty() else 0
+		var mesh_count: int = bridges[0].get_surface_count() if not bridges.is_empty() else 0
 		var why := _no_sensor_reason(info)
 		if mesh_count > 0:
 			return "Occlusion %s via room mesh (%d surfaces, static). %s" % ["ON" if occlusion_enabled else "OFF", mesh_count, why]
