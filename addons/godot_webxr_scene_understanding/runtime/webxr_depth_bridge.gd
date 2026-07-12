@@ -69,6 +69,7 @@ var auto_visualize := false
 var _webxr: XRInterface
 var _installed := false
 var _poll_accum := 0.0
+var _reroute_accum := 0.0
 var _last_seq := 0
 var _material: StandardMaterial3D
 var _mesh_instance: MeshInstance3D
@@ -568,12 +569,21 @@ func _platform_mesh_bridge():
 	var bridges := get_tree().get_nodes_in_group("webxr_mesh_bridge")
 	if bridges.is_empty():
 		return null
-	if not bridges[0].has_method("is_dynamic_mesh_platform") or not bridges[0].is_dynamic_mesh_platform():
+	var _dyn: bool = bridges[0].has_method("is_dynamic_mesh_platform") and bridges[0].is_dynamic_mesh_platform()
+	if not _dyn:
 		return null
 	# Route only when the platform actually serves mesh data (on Android XR
 	# today that needs the browser's Incubations/Mesh Detection flags).
 	var prop := str(Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRMeshBridge ? String(window.GodotWebXRMeshBridge.meshProp) : ''", true))
-	if prop.begins_with("set:") or bridges[0].get_surface_count() > 0:
+	# 'set:N' = detectedMeshes exists with N meshes this frame. The API
+	# being present is NOT enough - an empty stream (N=0: browser flag off,
+	# OS reconstruction unavailable, or still warming up) must fall through
+	# to the raw-depth scan instead of stranding the toggle on a bridge
+	# with no data (Galaxy XR after a restart serves exactly that state).
+	var served := 0
+	if prop.begins_with("set:"):
+		served = int(prop.get_slice(":", 1))
+	if served > 0 or bridges[0].get_surface_count() > 0:
 		return bridges[0]
 	return null
 
@@ -607,7 +617,16 @@ func get_status() -> String:
 			if cells == 0 and path == "gpu":
 				var dbg := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.dbg || '') : '';", true))
 				return "Depth sensing (GPU readback) calibrating... [%s]" % dbg
-			return "Depth sensing LIVE (%s): %s sensor. Look around to scan - %d points captured." % [path_desc, size, cells]
+			# On platforms whose depth experience is normally the routed OS
+			# reconstruction, running the raw fallback deserves a diagnosis
+			# hint: an empty detectedMeshes stream with the browser flags on
+			# has been observed to mean the scene-understanding service is
+			# stuck until the headset restarts.
+			var hint := ""
+			var mesh_nodes := get_tree().get_nodes_in_group("webxr_mesh_bridge")
+			if not mesh_nodes.is_empty() and mesh_nodes[0].has_method("is_dynamic_mesh_platform") and mesh_nodes[0].is_dynamic_mesh_platform():
+				hint = " Platform reconstruction idle - restart the headset if this persists."
+			return "Depth sensing LIVE (%s): %s sensor. Look around to scan - %d points captured.%s" % [path_desc, size, cells, hint]
 		"calibrating":
 			var cal_dbg := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.dbg || '') : '';", true))
 			return "Depth sensing (GPU readback) calibrating... [%s]" % cal_dbg
@@ -649,6 +668,24 @@ func _on_session_ended() -> void:
 func _process(delta: float) -> void:
 	if not auto_visualize:
 		return
+	# The platform reconstruction can come online mid-session (Android XR
+	# streams it lazily after a headset restart). Upgrade the toggle from the
+	# raw-depth fallback to the routed reveal the moment meshes are served.
+	_reroute_accum += delta
+	if _reroute_accum >= 3.0:
+		_reroute_accum = 0.0
+		if _routed_bridge == null:
+			var late = _platform_mesh_bridge()
+			if late != null:
+				Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.harvest = false);", true)
+				_mesh_instance.visible = false
+				_scan_instance.visible = false
+				_mesh_instance.mesh = null
+				_last_seq = 0
+				_clear_scan()
+				_routed_bridge = late
+				late.set_visualize(true)
+				return
 	if _scan_rebuild_cooldown > 0.0:
 		_scan_rebuild_cooldown -= delta
 	elif _scan_dirty:
