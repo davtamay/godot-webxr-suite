@@ -38,8 +38,8 @@ signal mesh_removed(id: int)
 @export var poll_interval := 0.25
 
 ## Preloaded so the shader baker can precompile it for web/WebGPU exports.
-const MESH_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/depth_mesh_material.tres")
-const PUNCH_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/mesh_punch_material.tres")
+const MESH_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/depth_mesh_material.tres")
+const PUNCH_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/mesh_punch_material.tres")
 
 const LABEL_COLORS := {
 	"wall": Color(0.30, 0.65, 1.00),
@@ -62,6 +62,10 @@ var _installed := false
 var _chunks := {}
 var _bodies := {}
 var _label_nodes := {}
+# id -> { pos: Vector3 (ref space), label: String }; fed by plane-detection,
+# consumed only by the label pass.
+var _planes := {}
+var _last_planes_payload := ""
 var _material: StandardMaterial3D
 var _merged: MeshInstance3D
 var _render_dirty := false
@@ -76,6 +80,7 @@ func _ready() -> void:
 		_webxr.session_started.connect(_on_session_started)
 		_webxr.session_ended.connect(_on_session_ended)
 	add_to_group("webxr_mesh_bridge")
+	add_to_group("webxr_feature_provider")
 	# Duplicate of a baked .tres; the tint is a uniform, so the baked
 	# shader hash is kept.
 	_material = MESH_MATERIAL.duplicate() as StandardMaterial3D
@@ -97,7 +102,12 @@ func _install_js_hook() -> void:
 	js.eval("""
 (function () {
 	if (window.GodotWebXRMeshBridge) { return; }
-	const bridge = { meshes: {}, seq: 0, refType: 'local-floor', _ref: null, _refPending: false, harvest: false };
+	const bridge = { meshes: {}, seq: 0, planes: {}, pseq: 0, refType: 'local-floor', _ref: null, _refPending: false, harvest: false,
+		// Static-vs-dynamic classification: a stored room (Quest Space
+		// Setup) goes quiet after its initial burst; a live reconstruction
+		// (Android XR) keeps mutating. Count membership/geometry events
+		// after a settle window; the consumer reads the verdict.
+		dynStart: 0, dynEvents: 0, dynObserved: 0 };
 	window.GodotWebXRMeshBridge = bridge;
 	const orig = XRSession.prototype.requestAnimationFrame;
 	XRSession.prototype.requestAnimationFrame = function (cb) {
@@ -111,13 +121,20 @@ func _install_js_hook() -> void:
 						.catch(() => { bridge._refPending = false; });
 				}
 				if (bridge.harvest && frame.detectedMeshes && bridge._ref) {
+					if (frame.detectedMeshes.size > 0 && !bridge.dynStart) { bridge.dynStart = t; }
+					const dynSettled = bridge.dynStart && (t - bridge.dynStart > 3000);
+					if (dynSettled) { bridge.dynObserved = t - bridge.dynStart - 3000; }
 					const live = new Set();
 					frame.detectedMeshes.forEach((mesh) => {
 						let id = mesh.__gwmbId;
-						if (id === undefined) { id = ++bridge.seq; mesh.__gwmbId = id; }
+						if (id === undefined) {
+							id = ++bridge.seq; mesh.__gwmbId = id;
+							if (dynSettled) { bridge.dynEvents++; }
+						}
 						let rec = bridge.meshes[id];
 						if (!rec) { rec = {}; bridge.meshes[id] = rec; }
 						if (rec.changed !== mesh.lastChangedTime) {
+							if (dynSettled && rec.changed !== undefined) { bridge.dynEvents++; }
 							rec.changed = mesh.lastChangedTime;
 							rec.vertices = Array.from(mesh.vertices);
 							rec.indices = Array.from(mesh.indices);
@@ -148,7 +165,47 @@ func _install_js_hook() -> void:
 							rec2.unseenSince = 0;
 						} else {
 							if (!rec2.unseenSince) { rec2.unseenSince = t; }
-							if (t - rec2.unseenSince > 1500) { rec2.gone = true; }
+							if (t - rec2.unseenSince > 1500) {
+								rec2.gone = true;
+								if (dynSettled) { bridge.dynEvents++; }
+							}
+						}
+					}
+				}
+				// Planes carry the semantic labels on platforms that leave
+				// their meshes untagged (Quest labels walls/floor/furniture
+				// through plane-detection). Only centroids + labels are
+				// harvested - meshes stay the geometry source.
+				if (bridge.harvest && frame.detectedPlanes && bridge._ref) {
+					const livePlanes = new Set();
+					frame.detectedPlanes.forEach((plane) => {
+						let pid = plane.__gwmbPid;
+						if (pid === undefined) { pid = ++bridge.pseq; plane.__gwmbPid = pid; }
+						let prec = bridge.planes[pid];
+						if (!prec) { prec = {}; bridge.planes[pid] = prec; }
+						const ppose = frame.getPose(plane.planeSpace, bridge._ref);
+						if (ppose && plane.polygon && plane.polygon.length) {
+							let cx = 0, cz = 0;
+							for (const pt of plane.polygon) { cx += pt.x; cz += pt.z; }
+							cx /= plane.polygon.length;
+							cz /= plane.polygon.length;
+							// Plane-local polygon lies in the y=0 plane; the
+							// pose matrix (column-major) maps it to ref space.
+							const pm = ppose.transform.matrix;
+							prec.wx = pm[0] * cx + pm[8] * cz + pm[12];
+							prec.wy = pm[1] * cx + pm[9] * cz + pm[13];
+							prec.wz = pm[2] * cx + pm[10] * cz + pm[14];
+							prec.label = plane.semanticLabel || '';
+						}
+						livePlanes.add(pid);
+					});
+					for (const pid in bridge.planes) {
+						const prec2 = bridge.planes[pid];
+						if (livePlanes.has(Number(pid))) {
+							prec2.unseenSince = 0;
+						} else {
+							if (!prec2.unseenSince) { prec2.unseenSince = t; }
+							if (t - prec2.unseenSince > 1500) { delete bridge.planes[pid]; }
 						}
 					}
 				}
@@ -179,7 +236,9 @@ func _on_session_started() -> void:
 func _on_session_ended() -> void:
 	set_process(false)
 	# Scene data is session-scoped; drop stale geometry on exit.
-	Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRMeshBridge && (window.GodotWebXRMeshBridge.meshes = {});", true)
+	Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRMeshBridge && (window.GodotWebXRMeshBridge.meshes = {}, window.GodotWebXRMeshBridge.planes = {}, window.GodotWebXRMeshBridge.dynStart = 0, window.GodotWebXRMeshBridge.dynEvents = 0, window.GodotWebXRMeshBridge.dynObserved = 0);", true)
+	_planes.clear()
+	_last_planes_payload = ""
 	for id in _chunks.keys():
 		_drop_chunk(id)
 	_render_dirty = true
@@ -251,6 +310,20 @@ func get_status() -> String:
 			mode = "labeled"
 		elif auto_visualize:
 			mode = "shown"
+		if show_labels:
+			var labeled := 0
+			for id in _chunks:
+				if not str(_chunks[id]["label"]).is_empty():
+					labeled += 1
+			var labeled_planes := 0
+			for pid in _planes:
+				if not str(_planes[pid]["label"]).is_empty():
+					labeled_planes += 1
+			if labeled == 0 and labeled_planes == 0:
+				return "Room mesh: %d surface(s) - no semantic labels served yet (this device may label via plane detection; keep looking around)." % _chunks.size()
+			if labeled_planes > 0:
+				return "Room mesh: %d surface(s), %d labeled + %d labeled plane(s)." % [_chunks.size(), labeled, labeled_planes]
+			return "Room mesh: %d surface(s), %d labeled." % [_chunks.size(), labeled]
 		return "Room mesh: %d surface(s), %s." % [_chunks.size(), mode]
 	if prop_str == "ABSENT":
 		return "Room mesh unsupported by this browser."
@@ -270,6 +343,8 @@ func _poll_meshes() -> void:
 	if not (auto_visualize or occlusion_enabled or show_labels or generate_collision):
 		return
 	var js := Engine.get_singleton("JavaScriptBridge")
+	if show_labels:
+		_poll_planes(js)
 	var payload = js.eval("""
 (function () {
 	const bridge = window.GodotWebXRMeshBridge;
@@ -310,6 +385,37 @@ func _poll_meshes() -> void:
 			_chunks[id]["xform"] = _matrix_to_transform(rec["m"])
 			_render_dirty = true
 	_rebuild_merged()
+
+## Planes are few (dozens at most), so each poll takes a full snapshot and
+## a change is detected by payload comparison.
+func _poll_planes(js: Object) -> void:
+	var payload = js.eval("""
+(function () {
+	const bridge = window.GodotWebXRMeshBridge;
+	if (!bridge) { return '{}'; }
+	const out = {};
+	for (const id in bridge.planes) {
+		const rec = bridge.planes[id];
+		if (rec.label === undefined || rec.wx === undefined) { continue; }
+		out[id] = [Math.round(rec.wx * 100) / 100, Math.round(rec.wy * 100) / 100, Math.round(rec.wz * 100) / 100, rec.label];
+	}
+	return JSON.stringify(out);
+}())
+""", true)
+	if typeof(payload) != TYPE_STRING or payload == _last_planes_payload:
+		return
+	_last_planes_payload = payload
+	var parsed = JSON.parse_string(payload)
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return
+	_planes.clear()
+	for id_str in parsed.keys():
+		var entry: Array = parsed[id_str]
+		_planes[int(id_str)] = {
+			"pos": Vector3(entry[0], entry[1], entry[2]),
+			"label": str(entry[3]),
+		}
+	_render_dirty = true
 
 func _store_chunk(id: int, rec: Dictionary) -> void:
 	var verts: Array = rec["v"]
@@ -411,6 +517,19 @@ func _rebuild_merged(p_force := false) -> void:
 			if not seen_labels.has(cell):
 				seen_labels[cell] = true
 				_update_label(cell, label, center, LABEL_COLORS.get(label, LABEL_COLOR_OTHER))
+		# Planes are the semantic source on platforms whose meshes carry no
+		# labels (Quest); same clustering, so overlapping mesh- and
+		# plane-derived words collapse into one.
+		for pid in _planes:
+			var plane: Dictionary = _planes[pid]
+			var plabel: String = plane["label"]
+			if plabel.is_empty():
+				continue
+			var pcenter: Vector3 = plane["pos"]
+			var pcell := "%s:%d:%d:%d" % [plabel, roundi(pcenter.x / 1.2), roundi(pcenter.y / 1.2), roundi(pcenter.z / 1.2)]
+			if not seen_labels.has(pcell):
+				seen_labels[pcell] = true
+				_update_label(pcell, plabel, pcenter, LABEL_COLORS.get(plabel, LABEL_COLOR_OTHER))
 		for key in _label_nodes.keys():
 			if not seen_labels.has(key):
 				_label_nodes[key].queue_free()
@@ -488,3 +607,46 @@ func _matrix_to_transform(m: Array) -> Transform3D:
 		Vector3(m[4], m[5], m[6]),
 		Vector3(m[8], m[9], m[10]),
 		Vector3(m[12], m[13], m[14]))
+
+
+## The same mesh-detection API serves OPPOSITE concepts per platform: Quest
+## serves the STATIC stored room (Space Setup); Android XR streams a LIVE
+## reconstruction. Room Mesh (static) should only show the former; the
+## latter belongs to the Depth Sensing (dynamic) toggle, which routes here.
+##
+## The spec offers no static-vs-dynamic declaration, so the classification
+## is BEHAVIORAL: a stored room goes quiet after its initial burst, while a
+## live reconstruction keeps mutating (geometry updates, id churn). Until
+## enough observation has accumulated, the browser identity serves as the
+## prior (Quest is the only stored-room browser today, and the only one
+## with a reliable UA token - XR browsers often present desktop
+## identities).
+func is_dynamic_mesh_platform() -> bool:
+	if not OS.has_feature("web") or not Engine.has_singleton("JavaScriptBridge"):
+		return false
+	var js := Engine.get_singleton("JavaScriptBridge")
+	var observed := str(js.eval("window.GodotWebXRMeshBridge ? String(window.GodotWebXRMeshBridge.dynObserved || 0) : '0'", true)).to_float()
+	if observed > 4000.0:
+		var events := str(js.eval("window.GodotWebXRMeshBridge ? String(window.GodotWebXRMeshBridge.dynEvents || 0) : '0'", true)).to_float()
+		# Rate, not count: a stored room still refreshes in occasional
+		# bursts (Quest re-localization), while a live reconstruction
+		# mutates continuously at a rate an order of magnitude higher.
+		# The ambiguous middle keeps the platform prior instead of
+		# flapping a verdict on weak evidence.
+		var rate := events / (observed / 1000.0)
+		if rate > 1.5:
+			return true
+		if rate < 0.3:
+			return false
+	var ua := str(js.eval("navigator.userAgent", true))
+	return not ua.contains("OculusBrowser")
+
+## webxr_feature_provider contract, collected by webxr_bootstrap.gd before
+## the session request.
+func get_webxr_required_features(_session_mode: String) -> PackedStringArray:
+	return PackedStringArray()
+
+func get_webxr_optional_features(_session_mode: String) -> PackedStringArray:
+	# plane-detection carries the semantic labels on platforms whose meshes
+	# are untagged (Quest); the geometry itself still comes from meshes.
+	return PackedStringArray(["mesh-detection", "plane-detection"])

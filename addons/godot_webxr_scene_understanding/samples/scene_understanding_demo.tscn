@@ -1,0 +1,342 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="1_webxr"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_mesh_bridge.gd" id="2_meshbridge"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_depth_bridge.gd" id="3_depthbridge"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_occluder.gd" id="4_occluder"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/browser_capabilities.gd" id="5_caps"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_manager.gd" id="6_manager"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_input_adapter.gd" id="7_adapter"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ray_interactor.gd" id="8_ray"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="9_grab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interactor_line_visual.gd" id="10_line"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_visual.gd" id="11_reticle"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_canvas_interactable.gd" id="12_ui_canvas"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_screen_ray_interactor.gd" id="13_screen_ray"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/feature_panel.gd" id="14_feature_panel"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/scene_understanding_demo.gd" id="15_root"]
+
+[sub_resource type="Environment" id="Environment_demo"]
+background_mode = 2
+ambient_light_source = 1
+ambient_light_color = Color(0.66, 0.7, 0.78, 1)
+ambient_light_energy = 0.9
+
+[sub_resource type="PlaneMesh" id="PlaneMesh_floor"]
+size = Vector2(8, 8)
+
+[sub_resource type="StandardMaterial3D" id="Material_floor"]
+albedo_color = Color(0.2, 0.22, 0.24, 1)
+roughness = 0.88
+
+[sub_resource type="BoxShape3D" id="BoxShape_floor"]
+size = Vector3(8, 0.08, 8)
+
+[sub_resource type="BoxMesh" id="BoxMesh_cube"]
+size = Vector3(0.42, 0.42, 0.42)
+
+[sub_resource type="StandardMaterial3D" id="Material_cube"]
+albedo_color = Color(0.15, 0.52, 0.85, 1)
+metallic = 0.1
+roughness = 0.4
+
+[sub_resource type="BoxShape3D" id="BoxShape_cube"]
+size = Vector3(0.5, 0.5, 0.5)
+
+[sub_resource type="SphereMesh" id="SphereMesh_grab"]
+radius = 0.23
+height = 0.46
+radial_segments = 24
+rings = 12
+
+[sub_resource type="StandardMaterial3D" id="Material_sphere"]
+albedo_color = Color(0.92, 0.43, 0.22, 1)
+roughness = 0.5
+
+[sub_resource type="SphereShape3D" id="SphereShape_grab"]
+radius = 0.27
+
+[sub_resource type="QuadMesh" id="QuadMesh_ui_panel"]
+size = Vector2(1.7, 1.25)
+
+[sub_resource type="BoxShape3D" id="BoxShape_ui_panel"]
+size = Vector3(1.7, 1.25, 0.08)
+
+[node name="SceneUnderstandingDemo" type="Node3D"]
+script = ExtResource("15_root")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_demo")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, -0.433013, 0.75, 0, 3.2, 0)
+light_energy = 1.65
+shadow_enabled = true
+
+[node name="XRInteractionManager" type="Node" parent="."]
+script = ExtResource("6_manager")
+
+[node name="WebXRInputAdapter" type="Node" parent="."]
+script = ExtResource("7_adapter")
+xr_origin_path = NodePath("../XROrigin3D")
+left_controller_path = NodePath("../XROrigin3D/LeftController")
+right_controller_path = NodePath("../XROrigin3D/RightController")
+
+[node name="ScreenRayInteractor" type="Node3D" parent="."]
+script = ExtResource("13_screen_ray")
+camera_path = NodePath("../XROrigin3D/XRCamera3D")
+
+[node name="XROrigin3D" type="XROrigin3D" parent="."]
+
+[node name="MeshBridge" type="Node3D" parent="XROrigin3D"]
+script = ExtResource("2_meshbridge")
+generate_collision = false
+
+[node name="DepthBridge" type="Node3D" parent="XROrigin3D"]
+script = ExtResource("3_depthbridge")
+
+[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
+
+[node name="Occluder" type="MeshInstance3D" parent="XROrigin3D/XRCamera3D"]
+script = ExtResource("4_occluder")
+
+[node name="LeftController" type="XRController3D" parent="XROrigin3D"]
+tracker = &"left_hand"
+pose = &"aim"
+show_when_tracked = true
+
+[node name="RightController" type="XRController3D" parent="XROrigin3D"]
+tracker = &"right_hand"
+pose = &"aim"
+show_when_tracked = true
+
+[node name="LeftRayInteractor" type="Node3D" parent="XROrigin3D"]
+script = ExtResource("8_ray")
+input_adapter_path = NodePath("../../WebXRInputAdapter")
+hand = 0
+
+[node name="LineVisual" type="MeshInstance3D" parent="XROrigin3D/LeftRayInteractor"]
+script = ExtResource("10_line")
+color = Color(0.2, 0.75, 1, 0.85)
+
+[node name="Reticle" type="MeshInstance3D" parent="XROrigin3D/LeftRayInteractor"]
+script = ExtResource("11_reticle")
+
+[node name="RightRayInteractor" type="Node3D" parent="XROrigin3D"]
+script = ExtResource("8_ray")
+input_adapter_path = NodePath("../../WebXRInputAdapter")
+hand = 1
+
+[node name="LineVisual" type="MeshInstance3D" parent="XROrigin3D/RightRayInteractor"]
+script = ExtResource("10_line")
+color = Color(1, 0.58, 0.2, 0.85)
+
+[node name="Reticle" type="MeshInstance3D" parent="XROrigin3D/RightRayInteractor"]
+script = ExtResource("11_reticle")
+
+[node name="SampleEnvironment" type="Node3D" parent="."]
+
+[node name="Floor" type="MeshInstance3D" parent="SampleEnvironment" groups=["ar_passthrough_hidden"]]
+mesh = SubResource("PlaneMesh_floor")
+surface_material_override/0 = SubResource("Material_floor")
+
+[node name="FloorBody" type="StaticBody3D" parent="SampleEnvironment"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="SampleEnvironment/FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("BoxShape_floor")
+
+[node name="GrabCube" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 1.05, -1.4)
+script = ExtResource("9_grab")
+
+[node name="Mesh" type="MeshInstance3D" parent="GrabCube"]
+mesh = SubResource("BoxMesh_cube")
+surface_material_override/0 = SubResource("Material_cube")
+
+[node name="InteractableBody" type="StaticBody3D" parent="GrabCube"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GrabCube/InteractableBody"]
+shape = SubResource("BoxShape_cube")
+
+[node name="GrabSphere" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 1.05, -1.4)
+script = ExtResource("9_grab")
+
+[node name="Mesh" type="MeshInstance3D" parent="GrabSphere"]
+mesh = SubResource("SphereMesh_grab")
+surface_material_override/0 = SubResource("Material_sphere")
+
+[node name="InteractableBody" type="StaticBody3D" parent="GrabSphere"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GrabSphere/InteractableBody"]
+shape = SubResource("SphereShape_grab")
+
+[node name="XRUIPanel" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, -2.2)
+script = ExtResource("12_ui_canvas")
+viewport_path = NodePath("Viewport")
+panel_mesh_path = NodePath("PanelMesh")
+camera_path = NodePath("../XROrigin3D/XRCamera3D")
+panel_size = Vector2(1.7, 1.25)
+viewport_pixel_size = Vector2i(1000, 736)
+
+[node name="PanelMesh" type="MeshInstance3D" parent="XRUIPanel"]
+mesh = SubResource("QuadMesh_ui_panel")
+
+[node name="InteractableBody" type="StaticBody3D" parent="XRUIPanel"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="XRUIPanel/InteractableBody"]
+shape = SubResource("BoxShape_ui_panel")
+
+[node name="Viewport" type="SubViewport" parent="XRUIPanel"]
+size = Vector2i(1000, 736)
+disable_3d = true
+render_target_update_mode = 4
+
+[node name="Root" type="Control" parent="XRUIPanel/Viewport"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("14_feature_panel")
+
+[node name="Background" type="ColorRect" parent="XRUIPanel/Viewport/Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.055, 0.061, 0.068, 1)
+
+[node name="PanelContainer" type="PanelContainer" parent="XRUIPanel/Viewport/Root"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = 30.0
+offset_top = 24.0
+offset_right = -30.0
+offset_bottom = -24.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="XRUIPanel/Viewport/Root/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 36
+theme_override_constants/margin_top = 28
+theme_override_constants/margin_right = 36
+theme_override_constants/margin_bottom = 28
+
+[node name="VBoxContainer" type="VBoxContainer" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 16
+
+[node name="TitleLabel" type="Label" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 34
+text = "WebXR Scene Understanding"
+
+[node name="StateLabel" type="Label" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 120)
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "Toggle a feature; its status for this device shows here."
+autowrap_mode = 3
+
+[node name="RoomMeshButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+toggle_mode = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Room Mesh"
+
+[node name="LabelsButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+toggle_mode = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Scene Labels"
+
+[node name="OcclusionButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+toggle_mode = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Occlusion"
+
+[node name="DepthSensingButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+toggle_mode = true
+custom_minimum_size = Vector2(0, 56)
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Depth Sensing"
+
+[node name="WebXRBootstrap" type="Node3D" parent="."]
+script = ExtResource("1_webxr")
+enter_vr_button_path = NodePath("../CanvasLayer/Panel/MarginContainer/VBoxContainer/SessionButtons/EnterVRButton")
+enter_ar_button_path = NodePath("../CanvasLayer/Panel/MarginContainer/VBoxContainer/SessionButtons/EnterARButton")
+status_label_path = NodePath("../CanvasLayer/Panel/MarginContainer/VBoxContainer/StatusLabel")
+world_environment_path = NodePath("../WorldEnvironment")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." groups=["xr_session_hidden"]]
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer"]
+offsets_preset = 1
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 560.0
+offset_bottom = 460.0
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 14
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 14
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel/MarginContainer"]
+layout_mode = 2
+
+[node name="TitleLabel" type="Label" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "WebXR Scene Understanding Demo"
+
+[node name="StatusLabel" type="Label" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Enter AR, then toggle Room Mesh, Scene Labels, Occlusion, or Depth Sensing on the in-world panel."
+autowrap_mode = 3
+
+[node name="SessionButtons" type="HBoxContainer" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EnterVRButton" type="Button" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer/SessionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enter VR"
+
+[node name="EnterARButton" type="Button" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer/SessionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enter AR"
+
+[node name="CapsLabel" type="Label" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Capabilities"
+autowrap_mode = 3
+
+[node name="BrowserCapabilities" type="Control" parent="CanvasLayer"]
+script = ExtResource("5_caps")
+output_label_path = NodePath("../Panel/MarginContainer/VBoxContainer/CapsLabel")

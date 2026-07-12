@@ -247,7 +247,7 @@ func _reference_space_types_for(session_mode: String) -> String:
     # the room's calibrated (arbitrary) forward instead.
     return "local-floor, bounded-floor, local"
 
-func _required_features_for(_session_mode: String) -> String:
+func _required_features_for(session_mode: String) -> String:
     # Deliberately NOT declaring the 'layers' feature: Godot only ever uses
     # a single projection layer, which Chromium serves without the
     # declaration - while DECLARING it makes Android XR spin up its full
@@ -258,17 +258,31 @@ func _required_features_for(_session_mode: String) -> String:
     var features: Array[String] = []
     if require_hand_tracking:
         features.append("hand-tracking")
+    _merge_provider_features(features, &"get_webxr_required_features", session_mode)
     return ", ".join(features)
 
 func _optional_features_for(session_mode: String) -> String:
-    var features: Array[String] = ["local-floor", "mesh-detection"]
+    var features: Array[String] = ["local-floor"]
     if session_mode == "immersive-vr":
         features.append("bounded-floor")
-    if session_mode == "immersive-ar":
-        features.append("depth-sensing")
     if not require_hand_tracking:
         features.append("hand-tracking")
+    # Feature-provider contract: nodes in the 'webxr_feature_provider' group
+    # declare the session features they need (mesh bridge -> mesh-detection,
+    # depth bridge/occluder -> depth-sensing), so a scene only requests what
+    # it actually contains. Leaner requests enter immersive mode faster
+    # (Android XR charges startup ceremony per feature family).
+    _merge_provider_features(features, &"get_webxr_optional_features", session_mode)
     return ", ".join(features)
+
+func _merge_provider_features(features: Array[String], method: StringName, session_mode: String) -> void:
+    for node in get_tree().get_nodes_in_group("webxr_feature_provider"):
+        if not node.has_method(method):
+            continue
+        for f in node.call(method, session_mode):
+            var feature := str(f)
+            if not feature.is_empty() and not features.has(feature):
+                features.append(feature)
 
 func _apply_ar_scene_mode(enabled: bool) -> void:
     get_viewport().transparent_bg = enabled if enabled else _base_transparent_bg

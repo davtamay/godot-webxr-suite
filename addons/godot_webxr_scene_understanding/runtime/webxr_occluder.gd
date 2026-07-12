@@ -13,7 +13,7 @@ extends MeshInstance3D
 ## is pressed (zero per-frame cost while idle); re-toggle after a browser
 ## update ships the sensor and this switches to it automatically.
 
-const OCCLUSION_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/occlusion_material.tres")
+const OCCLUSION_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/occlusion_material.tres")
 
 var occlusion_enabled := false
 
@@ -24,6 +24,7 @@ var _sensor_active := false
 
 func _ready() -> void:
 	add_to_group("webxr_occluder")
+	add_to_group("webxr_feature_provider")
 
 	var quad := QuadMesh.new()
 	quad.size = Vector2(2.0, 2.0)
@@ -111,3 +112,15 @@ func _no_sensor_reason(info: Dictionary) -> String:
 			return "No depth sensor: no active session."
 		_:
 			return "No depth sensor on this platform."
+
+
+## webxr_feature_provider contract: the occluder's sensor path probes
+## getDepthInformation, which needs the depth-sensing grant even when no
+## depth bridge is in the scene.
+func get_webxr_required_features(_session_mode: String) -> PackedStringArray:
+	return PackedStringArray()
+
+func get_webxr_optional_features(session_mode: String) -> PackedStringArray:
+	if session_mode == "immersive-ar":
+		return PackedStringArray(["depth-sensing"])
+	return PackedStringArray()
