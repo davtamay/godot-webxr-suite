@@ -167,6 +167,16 @@ func _on_session_started() -> void:
 
 func _on_session_ended() -> void:
     get_viewport().use_xr = false
+    # The root viewport only re-derives its size from the window inside
+    # Window's private update, which runs on resize notifications - and on
+    # web the window doesn't resize after session exit, so the viewport
+    # stays stuck at the XR per-eye size (2D draws shrunken while input
+    # maps to the real layout). Nudging the content scale factor forces
+    # that update to run against the (correct) window size.
+    var win := get_window()
+    var scale_factor := win.content_scale_factor
+    win.content_scale_factor = scale_factor * 1.000001 + 0.000001
+    win.content_scale_factor = scale_factor
     _apply_ar_scene_mode(false)
     _apply_session_hidden(false)
     _requested_session_mode = ""
@@ -231,7 +241,7 @@ func _session_label(session_mode: String) -> String:
 
 func _reference_space_types_for(session_mode: String) -> String:
     if session_mode == "immersive-ar":
-        return "local" # XPERIMENT: no floor establishment - revert
+        return "local-floor, local"
     # local-floor first: its forward is where the user faces at session
     # start, so the scene spawns in front of them. bounded-floor anchors to
     # the room's calibrated (arbitrary) forward instead.
