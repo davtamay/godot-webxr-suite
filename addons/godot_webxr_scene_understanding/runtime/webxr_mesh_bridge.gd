@@ -126,6 +126,12 @@ func _install_js_hook() -> void:
 					if (dynSettled) { bridge.dynObserved = t - bridge.dynStart - 3000; }
 					const live = new Set();
 					frame.detectedMeshes.forEach((mesh) => {
+						// SPEC ASSUMPTION: the Mesh Detection spec does not
+						// guarantee XRMesh object identity across frames -
+						// tagging instances only works because Chromium keeps
+						// them stable (Google's own sample relies on the same
+						// behavior). If a UA ever recreates instances per
+						// frame, ids churn and every mesh re-adds each frame.
 						let id = mesh.__gwmbId;
 						if (id === undefined) {
 							id = ++bridge.seq; mesh.__gwmbId = id;
@@ -299,6 +305,14 @@ func _sync_harvest_gate() -> void:
 	Engine.get_singleton("JavaScriptBridge").eval(
 		"window.GodotWebXRMeshBridge && (window.GodotWebXRMeshBridge.harvest = %s);" % ("true" if active else "false"), true)
 
+## How many meshes the platform is serving RIGHT NOW (-1 = API absent,
+## 0 = present but empty). For availability displays.
+func get_served_count() -> int:
+	var prop := str(Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRMeshBridge ? String(window.GodotWebXRMeshBridge.meshProp) : 'ABSENT'", true))
+	if not prop.begins_with("set:"):
+		return -1
+	return int(prop.get_slice(":", 1))
+
 func get_status() -> String:
 	var js := Engine.get_singleton("JavaScriptBridge")
 	var prop_str := str(js.eval("window.GodotWebXRMeshBridge ? String(window.GodotWebXRMeshBridge.meshProp) : 'NO BRIDGE'", true))
@@ -328,11 +342,24 @@ func get_status() -> String:
 	if prop_str == "ABSENT":
 		return "Room mesh unsupported by this browser."
 	if prop_str.begins_with("set:"):
+		# The API being present with an empty set is a distinct, diagnosable
+		# state: stored-scan devices need their room scan (re-)run, and live
+		# reconstruction has been observed to come up stuck after a headset
+		# restart until the device reboots again.
+		if int(prop_str.get_slice(":", 1)) == 0 and (auto_visualize or show_labels or occlusion_enabled):
+			return "Platform is serving 0 meshes - on stored-scan devices re-run the room scan; on live devices restart the headset if this persists."
 		return "No room scan available yet."
 	return "Room mesh: waiting for an immersive session."
 
 func _process(delta: float) -> void:
 	_rebuild_cooldown = maxf(0.0, _rebuild_cooldown - delta)
+	# A quiet stream must not strand pending geometry: polls only rebuild
+	# when NEW payloads arrive, but a stored scan (Quest Space Setup)
+	# arrives as one burst - often inside the toggle's own cooldown - and
+	# then goes silent, leaving the dirty flag set forever. Flush ripened
+	# dirt here regardless of payload traffic.
+	if _render_dirty and _rebuild_cooldown <= 0.0:
+		_rebuild_merged()
 	_poll_accum += delta
 	if _poll_accum < poll_interval:
 		return

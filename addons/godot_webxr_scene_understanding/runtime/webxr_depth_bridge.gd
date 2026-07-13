@@ -37,6 +37,13 @@ extends Node3D
 ## which precondition is missing.
 
 const MESH_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/depth_mesh_material.tres")
+## Scan accumulation draws depth-test-free at a high queue priority so the
+## occlusion punch (which depth-writes real surfaces to hide virtual content
+## behind them) can never erase the scan itself - the scan IS the real
+## surface's visualization. no_depth_test is shader codegen, so it must live
+## in a baked .tres, never be flipped at runtime (web exports would miss the
+## shader variant).
+const SCAN_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/depth_scan_overlay_material.tres")
 
 ## Longest triangle edge kept, in meters; longer edges span depth
 ## discontinuities (object silhouettes) and would web the scene together.
@@ -69,7 +76,6 @@ var auto_visualize := false
 var _webxr: XRInterface
 var _installed := false
 var _poll_accum := 0.0
-var _reroute_accum := 0.0
 var _last_seq := 0
 var _material: StandardMaterial3D
 var _mesh_instance: MeshInstance3D
@@ -80,7 +86,6 @@ var _scan_chunks := {}
 var _scan_dirty := false
 var _scan_rebuild_cooldown := 0.0
 # The mesh bridge this toggle is currently driving (Android XR routing).
-var _routed_bridge = null
 
 func _ready() -> void:
 	if not OS.has_feature("web") or not Engine.has_singleton("JavaScriptBridge"):
@@ -102,6 +107,7 @@ func _ready() -> void:
 	_scan_instance.name = "DepthScan"
 	_scan_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_scan_instance.visible = false
+	_scan_instance.material_override = SCAN_MATERIAL.duplicate()
 	add_child(_scan_instance)
 	_install_js_hook()
 
@@ -116,7 +122,7 @@ func _install_js_hook() -> void:
 	const bridge = {
 		harvest: false, refType: 'local-floor', _ref: null, _refPending: false,
 		seq: 0, frame: null, intervalMs: 250, _last: 0,
-		gridW: 48, gridH: 36, status: 'idle', usage: '', format: '', size: '', path: '',
+		gridW: 96, gridH: 72, status: 'idle', usage: '', format: '', size: '', path: '',
 		// Accumulated scan: world-anchored voxel occupancy. Grid points whose
 		// cell is NEW this harvest get flagged fresh, so the consumer can
 		// accumulate triangulated patches of only-new surface - looking
@@ -435,10 +441,20 @@ func _install_js_hook() -> void:
 	XRSession.prototype.requestAnimationFrame = function (cb) {
 		return orig.call(this, function (t, frame) {
 			try {
+				// Cheap property reads - keep the availability display honest
+				// even before the first toggle turns harvesting on.
+				bridge.usage = frame.session.depthUsage || '';
+				bridge.format = frame.session.depthDataFormat || '';
+				// Newer UAs let pages pause the depth pipeline entirely -
+				// reconcile it with the toggle so 'off' is free device-side.
+				// depthActive is nullable; only act on a real boolean, and
+				// only where the methods exist.
+				if (bridge.harvest && frame.session.depthActive === false && typeof frame.session.resumeDepthSensing === 'function') {
+					frame.session.resumeDepthSensing();
+				} else if (!bridge.harvest && frame.session.depthActive === true && typeof frame.session.pauseDepthSensing === 'function') {
+					frame.session.pauseDepthSensing();
+				}
 				if (bridge.harvest) {
-					const s = frame.session;
-					bridge.usage = s.depthUsage || '';
-					bridge.format = s.depthDataFormat || '';
 					if (!bridge._ref && !bridge._refPending) {
 						bridge._refPending = true;
 						frame.session.requestReferenceSpace(bridge.refType)
@@ -452,9 +468,25 @@ func _install_js_hook() -> void:
 						const vp = frame.getViewerPose(bridge._ref);
 						if (vp && vp.views.length) {
 							const view = vp.views[0];
+							// The depth image lags the pose by a few dozen ms;
+							// harvesting during fast head motion smears samples
+							// into wrong world positions. Skip only whip-pans
+							// (roughly >60 deg/s or >0.5 m/s) - slow sweeps
+							// paint normally.
+							const trm = view.transform.matrix;
+							const lastp = bridge._panPose;
+							bridge._panPose = [trm[8], trm[9], trm[10], trm[12], trm[13], trm[14]];
+							// A bare return here would skip the engine's own
+							// frame callback below - gate by nulling the harvest.
+							let pan = false;
+							if (lastp) {
+								const dr = Math.hypot(trm[8] - lastp[0], trm[9] - lastp[1], trm[10] - lastp[2]);
+								const dp = Math.hypot(trm[12] - lastp[3], trm[13] - lastp[4], trm[14] - lastp[5]);
+								pan = dr > 0.26 || dp > 0.12;
+							}
 							// gpu-optimized grants refuse the CPU API by
 							// spec; go straight to the readback path there.
-							const meters = (bridge.usage === 'gpu-optimized')
+							const meters = pan ? null : (bridge.usage === 'gpu-optimized')
 								? gpuHarvestMeters(frame, view)
 								: cpuHarvestMeters(frame, view);
 							if (meters) {
@@ -536,23 +568,6 @@ func _install_js_hook() -> void:
 
 func set_visualize(p_on: bool) -> void:
 	auto_visualize = p_on
-	# David's product call: on Android XR the platform's own streaming
-	# reconstruction (the room-mesh pipeline) IS the live depth-sensing
-	# visualization - same sensor underneath, better fusion - so the toggle
-	# drives the mesh bridge there whenever the platform serves mesh data.
-	# Quest stays on the raw-depth scan (its room mesh is a static stored
-	# space, a different concept), as do flag-less Android XR browsers
-	# (mesh-detection withheld -> raw depth is all there is).
-	if p_on:
-		var routed = _platform_mesh_bridge()
-		if routed != null:
-			_routed_bridge = routed
-			routed.set_visualize(true)
-			return
-	elif _routed_bridge != null:
-		_routed_bridge.set_visualize(false)
-		_routed_bridge = null
-		return
 	var js := Engine.get_singleton("JavaScriptBridge")
 	js.eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.harvest = %s);" % ("true" if p_on else "false"), true)
 	_mesh_instance.visible = p_on and show_live_sweep
@@ -563,39 +578,20 @@ func set_visualize(p_on: bool) -> void:
 		_last_seq = 0
 		_clear_scan()
 
-## The mesh bridge to route through on platforms whose detectedMeshes are a
-## live depth-driven stream (Android XR), or null to use the raw-depth scan.
-func _platform_mesh_bridge():
-	var bridges := get_tree().get_nodes_in_group("webxr_mesh_bridge")
-	if bridges.is_empty():
-		return null
-	var _dyn: bool = bridges[0].has_method("is_dynamic_mesh_platform") and bridges[0].is_dynamic_mesh_platform()
-	if not _dyn:
-		return null
-	# Route only when the platform actually serves mesh data (on Android XR
-	# today that needs the browser's Incubations/Mesh Detection flags).
-	var prop := str(Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRMeshBridge ? String(window.GodotWebXRMeshBridge.meshProp) : ''", true))
-	# 'set:N' = detectedMeshes exists with N meshes this frame. The API
-	# being present is NOT enough - an empty stream (N=0: browser flag off,
-	# OS reconstruction unavailable, or still warming up) must fall through
-	# to the raw-depth scan instead of stranding the toggle on a bridge
-	# with no data (Galaxy XR after a restart serves exactly that state).
-	var served := 0
-	if prop.begins_with("set:"):
-		served = int(prop.get_slice(":", 1))
-	if served > 0 or bridges[0].get_surface_count() > 0:
-		return bridges[0]
-	return null
-
 func _clear_scan() -> void:
 	_scan_chunks.clear()
 	_scan_dirty = false
 	_scan_instance.mesh = null
 	Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.frame = null, window.GodotWebXRDepthBridge.cells = new Set(), window.GodotWebXRDepthBridge.cellCount = 0);", true)
 
+## The granted depth usage ('cpu-optimized' / 'gpu-optimized' / '') for
+## availability displays.
+func get_usage() -> String:
+	if not _installed:
+		return ""
+	return str(Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.usage || '') : '';", true))
+
 func get_status() -> String:
-	if _routed_bridge != null:
-		return "Depth sensing (platform reconstruction): %s" % _routed_bridge.get_status()
 	if not _installed:
 		return "Depth sensing: web only."
 	if _webxr == null or not _webxr.is_initialized():
@@ -617,16 +613,7 @@ func get_status() -> String:
 			if cells == 0 and path == "gpu":
 				var dbg := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.dbg || '') : '';", true))
 				return "Depth sensing (GPU readback) calibrating... [%s]" % dbg
-			# On platforms whose depth experience is normally the routed OS
-			# reconstruction, running the raw fallback deserves a diagnosis
-			# hint: an empty detectedMeshes stream with the browser flags on
-			# has been observed to mean the scene-understanding service is
-			# stuck until the headset restarts.
-			var hint := ""
-			var mesh_nodes := get_tree().get_nodes_in_group("webxr_mesh_bridge")
-			if not mesh_nodes.is_empty() and mesh_nodes[0].has_method("is_dynamic_mesh_platform") and mesh_nodes[0].is_dynamic_mesh_platform():
-				hint = " Platform reconstruction idle - restart the headset if this persists."
-			return "Depth sensing LIVE (%s): %s sensor. Look around to scan - %d points captured.%s" % [path_desc, size, cells, hint]
+			return "Depth scan LIVE (%s): %s sensor, %d points. Geometry is our own triangulation of raw readings - rougher than a platform reconstruction." % [path_desc, size, cells]
 		"calibrating":
 			var cal_dbg := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.dbg || '') : '';", true))
 			return "Depth sensing (GPU readback) calibrating... [%s]" % cal_dbg
@@ -655,12 +642,9 @@ func _on_session_started() -> void:
 	# flags (vertex color, transparency, cull) live in the baked .tres.
 	_material = MESH_MATERIAL.duplicate() as StandardMaterial3D
 	_mesh_instance.material_override = _material
-	_scan_instance.material_override = _material
+	_scan_instance.material_override = SCAN_MATERIAL.duplicate()
 
 func _on_session_ended() -> void:
-	# The routed mesh bridge handles its own session teardown; just drop the
-	# reference so the next toggle re-evaluates the platform route.
-	_routed_bridge = null
 	_mesh_instance.mesh = null
 	_last_seq = 0
 	_clear_scan()
@@ -668,24 +652,6 @@ func _on_session_ended() -> void:
 func _process(delta: float) -> void:
 	if not auto_visualize:
 		return
-	# The platform reconstruction can come online mid-session (Android XR
-	# streams it lazily after a headset restart). Upgrade the toggle from the
-	# raw-depth fallback to the routed reveal the moment meshes are served.
-	_reroute_accum += delta
-	if _reroute_accum >= 3.0:
-		_reroute_accum = 0.0
-		if _routed_bridge == null:
-			var late = _platform_mesh_bridge()
-			if late != null:
-				Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.harvest = false);", true)
-				_mesh_instance.visible = false
-				_scan_instance.visible = false
-				_mesh_instance.mesh = null
-				_last_seq = 0
-				_clear_scan()
-				_routed_bridge = late
-				late.set_visualize(true)
-				return
 	if _scan_rebuild_cooldown > 0.0:
 		_scan_rebuild_cooldown -= delta
 	elif _scan_dirty:
