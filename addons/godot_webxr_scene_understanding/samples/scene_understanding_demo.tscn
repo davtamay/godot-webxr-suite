@@ -265,7 +265,7 @@ toggle_mode = true
 custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-text = "Room Mesh (stored)"
+text = "Room Mesh"
 
 [node name="LiveReconButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
@@ -273,7 +273,7 @@ toggle_mode = true
 custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-text = "Live Reconstruction"
+text = "Live Recon"
 
 [node name="DepthSensingButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
@@ -281,13 +281,7 @@ toggle_mode = true
 custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
-text = "Depth Scan (raw)"
-
-[node name="DepthCaption" type="Label" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 18
-theme_override_colors/font_color = Color(0.62, 0.66, 0.72, 1)
-text = "Our own mesh from raw depth readings - rougher than the reconstruction."
+text = "Depth Scan"
 
 [node name="LabelsButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
@@ -304,6 +298,13 @@ custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Occlusion"
+
+[node name="PanelFootnote" type="Label" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 18
+theme_override_colors/font_color = Color(0.62, 0.66, 0.72, 1)
+autowrap_mode = 3
+text = "WebXR features: Room Mesh & Live Recon -> mesh-detection (persistent room model). Scene Labels -> plane-detection. Depth Scan & Occlusion -> depth-sensing (live per-frame depth for occlusion, even a moving hand; never a saved map)."
 
 [node name="WebXRBootstrap" type="Node3D" parent="."]
 script = ExtResource("1_webxr")

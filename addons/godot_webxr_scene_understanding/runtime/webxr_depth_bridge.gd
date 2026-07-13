@@ -44,22 +44,26 @@ const MESH_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/run
 ## in a baked .tres, never be flipped at runtime (web exports would miss the
 ## shader variant).
 const SCAN_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/depth_scan_overlay_material.tres")
+## The same subtract-blend punch the room-mesh occluder uses. Rendered on the
+## LIVE per-frame depth mesh it gives DYNAMIC occlusion - virtual content is
+## hidden behind moving real things (a hand) the static room mesh can't see.
+const PUNCH_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/mesh_punch_material.tres")
 
 ## Longest triangle edge kept, in meters; longer edges span depth
 ## discontinuities (object silhouettes) and would web the scene together.
 @export var max_edge_length := 0.35
 ## Distance (from the headset at harvest time) mapped to the far color.
 @export var far_distance := 6.0
-## Keep every newly scanned surface patch, so looking around progressively
-## builds a persistent triangulated room scan in the same style as the
-## room-mesh visualization. This is what makes the demo a room scan on
-## devices that ship depth sensing but lock mesh detection behind flags.
-@export var accumulate := true
-## Also draw the raw per-harvest sweep (the current sensor view, refreshed
-## ~4 Hz, distance-colored). Off by default: a camera-locked mesh repainting
-## in front of the user reads as visual noise next to the room-mesh-style
-## scan - useful only when debugging the sensor itself.
-@export var show_live_sweep := false
+## Accumulate every harvest into a persistent triangulated scan. OFF by
+## default: depth sensing is a LIVE, per-frame measurement, so persisting it
+## across frames contradicts what it is and quickly overwhelms the view with
+## stale geometry. Persistent room reconstruction is mesh detection's job
+## (the Room Mesh / Live Reconstruction toggles), not depth's.
+@export var accumulate := false
+## Draw the raw per-harvest sweep - the CURRENT sensor view, replaced (not
+## accumulated) each ~4 Hz harvest. This is the honest depth-sensing view:
+## only the live measurement, nothing persisted.
+@export var show_live_sweep := true
 ## The accumulated scan's tint - matches the room-mesh blue.
 @export var scan_color := Color(0.08, 0.72, 1.0, 0.5)
 
@@ -72,11 +76,17 @@ const SCAN_CHUNK_SIZE := 0.5
 const SCAN_CHUNK_CAP := 4000
 
 var auto_visualize := false
+## Occlusion mode: harvest depth and punch the live mesh (dynamic occlusion),
+## independent of the scan visualization.
+var occlude_enabled := false
 
 var _webxr: XRInterface
 var _installed := false
 var _poll_accum := 0.0
 var _last_seq := 0
+## Triangles in the most recent live harvest (for an honest status count now
+## that accumulation is off - the old cell count would always read 0).
+var _live_tris := 0
 var _material: StandardMaterial3D
 var _mesh_instance: MeshInstance3D
 var _scan_instance: MeshInstance3D
@@ -209,10 +219,25 @@ func _install_js_hook() -> void:
 		const pm = (d.projectionMatrix && d.projectionMatrix.length >= 16) ? d.projectionMatrix : null;
 		if (g.locked) {
 			isArray = g.locked.arr; mode = g.locked.mode;
+		} else if (bridge.format === 'luminance-alpha' && g.attempt < 4) {
+			// THE DOCUMENTED PATH: luminance-alpha packs a 16-bit value
+			// across the L+A channels storing millimeters; raw = L + A*256,
+			// meters = raw * rawValueToMeters (= mode 0). This is what every
+			// reference engine uses - no linearization guessing.
+			mode = 0;
+			isArray = typeKnown ? (d.textureType === 'texture-array') : (g.attempt % 2 === 1);
+		} else if (bridge.format === 'float32' && g.attempt < 4) {
+			// float32 stores metric depth directly in .r * rawValueToMeters.
+			mode = 1;
+			isArray = typeKnown ? (d.textureType === 'texture-array') : (g.attempt % 2 === 1);
+		} else if (pm && g.attempt < 8) {
+			// Fallback for unsigned-short (undocumented GPU encoding): the
+			// depth camera's projection matrix gives ndc = -P10 + P14/m.
+			mode = 5;
+			isArray = typeKnown ? (d.textureType === 'texture-array') : (g.attempt % 2 === 1);
 		} else {
 			mode = g.attempt % 6;
 			isArray = typeKnown ? (d.textureType === 'texture-array') : (Math.floor(g.attempt / 6) % 2 === 1);
-			if (g.attempt === 0 && bridge.format === 'float32') { mode = 1; }
 			if (mode === 5 && !pm) {
 				g.attempt++;
 				bridge.status = 'calibrating';
@@ -256,7 +281,12 @@ func _install_js_hook() -> void:
 				const fs = '#version 300 es\\nprecision highp float;\\n' + samp +
 					'\\nuniform mat4 uvTransform;\\nuniform vec2 gridSize;\\nuniform int fmt;\\nuniform float rawToMeters;\\nuniform vec2 nearFar;\\nuniform vec2 pmv;\\nout vec4 outColor;\\n' +
 					'void main(){\\n' +
-					'  vec2 nv = vec2(floor(gl_FragCoord.x) / (gridSize.x - 1.0), floor(gl_FragCoord.y) / (gridSize.y - 1.0));\\n' +
+					// gl_FragCoord.y is bottom-up, but the depth transform (and
+					// the CPU getDepthInMeters path) use a top-down normalized
+					// view; without this flip the whole reconstruction - and
+					// the occlusion punch built from it - is mirrored top-to-
+					// bottom (a hand reads upside down).
+					'  vec2 nv = vec2(floor(gl_FragCoord.x) / (gridSize.x - 1.0), 1.0 - floor(gl_FragCoord.y) / (gridSize.y - 1.0));\\n' +
 					'  vec2 uv = (uvTransform * vec4(nv, 0.0, 1.0)).xy;\\n' +
 					'  vec4 t = ' + fetch + ';\\n' +
 					// fmt 0: two 8-bit channels (luminance-alpha style);
@@ -269,11 +299,20 @@ func _install_js_hook() -> void:
 					'    m = nearFar.x * nearFar.y / max(nearFar.y - t.r * (nearFar.y - nearFar.x), 0.0001);\\n' +
 					'  } else if (fmt == 4) {\\n' +
 					'    m = nearFar.x * nearFar.y / max(nearFar.x + t.r * (nearFar.y - nearFar.x), 0.0001);\\n' +
+					// GL depth buffers store window-space [0,1] mapped from
+					// [-1,1] NDC; undo that remap before applying the
+					// projection relation ndc = -P10 + P14/m.
 					'  } else if (fmt == 5) {\\n' +
-					'    m = abs(pmv.y / (t.r + pmv.x));\\n' +
+					'    m = abs(pmv.y / (2.0 * t.r - 1.0 + pmv.x));\\n' +
 					'  } else {\\n' +
 					'    float raw = (fmt == 0) ? dot(t.ra, vec2(255.0, 255.0 * 256.0)) : ((fmt == 1) ? t.r : t.r * 65535.0);\\n' +
-					'    m = raw * rawToMeters;\\n' +
+					// luminance-alpha's unpacked value is MILLIMETERS (the
+					// reference decode divides by 8000mm). meters =
+					// raw * rawValueToMeters, but Quest reports that as 1.0
+					// (passthrough), so fall back to a mm->m scale for fmt 0
+					// when rawToMeters is not a plausible sub-metre factor.
+					'    float scale = (fmt == 0 && !(rawToMeters > 0.00001 && rawToMeters < 0.5)) ? 0.001 : rawToMeters;\\n' +
+					'    m = raw * scale;\\n' +
 					'  }\\n' +
 					'  float nvd = clamp(m / 8.0, 0.0, 1.0);\\n' +
 					'  float hi = floor(nvd * 255.0) / 255.0;\\n' +
@@ -390,9 +429,6 @@ func _install_js_hook() -> void:
 			}
 			const spread = (valid > 0) ? (vmx - vmn) : 0;
 			bridge.dbg = 'type=' + (d.textureType || '?') + ' fmt=' + (bridge.format || '?') + ' mode=' + mode + (isArray ? 'A' : '2') + ' r2m=' + Number(d.rawValueToMeters).toPrecision(3) + ' nf=' + depthNear.toFixed(2) + '/' + depthFar.toFixed(0) + ' rawNF=' + String(d.depthNear) + '/' + String(d.depthFar) + ' pm=' + (pm ? pm[10].toPrecision(3) + ',' + pm[14].toPrecision(3) : 'n') + ' range=' + (valid ? vmn.toFixed(2) + '..' + vmx.toFixed(2) : 'none') + ' valid=' + valid + ' spread=' + spread.toFixed(2) + ' try=' + g.attempt;
-			// DEPTHDBG: strip after Quest decode is settled - the tap carries
-			// every calibration attempt so nobody has to read status lines.
-			console.log('DEPTHDBG ' + bridge.dbg + (g.locked ? ' LOCKED' : ''));
 			if (!g.locked) {
 				// Room-plausibility gates: coverage, variation, reach (a
 				// normalized decode varies but never exceeds ~1m = a wall in
@@ -406,7 +442,6 @@ func _install_js_hook() -> void:
 					const prev = g.pendingStats[skey];
 					if (prev && Math.abs(prev.vmx - vmx) < 1.0 && Math.abs(prev.spread - spread) < 0.8) {
 						g.locked = { arr: isArray, mode: mode };
-						console.log('DEPTHDBG LOCKING mode=' + mode + (isArray ? 'A' : '2') + ' spread=' + spread.toFixed(2) + ' vmx=' + vmx.toFixed(2));
 					} else {
 						g.pendingStats[skey] = { vmx: vmx, spread: spread };
 						g.attempt++;
@@ -445,6 +480,9 @@ func _install_js_hook() -> void:
 				// even before the first toggle turns harvesting on.
 				bridge.usage = frame.session.depthUsage || '';
 				bridge.format = frame.session.depthDataFormat || '';
+				// 'raw' keeps moving objects (a hand); 'smooth' fuses them
+				// away. Surfaced so the status can explain a missing hand.
+				bridge.depthType = frame.session.depthType || '';
 				// Newer UAs let pages pause the depth pipeline entirely -
 				// reconcile it with the toggle so 'off' is free device-side.
 				// depthActive is nullable; only act on a real boolean, and
@@ -568,15 +606,43 @@ func _install_js_hook() -> void:
 
 func set_visualize(p_on: bool) -> void:
 	auto_visualize = p_on
-	var js := Engine.get_singleton("JavaScriptBridge")
-	js.eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.harvest = %s);" % ("true" if p_on else "false"), true)
-	_mesh_instance.visible = p_on and show_live_sweep
-	_scan_instance.visible = p_on and accumulate
+	_sync_harvest()
+	_sync_render()
 	if not p_on:
 		# Live sensor data goes stale instantly; free it rather than freeze it.
-		_mesh_instance.mesh = null
 		_last_seq = 0
 		_clear_scan()
+
+## Occlusion mode: punch the live per-frame depth mesh so virtual content is
+## hidden behind real surfaces, INCLUDING moving things (a hand) - the room
+## mesh is static and cannot. Additive with the room-mesh occluder, not a
+## replacement, so that working path is never disturbed.
+func set_occlude(p_on: bool) -> void:
+	occlude_enabled = p_on
+	_sync_harvest()
+	_sync_render()
+	if not p_on:
+		_last_seq = 0
+
+## Depth harvesting (and the poll loop) run while EITHER the scan view or
+## occlusion needs the data.
+func _sync_harvest() -> void:
+	var active := auto_visualize or occlude_enabled
+	Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.harvest = %s);" % ("true" if active else "false"), true)
+	set_process(active)
+	if not active:
+		_mesh_instance.mesh = null
+
+## The live per-frame mesh serves two masters: an occlusion punch (dynamic)
+## or the visualization sweep. Occlusion wins when both are on.
+func _sync_render() -> void:
+	if occlude_enabled:
+		_mesh_instance.material_override = PUNCH_MATERIAL
+		_mesh_instance.visible = true
+	else:
+		_mesh_instance.material_override = _material
+		_mesh_instance.visible = auto_visualize and show_live_sweep
+	_scan_instance.visible = auto_visualize and accumulate and not occlude_enabled
 
 func _clear_scan() -> void:
 	_scan_chunks.clear()
@@ -608,12 +674,14 @@ func get_status() -> String:
 	var path := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.path || '') : '';", true))
 	match status:
 		"ok":
-			var cells := int(str(js.eval("window.GodotWebXRDepthBridge ? window.GodotWebXRDepthBridge.cellCount : 0;", true)).to_float())
 			var path_desc := "CPU depth" if path == "cpu" else "GPU depth readback"
-			if cells == 0 and path == "gpu":
-				var dbg := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.dbg || '') : '';", true))
-				return "Depth sensing (GPU readback) calibrating... [%s]" % dbg
-			return "Depth scan LIVE (%s): %s sensor, %d points. Geometry is our own triangulation of raw readings - rougher than a platform reconstruction." % [path_desc, size, cells]
+			var dtype := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.depthType || '') : '';", true))
+			var dtype_note := ""
+			if dtype == "smooth":
+				dtype_note = ", SMOOTHED (moving objects like a hand may fade - raw is preferred)"
+			elif dtype == "raw":
+				dtype_note = ", raw"
+			return "Depth LIVE via WebXR depth-sensing (%s%s): %s sensor, %d live triangles. A live per-frame view for occlusion, never a saved map." % [path_desc, dtype_note, size, _live_tris]
 		"calibrating":
 			var cal_dbg := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.dbg || '') : '';", true))
 			return "Depth sensing (GPU readback) calibrating... [%s]" % cal_dbg
@@ -641,8 +709,10 @@ func _on_session_started() -> void:
 	# GPU resources (same lesson as the mesh bridge). All shader-codegen
 	# flags (vertex color, transparency, cull) live in the baked .tres.
 	_material = MESH_MATERIAL.duplicate() as StandardMaterial3D
-	_mesh_instance.material_override = _material
 	_scan_instance.material_override = SCAN_MATERIAL.duplicate()
+	# Re-apply the correct live-mesh material for the active mode (punch when
+	# occluding, visualization otherwise).
+	_sync_render()
 
 func _on_session_ended() -> void:
 	_mesh_instance.mesh = null
@@ -650,7 +720,7 @@ func _on_session_ended() -> void:
 	_clear_scan()
 
 func _process(delta: float) -> void:
-	if not auto_visualize:
+	if not (auto_visualize or occlude_enabled):
 		return
 	if _scan_rebuild_cooldown > 0.0:
 		_scan_rebuild_cooldown -= delta
@@ -782,9 +852,13 @@ func _rebuild_mesh(data: Dictionary) -> void:
 				indices.append_array(PackedInt32Array([i00, i11, i01]))
 				tris.append_array(PackedInt32Array([i00, i11, i01]))
 
-	if accumulate and not tris.is_empty():
+	_live_tris = indices.size() / 3
+	# Accumulation is a visualization concern; occlusion wants the LIVE frame
+	# only (a moving hand must not smear into a persistent scan).
+	if accumulate and auto_visualize and not tris.is_empty():
 		_update_scan_chunks(verts, tris)
-	if not show_live_sweep or indices.is_empty():
+	# Build the live mesh when the sweep view OR occlusion needs it.
+	if not (show_live_sweep or occlude_enabled) or indices.is_empty():
 		_mesh_instance.mesh = null
 		return
 	var arrays := []

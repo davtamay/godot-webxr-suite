@@ -21,6 +21,8 @@ var _webxr: XRInterface
 var _material: ShaderMaterial
 var _depth_rd: Texture2DRD
 var _sensor_active := false
+## Whether we routed a depth bridge into live-depth punch occlusion (dynamic).
+var _depth_occluding := false
 
 func _ready() -> void:
 	add_to_group("webxr_occluder")
@@ -68,23 +70,39 @@ func set_occlusion(p_enabled: bool) -> void:
 	if not p_enabled:
 		_material.set_shader_parameter("occlusion_enabled", 0.0)
 		set_process(false)
+		if _depth_occluding:
+			_depth_occluding = false
+			for b in get_tree().get_nodes_in_group("webxr_depth_bridge"):
+				b.set_occlude(false)
 		for bridge in get_tree().get_nodes_in_group("webxr_mesh_bridge"):
 			bridge.set_occlusion(false)
 		return
-	# Detect once, on the click.
+	# Best path: the engine binds the sensor depth texture -> one fullscreen
+	# punch does everything. (Browsers withhold it today, so this rarely wins.)
 	if _has_sensor_depth():
 		_sensor_active = true
 		visible = true
 		_material.set_shader_parameter("occlusion_enabled", 1.0)
 		set_process(true)
 		return
-	# No gpu depth on this browser: fall back to room-mesh occlusion.
 	_material.set_shader_parameter("occlusion_enabled", 0.0)
+	# Otherwise COMPOSE two layers, never replacing the working one:
+	#   - room-mesh punch  = static occlusion (behind walls/furniture)
+	#   - live-depth punch = dynamic occlusion (a moving hand) where a depth
+	#     sensor is granted. They subtract-blend together.
 	for bridge in get_tree().get_nodes_in_group("webxr_mesh_bridge"):
 		bridge.set_occlusion(true)
+	var depth_bridges := get_tree().get_nodes_in_group("webxr_depth_bridge")
+	if not depth_bridges.is_empty() and _session_has_depth():
+		_depth_occluding = true
+		depth_bridges[0].set_occlude(true)
 
 func _has_sensor_depth() -> bool:
 	return _webxr and _webxr.is_initialized() and _webxr.get_system_info().has("webxr_depth_texture_rd")
+
+## Did the session grant depth-sensing? (Enables the live-depth punch layer.)
+func _session_has_depth() -> bool:
+	return _webxr and _webxr.is_initialized() and str(_webxr.get("enabled_features")).contains("depth-sensing")
 
 func get_status() -> String:
 	if not _webxr or not _webxr.is_initialized():
@@ -93,9 +111,13 @@ func get_status() -> String:
 	if not info.has("webxr_depth_texture_rd"):
 		var bridges := get_tree().get_nodes_in_group("webxr_mesh_bridge")
 		var mesh_count: int = bridges[0].get_surface_count() if not bridges.is_empty() else 0
+		var state := "ON" if occlusion_enabled else "OFF"
+		if _depth_occluding:
+			# Composed: static room-mesh punch + dynamic live-depth punch.
+			return "Occlusion %s: room mesh (%d surfaces, static) + live depth (dynamic - occludes a moving hand, coarse)." % [state, mesh_count]
 		var why := _no_sensor_reason(info)
 		if mesh_count > 0:
-			return "Occlusion %s via room mesh (%d surfaces, static). %s" % ["ON" if occlusion_enabled else "OFF", mesh_count, why]
+			return "Occlusion %s via room mesh (%d surfaces, static). %s" % [state, mesh_count, why]
 		return "Occlusion unavailable: no room scan either. %s" % why
 	var size: Vector2 = info.get("webxr_depth_size", Vector2.ZERO)
 	return "Occlusion %s via depth sensor (%dx%d, real-time)." % ["ON" if occlusion_enabled else "OFF", int(size.x), int(size.y)]

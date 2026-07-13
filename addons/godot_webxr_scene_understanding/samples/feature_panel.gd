@@ -131,23 +131,22 @@ func _sync_toggle_states() -> void:
 		var served: int = mesh_bridge.get_served_count() if in_session else -1
 		_mesh_button.set_pressed_no_signal(mesh_on and not dynamic_platform)
 		_live_button.set_pressed_no_signal(mesh_on and dynamic_platform)
+		# Short, single-line labels: the button says name + a compact tag; the
+		# full per-device story is in the status line below on toggle.
 		var mesh_state := "On" if mesh_on else "Off"
 		if in_session and not mesh_granted:
-			_mesh_button.text = "Room Mesh (stored): not granted"
-			_live_button.text = "Live Reconstruction: not granted"
+			_mesh_button.text = "Room Mesh: n/a"
+			_live_button.text = "Live Recon: n/a"
 		else:
-			_mesh_button.text = "Room Mesh (stored): %s" % ("n/a on this device" if dynamic_platform else mesh_state)
+			_mesh_button.text = "Room Mesh: %s" % ("n/a here" if dynamic_platform else mesh_state)
 			if not dynamic_platform:
-				_live_button.text = "Live Reconstruction: n/a on this device"
+				_live_button.text = "Live Recon: n/a here"
 			elif served >= 0:
-				_live_button.text = "Live Reconstruction: %s - %d meshes live" % [mesh_state, served]
+				_live_button.text = "Live Recon: %s (%d)" % [mesh_state, served]
 			else:
-				_live_button.text = "Live Reconstruction: %s" % mesh_state
+				_live_button.text = "Live Recon: %s" % mesh_state
 		_labels_button.set_pressed_no_signal(mesh_bridge.show_labels)
-		var labels_state := "On" if mesh_bridge.show_labels else "Off"
-		if in_session and feats.contains("plane-detection"):
-			labels_state += " - planes served"
-		_labels_button.text = "Scene Labels: %s" % labels_state
+		_labels_button.text = "Scene Labels: %s" % ("On" if mesh_bridge.show_labels else "Off")
 	var occluder = _occluder()
 	if occluder != null:
 		_occlusion_button.set_pressed_no_signal(occluder.occlusion_enabled)
@@ -155,14 +154,14 @@ func _sync_toggle_states() -> void:
 	var depth_bridge = _depth_bridge()
 	if depth_bridge != null:
 		_depth_button.set_pressed_no_signal(depth_bridge.auto_visualize)
-		var depth_state := "On" if depth_bridge.auto_visualize else "Off"
+		var depth_tag := "On" if depth_bridge.auto_visualize else "Off"
 		if in_session:
 			if not feats.contains("depth-sensing"):
-				depth_state = "not granted"
+				depth_tag = "n/a"
 			else:
 				var usage := str(depth_bridge.get_usage())
 				if usage == "cpu-optimized":
-					depth_state += " - cpu depth served"
+					depth_tag += " (cpu)"
 				elif usage == "gpu-optimized":
-					depth_state += " - gpu-only depth"
-		_depth_button.text = "Depth Scan (raw): %s" % depth_state
+					depth_tag += " (gpu)"
+		_depth_button.text = "Depth Scan: %s" % depth_tag
