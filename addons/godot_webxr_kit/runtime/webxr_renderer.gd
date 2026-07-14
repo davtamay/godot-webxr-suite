@@ -46,12 +46,12 @@ static func webgpu_supported() -> bool:
     var js = _js()
     if js == null:
         return false
-    # __godotWebGPUCapable is stamped by a WebGPU-aware HTML shell; the
-    # GODOT_CONFIG.experimentalWebGPU key is present only in exports built with
-    # the WebGPU driver. Either one, plus a WebGPU-capable browser, means the
-    # user can switch to WebGPU. Absent on stock Godot -> false.
-    var probe := "(function(){try{if(window.__godotWebGPUCapable)return true;var c=(typeof GODOT_CONFIG!=='undefined')?GODOT_CONFIG:null;return !!(c&&('experimentalWebGPU' in c)&&navigator.gpu);}catch(e){return false;}})()"
-    return bool(js.eval(probe, true))
+    # __godotWebGPUCapable is stamped by a WebGPU-aware HTML shell as
+    # (this export baked the WebGPU driver) AND (the browser can render XR
+    # through WebGPU). Absent on stock Godot, on gl_compatibility exports, and on
+    # browsers without WebGPU-XR (no XRGPUBinding, e.g. Galaxy today) -> the menu
+    # stays WebGL-only there rather than showing a dead WebGPU button.
+    return bool(js.eval("(!!window.__godotWebGPUCapable)", true))
 
 ## Does the WebGPU XR path expose real-world depth on THIS browser? Feature-
 ## detects getDepthInformation on XRGPUBinding, so this flips to true on its own
