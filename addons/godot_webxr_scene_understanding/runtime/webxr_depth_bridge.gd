@@ -585,10 +585,11 @@ func _install_js_hook() -> void:
 								? gpuHarvestMeters(frame, view, 0)
 								: cpuHarvestMeters(frame, view);
 							// Right eye, for stereo per-object occlusion. Layer 1
-							// of the depth array. Only once the decode is LOCKED
-							// (else two calls per frame fight over calibration).
+							// of the depth array. The GPU-readback path waits for the decode LOCK
+							// (else two readbacks per frame fight over calibration); the CPU path
+							// has no calibration, so it harvests the right eye every time.
 							const view1 = (vp.views.length > 1) ? vp.views[1] : null;
-							const meters1 = (bridge.wantMet && meters && view1 && bridge._gpu && bridge._gpu.locked)
+							const meters1 = (bridge.wantMet && meters && view1 && ((bridge.usage === 'gpu-optimized') ? (bridge._gpu && bridge._gpu.locked) : true))
 								? ((bridge.usage === 'gpu-optimized') ? gpuHarvestMeters(frame, view1, 1) : cpuHarvestMeters(frame, view1))
 								: null;
 							if (meters) {
@@ -604,26 +605,30 @@ func _install_js_hook() -> void:
 								// built when the soft occluder asks (wantMet).
 								const met = bridge.wantMet ? new Array(gw * gh) : null;
 								const met1 = (bridge.wantMet && meters1) ? new Array(gw * gh) : null;
+								const metFlip = (bridge.path === 'cpu');
+								// The CPU getDepthInMeters grid stores row 0 at view-top; the GPU-readback grid (which the soft occluder shader is tuned for) stores row 0 at view-bottom. Flip the occlusion grid on the CPU path so Soft occludes the same place on both platforms.
 								for (let gy = 0; gy < gh; gy++) {
 									// Normalized view coords have a top-left
 									// origin (y down); NDC y points up.
 									const v = gy / (gh - 1);
 									const ny = 1 - 2 * v;
+									const mrow = metFlip ? (gh - 1 - gy) : gy;
 									for (let gx = 0; gx < gw; gx++) {
 										const u = gx / (gw - 1);
 										const i = gy * gw + gx;
+										const mi = mrow * gw + gx;
 										// Right-eye grid is independent of the
 										// left eye's per-cell validity.
-										if (met1) { const d1 = meters1[i]; met1[i] = (d1 > 0.1 && d1 < 8.0) ? Math.round(d1 * 1000) : 0; }
+										if (met1) { const d1 = meters1[i]; met1[mi] = (d1 > 0.1 && d1 < 8.0) ? Math.round(d1 * 1000) : 0; }
 										const dm = meters[i];
 										if (!(dm > 0.1 && dm < 8.0)) {
 											val[i] = 0;
 											fresh[i] = 0;
-											if (met) { met[i] = 0; }
+											if (met) { met[mi] = 0; }
 											pts[i * 3] = 0; pts[i * 3 + 1] = 0; pts[i * 3 + 2] = 0;
 											continue;
 										}
-										if (met) { met[i] = Math.round(dm * 1000); }
+										if (met) { met[mi] = Math.round(dm * 1000); }
 										const nx = 2 * u - 1;
 										const ex = dm * (nx + p[8]) / p[0];
 										const ey = dm * (ny + p[9]) / p[5];
