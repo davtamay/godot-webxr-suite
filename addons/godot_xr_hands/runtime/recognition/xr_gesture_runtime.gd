@@ -1,0 +1,91 @@
+class_name XRGestureRuntime
+extends Node
+
+## Orchestrates the frame pipeline: acquire each hand once, extract shared
+## features once, then evaluate all definitions and their temporal state.
+
+signal gesture_started(gesture_id: StringName, hand: int, score: float)
+signal gesture_performed(gesture_id: StringName, hand: int, score: float)
+signal gesture_ended(gesture_id: StringName, hand: int, score: float)
+signal hand_features_updated(hand: int, features: XRHandFeatures)
+
+const XRInputAdapter := preload("res://addons/godot_xr_interaction_toolkit/runtime/input/xr_input_adapter.gd")
+
+@export var enabled := true
+@export var process_without_xr := false
+@export var definitions: Array[XRGestureDefinition] = []
+
+var _pose_source: XRHandPoseSource
+var _extractor := XRHandFeatureExtractor.new()
+var _frames := {}
+var _frame_indices := {}
+var _features := {}
+var _states := {}
+
+func _ready() -> void:
+    if _pose_source == null:
+        _pose_source = XRTrackerHandPoseSource.new()
+    for hand in [XRInputAdapter.Hand.LEFT, XRInputAdapter.Hand.RIGHT]:
+        _frames[hand] = [XRHandFrame.new(), XRHandFrame.new()]
+        _frame_indices[hand] = 0
+        _features[hand] = XRHandFeatures.new()
+
+func set_pose_source(source: XRHandPoseSource) -> void:
+    _pose_source = source
+
+func get_features(hand: int) -> XRHandFeatures:
+    return _features.get(hand) as XRHandFeatures
+
+func get_gesture_state(gesture_id: StringName, hand: int) -> XRGestureStateMachine:
+    return _states.get(_state_key(gesture_id, hand)) as XRGestureStateMachine
+
+func _process(delta: float) -> void:
+    if not enabled:
+        return
+    if not process_without_xr and not get_viewport().use_xr:
+        _reset_states()
+        return
+    if _pose_source == null:
+        return
+
+    var timestamp_usec := Time.get_ticks_usec()
+    for hand in [XRInputAdapter.Hand.LEFT, XRInputAdapter.Hand.RIGHT]:
+        _update_hand(hand, timestamp_usec, delta)
+
+func _update_hand(hand: int, timestamp_usec: int, delta: float) -> void:
+    var buffers: Array = _frames[hand]
+    var previous_index: int = _frame_indices[hand]
+    var current_index := 1 - previous_index
+    var previous := buffers[previous_index] as XRHandFrame
+    var current := buffers[current_index] as XRHandFrame
+    _pose_source.capture(hand, timestamp_usec, current)
+    _frame_indices[hand] = current_index
+
+    var features := _extractor.extract(current, previous, _features[hand])
+    hand_features_updated.emit(hand, features)
+    for definition in definitions:
+        if definition == null or (definition.hand >= 0 and definition.hand != hand):
+            continue
+        _evaluate(definition, hand, features, delta)
+
+func _evaluate(definition: XRGestureDefinition, hand: int, features: XRHandFeatures, delta: float) -> void:
+    var key := _state_key(definition.gesture_id, hand)
+    var machine := _states.get(key) as XRGestureStateMachine
+    if machine == null:
+        machine = XRGestureStateMachine.new()
+        _states[key] = machine
+    var transition := machine.update(definition.evaluate(features), delta, definition)
+    match transition:
+        XRGestureStateMachine.Transition.STARTED:
+            gesture_started.emit(definition.gesture_id, hand, machine.score)
+        XRGestureStateMachine.Transition.PERFORMED:
+            gesture_performed.emit(definition.gesture_id, hand, machine.score)
+        XRGestureStateMachine.Transition.ENDED:
+            gesture_ended.emit(definition.gesture_id, hand, machine.score)
+
+func _reset_states() -> void:
+    for machine in _states.values():
+        (machine as XRGestureStateMachine).reset()
+
+func _state_key(gesture_id: StringName, hand: int) -> String:
+    return "%s:%d" % [gesture_id, hand]

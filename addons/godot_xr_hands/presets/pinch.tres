@@ -1,0 +1,22 @@
+[gd_resource type="Resource" script_class="XRGestureDefinition" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gestures/xr_gesture_definition.gd" id="1_definition"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gestures/xr_feature_range_condition.gd" id="2_condition"]
+
+[sub_resource type="Resource" id="FeatureRange_pinch"]
+script = ExtResource("2_condition")
+feature = 1
+minimum = 0.0
+maximum = 0.28
+falloff = 0.18
+
+[resource]
+script = ExtResource("1_definition")
+gesture_id = &"pinch"
+display_name = "Pinch"
+activation_threshold = 0.82
+release_threshold = 0.55
+activation_time = 0.05
+release_time = 0.06
+cooldown = 0.12
+conditions = Array[ExtResource("2_condition")]([SubResource("FeatureRange_pinch")])

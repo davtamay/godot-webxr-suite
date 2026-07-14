@@ -1,0 +1,50 @@
+[gd_resource type="Resource" script_class="XRGestureDefinition" load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gestures/xr_gesture_definition.gd" id="1_definition"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gestures/xr_feature_range_condition.gd" id="2_condition"]
+
+[sub_resource type="Resource" id="Thumb"]
+script = ExtResource("2_condition")
+feature = 2
+minimum = 0.0
+maximum = 0.45
+falloff = 0.2
+
+[sub_resource type="Resource" id="Index"]
+script = ExtResource("2_condition")
+feature = 3
+minimum = 0.0
+maximum = 0.28
+falloff = 0.2
+
+[sub_resource type="Resource" id="Middle"]
+script = ExtResource("2_condition")
+feature = 4
+minimum = 0.0
+maximum = 0.28
+falloff = 0.2
+
+[sub_resource type="Resource" id="Ring"]
+script = ExtResource("2_condition")
+feature = 5
+minimum = 0.0
+maximum = 0.3
+falloff = 0.2
+
+[sub_resource type="Resource" id="Pinky"]
+script = ExtResource("2_condition")
+feature = 6
+minimum = 0.0
+maximum = 0.32
+falloff = 0.2
+
+[resource]
+script = ExtResource("1_definition")
+gesture_id = &"open_palm"
+display_name = "Open Palm"
+activation_threshold = 0.8
+release_threshold = 0.55
+activation_time = 0.12
+release_time = 0.08
+cooldown = 0.18
+conditions = Array[ExtResource("2_condition")]([SubResource("Thumb"), SubResource("Index"), SubResource("Middle"), SubResource("Ring"), SubResource("Pinky")])

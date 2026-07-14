@@ -1,0 +1,134 @@
+[gd_scene load_steps=12 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_hands/samples/gesture_diagnostics_demo.gd" id="1_demo"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/hand_visualizer.gd" id="2_visualizer"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/recognition/xr_gesture_runtime.gd" id="3_runtime"]
+[ext_resource type="Resource" path="res://addons/godot_xr_hands/presets/pinch.tres" id="4_pinch"]
+[ext_resource type="Material" path="res://addons/godot_xr_hands/runtime/diagnostic_label_material.tres" id="5_label"]
+[ext_resource type="Resource" path="res://addons/godot_xr_hands/presets/fist.tres" id="6_fist"]
+[ext_resource type="Resource" path="res://addons/godot_xr_hands/presets/point.tres" id="7_point"]
+[ext_resource type="Resource" path="res://addons/godot_xr_hands/presets/open_palm.tres" id="8_open"]
+
+[sub_resource type="Environment" id="Environment_demo"]
+background_mode = 1
+background_color = Color(0.018, 0.025, 0.04, 1)
+ambient_light_source = 3
+ambient_light_color = Color(0.55, 0.65, 0.8, 1)
+ambient_light_energy = 0.8
+
+[sub_resource type="PlaneMesh" id="Plane_floor"]
+size = Vector2(8, 8)
+
+[sub_resource type="StandardMaterial3D" id="Material_floor"]
+albedo_color = Color(0.07, 0.1, 0.14, 1)
+roughness = 0.9
+
+[node name="GestureDiagnosticsDemo" type="Node3D"]
+script = ExtResource("1_demo")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_demo")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+rotation_degrees = Vector3(-42, -28, 0)
+light_energy = 1.2
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+mesh = SubResource("Plane_floor")
+surface_material_override/0 = SubResource("Material_floor")
+
+[node name="XROrigin3D" type="XROrigin3D" parent="."]
+
+[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+current = true
+
+[node name="LeftController" type="XRController3D" parent="XROrigin3D"]
+tracker = &"left_hand"
+pose = &"aim"
+show_when_tracked = true
+
+[node name="RightController" type="XRController3D" parent="XROrigin3D"]
+tracker = &"right_hand"
+pose = &"aim"
+show_when_tracked = true
+
+[node name="HandVisualizer" type="Node3D" parent="XROrigin3D"]
+script = ExtResource("2_visualizer")
+left_fallback_pose_path = NodePath("../LeftController")
+right_fallback_pose_path = NodePath("../RightController")
+
+[node name="LabelBakeAnchor" type="Label3D" parent="XROrigin3D"]
+visible = false
+material_override = ExtResource("5_label")
+pixel_size = 0.001
+billboard = 1
+text = "bake"
+font_size = 32
+outline_size = 8
+
+[node name="GestureRuntime" type="Node" parent="."]
+script = ExtResource("3_runtime")
+definitions = [ExtResource("4_pinch"), ExtResource("6_fist"), ExtResource("7_point"), ExtResource("8_open")]
+
+[node name="WorldDiagnostics" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, -2.5)
+pixel_size = 0.00125
+billboard = 1
+text = "XR Gesture Diagnostics"
+font_size = 30
+outline_size = 8
+
+[node name="EventBanner" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.95, -2.0)
+pixel_size = 0.0016
+billboard = 1
+text = "MAKE A POSE"
+font_size = 38
+outline_size = 9
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." groups=["xr_session_hidden"]]
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 700.0
+offset_bottom = 370.0
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "XR Gesture Diagnostics"
+
+[node name="StatusLabel" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 3
+text = "Initializing hand feature pipeline..."
+autowrap_mode = 3
+
+[node name="SessionButtons" type="HBoxContainer" parent="CanvasLayer/Panel/Margin/VBox"]
+layout_mode = 2
+
+[node name="EnterVRButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox/SessionButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enter VR"
+
+[node name="EnterARButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox/SessionButtons"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enter AR"
