@@ -43,7 +43,6 @@ addons/godot_webxr_kit/
     webxr_bootstrap.gd              # immersive-vr / immersive-ar session lifecycle
     browser_capabilities.gd         # WebGL2 / multiview / WebXR / WebGPU capability probe
     webxr_renderer.gd               # WebXRRenderer: read/switch the WebGL vs WebGPU backend
-    bake_anchor.gd                  # BakeAnchor: declare runtime-built materials so WebGPU bakes them
   web/
     company_webxr_shell.html        # custom HTML export shell + browser hand/depth JS bridges
 ```
@@ -78,41 +77,14 @@ so controller-only devices still start, and collects further session features
 from nodes in the `webxr_feature_provider` group (see
 `godot_webxr_scene_understanding`) — a scene only requests what it contains.
 
-## Runtime-built materials on WebGPU: declare-and-bake
+## WebGPU builds
 
-WebGPU has no in-browser shader translation. Shaders are baked ahead of time at
-export (SPIR-V → WGSL) — the same model as Unity's shader variant collections —
-so a material whose **shader** is first seen at runtime has nothing baked and
-fails on the WebGPU backend (`missing from the baked shader cache`). This is the
-industry-standard tradeoff, not a Godot limitation; engines that author shaders
-in WGSL directly (Bevy) sidestep it, engines with their own shader language
-(Godot, Unity) precompile.
-
-Most runtime material changes are **fine** and need nothing: changing *uniforms*
-(albedo colour, roughness, energy, swapping a texture) reuses an already-baked
-shader. You only need to act when the **shader itself is new** — a
-`StandardMaterial3D` whose feature flags differ from anything an exported scene
-already renders (`emission_enabled`, transparency, a different cull/blend mode…),
-or a `ShaderMaterial` with code no exported scene already uses.
-
-For those, **declare them** with a `BakeAnchor`:
-
-```gdscript
-# 1. Save the material as a .tres with its codegen flags frozen (the flags that
-#    change the shader — transparency, emission_enabled, cull mode, etc.).
-# 2. Drop a BakeAnchor node into any scene reachable from your main scene and add
-#    the .tres to its `materials` array (in the inspector or from code).
-# 3. At runtime, load()/duplicate() that .tres — its shader is already baked.
-```
-
-`BakeAnchor` references each declared material on tiny hidden meshes so the
-exporter's shader baker includes it; the references are invisible and freed at
-runtime, so there is zero in-game cost. This only matters for WebGPU exports —
-on WebGL (runtime GLSL compile) and on non-web platforms it is a harmless no-op.
-
-> Verified: a custom `ShaderMaterial` referenced *only* by a `BakeAnchor`, then
-> applied to a mesh at runtime, renders on the WebGPU backend with no
-> `missing from the baked shader cache` error.
+`WebXRRenderer` (above) is the only WebGPU-aware piece here — it just reads or
+switches the backend and works on any build. The WebGPU **build** tooling —
+the one-checkbox WebGPU export toggle and the `BakeAnchor` node for baking
+runtime-built materials — lives in the standalone **`godot_webgpu`** addon,
+which this kit does not depend on. Install `godot_webgpu` if you want to ship
+the WebGPU backend; see its README.
 
 ## Platform notes
 
