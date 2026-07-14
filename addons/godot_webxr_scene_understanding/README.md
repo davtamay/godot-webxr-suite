@@ -4,9 +4,8 @@ Real-world awareness for WebXR sessions, as drop-in nodes:
 
 | Node | Feature | WebXR API | Works out of the box on |
 |---|---|---|---|
-| `webxr_mesh_bridge.gd` | Room mesh + semantic scene labels | `mesh-detection` (`frame.detectedMeshes`) + `plane-detection` for labels on platforms whose meshes are untagged (Quest) | Quest (Space Setup). Android XR requires chrome://flags → WebXR Incubations. |
-| `webxr_occluder.gd` | Real-world occlusion of rendered content | room mesh (static) today; live sensor depth upcoming | Quest; Android XR behind the same flag |
-| `webxr_depth_bridge.gd` | Live depth sensing → world-anchored depth mesh | `depth-sensing` CPU path (`frame.getDepthInformation`) | Android XR (WebGL sessions). Quest grants **gpu-optimized only** — the node reports it honestly; GPU-path consumption is future work. |
+| `webxr_mesh_bridge.gd` | Room mesh + semantic scene labels + static room-mesh occlusion | `mesh-detection` (`frame.detectedMeshes`) + `plane-detection` for labels on platforms whose meshes are untagged (Quest) | Quest (Space Setup). Android XR requires chrome://flags → WebXR Incubations. |
+| `webxr_depth_bridge.gd` | Live depth sensing → world-anchored depth mesh + **real-world occlusion** (Hard: live depth-mesh punch; Soft: per-object feathered `occlusion_object.gdshader`) | `depth-sensing` CPU path (`frame.getDepthInformation`) | Android XR (WebGL sessions). Quest grants **gpu-optimized only**, decoded via a grid-sized readback shader. |
 
 Every node reports an honest `get_status()` for its path on the current
 device, including "behind browser flags" and "upcoming browser feature"

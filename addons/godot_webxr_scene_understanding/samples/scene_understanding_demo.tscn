@@ -3,7 +3,6 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="1_webxr"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_mesh_bridge.gd" id="2_meshbridge"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_depth_bridge.gd" id="3_depthbridge"]
-[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_occluder.gd" id="4_occluder"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/browser_capabilities.gd" id="5_caps"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_manager.gd" id="6_manager"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_input_adapter.gd" id="7_adapter"]
@@ -108,9 +107,6 @@ outline_size = 8
 script = ExtResource("3_depthbridge")
 
 [node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
-
-[node name="Occluder" type="MeshInstance3D" parent="XROrigin3D/XRCamera3D"]
-script = ExtResource("4_occluder")
 
 [node name="LeftController" type="XRController3D" parent="XROrigin3D"]
 tracker = &"left_hand"

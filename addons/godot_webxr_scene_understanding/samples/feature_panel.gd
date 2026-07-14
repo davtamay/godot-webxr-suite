@@ -261,10 +261,6 @@ func _depth_bridge():
 	var nodes := get_tree().get_nodes_in_group("webxr_depth_bridge")
 	return null if nodes.is_empty() else nodes[0]
 
-func _occluder():
-	var nodes := get_tree().get_nodes_in_group("webxr_occluder")
-	return null if nodes.is_empty() else nodes[0]
-
 func _is_dynamic(bridge) -> bool:
 	return bridge != null and bridge.has_method("is_dynamic_mesh_platform") and bridge.is_dynamic_mesh_platform()
 

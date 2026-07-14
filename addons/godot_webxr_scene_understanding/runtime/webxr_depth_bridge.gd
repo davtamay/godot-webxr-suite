@@ -35,6 +35,22 @@ extends Node3D
 ## WebGL sessions (Quest) decode the XRWebGLBinding depth texture with a
 ## grid-sized shader pass and read it back. get_status() reports honestly
 ## which precondition is missing.
+##
+## OCCLUSION PATHS (both fed by THIS bridge's CPU depth harvest - the depth
+## sensor's own texture is not directly bindable in the browser yet):
+##   HARD (set_occlude): the live per-frame depth grid is triangulated into a
+##     mesh drawn with a subtract-blend punch (_punch_instance). Crisp, cheap,
+##     reliable - the default.
+##   SOFT (set_ext_harvest): the depth grid is uploaded as a per-eye texture
+##     array and PUSHED onto occludable objects' occlusion_object.gdshader
+##     (group 'webxr_occludable'), which fades each object to passthrough where
+##     the real world is in front, with a feathered edge (the Meta/Unity
+##     per-object technique). No fullscreen quad, no scene DEPTH_TEXTURE.
+## The old FULLSCREEN sensor occluder (webxr_occluder + webxr_occlusion*.gdshader)
+## was REMOVED: a fullscreen quad can't read scene depth in the XR render path,
+## so it never worked. A future GPU-direct depth path (the engine's dormant
+## wip/gl-depth-texture branch) would remove the CPU roundtrip; until then this
+## bridge is the single source of depth for both occlusion modes.
 
 const MESH_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/depth_mesh_material.tres")
 ## Scan accumulation draws depth-test-free at a high queue priority so the
