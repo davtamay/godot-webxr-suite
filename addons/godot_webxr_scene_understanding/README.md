@@ -11,6 +11,31 @@ Every node reports an honest `get_status()` for its path on the current
 device, including "behind browser flags" and "upcoming browser feature"
 cases — wire it to a status label.
 
+## Environmental light estimation
+
+`webxr_light_estimation_bridge.gd` requests the optional `light-estimation`
+feature and publishes the primary light direction/intensity plus all nine RGB
+spherical-harmonic coefficients. `light_estimation_demo.tscn` applies the SH
+field in a Godot shader and maps the primary estimate to a
+`DirectionalLight3D`.
+
+The demo presents one large XR Toolkit grabbable hero material instead of a
+fixed swatch grid. Its in-world slider panel controls metallic, roughness,
+color hue, SH estimate gain, and reflection/specular response, with material
+presets and LIVE/FROZEN/NEUTRAL comparison modes. These controls alter only
+the virtual material; the WebXR measurements remain read-only.
+
+Browser-owned reflection cubemaps are detected and reported, but importing
+their native GPU texture into Godot remains a separate renderer-interop slice.
+
+## Hit testing and anchors
+
+`webxr_hit_test_anchor_bridge.gd` publishes viewer-ray surface hits and stable
+anchor transforms using the optional `hit-test` and `anchors` features. The
+bridge owns the browser anchor objects and their deletion; consumers only
+respond to hit/anchor lifecycle signals. `hit_test_anchors_demo.tscn` provides
+the reference reticle, select-to-place flow, tracked beacons, and diagnostics.
+
 ## Session features: the `webxr_feature_provider` contract
 
 Nodes in the `webxr_feature_provider` group declare the WebXR session

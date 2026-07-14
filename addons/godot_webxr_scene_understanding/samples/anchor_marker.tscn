@@ -1,0 +1,74 @@
+[gd_scene load_steps=10 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_base"]
+albedo_color = Color(0.055, 0.11, 0.16, 1)
+metallic = 0.72
+roughness = 0.24
+
+[sub_resource type="StandardMaterial3D" id="Material_glow"]
+albedo_color = Color(0.08, 0.82, 1, 1)
+emission_enabled = true
+emission = Color(0.03, 0.7, 1, 1)
+emission_energy_multiplier = 3.0
+metallic = 0.2
+roughness = 0.18
+
+[sub_resource type="CylinderMesh" id="Cylinder_base"]
+top_radius = 0.085
+bottom_radius = 0.105
+height = 0.035
+radial_segments = 28
+
+[sub_resource type="CylinderMesh" id="Cylinder_stem"]
+top_radius = 0.014
+bottom_radius = 0.025
+height = 0.22
+radial_segments = 18
+
+[sub_resource type="SphereMesh" id="Sphere_beacon"]
+radius = 0.055
+height = 0.11
+radial_segments = 28
+rings = 14
+
+[sub_resource type="TorusMesh" id="Torus_orbit"]
+inner_radius = 0.078
+outer_radius = 0.087
+rings = 32
+ring_segments = 12
+
+[node name="AnchorMarker" type="Node3D"]
+
+[node name="Base" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.0175, 0)
+mesh = SubResource("Cylinder_base")
+surface_material_override/0 = SubResource("Material_base")
+
+[node name="Stem" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.135, 0)
+mesh = SubResource("Cylinder_stem")
+surface_material_override/0 = SubResource("Material_glow")
+
+[node name="Beacon" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.27, 0)
+mesh = SubResource("Sphere_beacon")
+surface_material_override/0 = SubResource("Material_glow")
+
+[node name="Orbit" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.27, 0)
+mesh = SubResource("Torus_orbit")
+surface_material_override/0 = SubResource("Material_glow")
+
+[node name="OrbitTilt" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, -0.707107, 0, 0.707107, 0.707107, 0, 0.27, 0)
+mesh = SubResource("Torus_orbit")
+surface_material_override/0 = SubResource("Material_glow")
+
+[node name="AnchorLabel" type="Label3D" parent="."]
+position = Vector3(0, 0.39, 0)
+modulate = Color(0.72, 0.94, 1, 1)
+pixel_size = 0.0012
+billboard = 1
+text = "ANCHOR"
+font_size = 24
+outline_size = 6
