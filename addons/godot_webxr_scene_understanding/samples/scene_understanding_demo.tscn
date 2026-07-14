@@ -16,6 +16,8 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/feature_panel.gd" id="14_feature_panel"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/scene_understanding_demo.gd" id="15_root"]
 [ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="16_labelbake"]
+[ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/grab_cube_material.tres" id="17_cubemat"]
+[ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/grab_sphere_material.tres" id="18_spheremat"]
 
 [sub_resource type="Environment" id="Environment_demo"]
 background_mode = 2
@@ -160,9 +162,10 @@ shape = SubResource("BoxShape_floor")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 1.05, -1.4)
 script = ExtResource("9_grab")
 
-[node name="Mesh" type="MeshInstance3D" parent="GrabCube"]
+[node name="Mesh" type="MeshInstance3D" parent="GrabCube" groups=["webxr_occludable"]]
 mesh = SubResource("BoxMesh_cube")
 surface_material_override/0 = SubResource("Material_cube")
+metadata/occ_material = ExtResource("17_cubemat")
 
 [node name="InteractableBody" type="StaticBody3D" parent="GrabCube"]
 
@@ -173,9 +176,10 @@ shape = SubResource("BoxShape_cube")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 1.05, -1.4)
 script = ExtResource("9_grab")
 
-[node name="Mesh" type="MeshInstance3D" parent="GrabSphere"]
+[node name="Mesh" type="MeshInstance3D" parent="GrabSphere" groups=["webxr_occludable"]]
 mesh = SubResource("SphereMesh_grab")
 surface_material_override/0 = SubResource("Material_sphere")
+metadata/occ_material = ExtResource("18_spheremat")
 
 [node name="InteractableBody" type="StaticBody3D" parent="GrabSphere"]
 
@@ -253,58 +257,23 @@ text = "WebXR Scene Understanding"
 
 [node name="StateLabel" type="Label" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 120)
+custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 theme_override_font_sizes/font_size = 26
 text = "Toggle a feature; its status for this device shows here."
 autowrap_mode = 3
 
-[node name="RoomMeshButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Rows" type="VBoxContainer" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
 unique_name_in_owner = true
-toggle_mode = true
-custom_minimum_size = Vector2(0, 56)
 layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Room Mesh"
-
-[node name="LiveReconButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
-unique_name_in_owner = true
-toggle_mode = true
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Live Recon"
-
-[node name="DepthSensingButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
-unique_name_in_owner = true
-toggle_mode = true
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Depth Scan"
-
-[node name="LabelsButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
-unique_name_in_owner = true
-toggle_mode = true
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Scene Labels"
-
-[node name="OcclusionButton" type="Button" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
-unique_name_in_owner = true
-toggle_mode = true
-custom_minimum_size = Vector2(0, 56)
-layout_mode = 2
-theme_override_font_sizes/font_size = 28
-text = "Occlusion"
+theme_override_constants/separation = 10
 
 [node name="PanelFootnote" type="Label" parent="XRUIPanel/Viewport/Root/PanelContainer/MarginContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.62, 0.66, 0.72, 1)
 autowrap_mode = 3
-text = "WebXR features: Room Mesh & Live Recon -> mesh-detection (persistent room model). Scene Labels -> plane-detection. Depth Scan & Occlusion -> depth-sensing (live per-frame depth for occlusion, even a moving hand; never a saved map)."
+text = "WebXR features: Room Mesh & Live Recon -> mesh-detection. Depth Scan -> depth-sensing (live per-frame depth, even a moving hand; never a saved map). Scene Labels -> plane-detection. Show = draw it; Occlude = hide virtual content behind it."
 
 [node name="WebXRBootstrap" type="Node3D" parent="."]
 script = ExtResource("1_webxr")

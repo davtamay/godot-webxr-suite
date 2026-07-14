@@ -83,13 +83,29 @@ var occlude_enabled := false
 var _webxr: XRInterface
 var _installed := false
 var _poll_accum := 0.0
+## Poll cadence: faster while soft-occluding (less head-motion lag), slower for
+## the passive scan/mesh view.
+var _poll_interval := 0.25
 var _last_seq := 0
 ## Triangles in the most recent live harvest (for an honest status count now
 ## that accumulation is off - the old cell count would always read 0).
 var _live_tris := 0
 var _material: StandardMaterial3D
 var _mesh_instance: MeshInstance3D
+## Second instance sharing the live mesh geometry but drawing the occlusion
+## punch, so Show (visible sweep) and Occlude (invisible punch) are independent.
+var _punch_instance: MeshInstance3D
 var _scan_instance: MeshInstance3D
+## Screen-space depth texture (metres, FORMAT_RF) uploaded from the harvest for
+## the per-pixel occlusion shader, plus an external-harvest request from the
+## occluder (harvest + upload the texture without rendering the bridge's mesh).
+## Two-layer env-depth (layer 0 = left eye, 1 = right eye) so the per-object
+## occlusion shader can sample the correct eye via ViewIndex (stereo-correct).
+var _env_img0: Image
+var _env_depth_tex: Texture2DArray
+var _ext_harvest := false
+## Per-object occlusion edge softness (0 = crisp, 1 = very soft).
+var _occ_softness := 0.0
 # Vector3i chunk key -> { verts: Array[Vector3], indices: Array[int] }
 # (plain Arrays: reference semantics during building; packed at rebuild).
 var _scan_chunks := {}
@@ -113,6 +129,12 @@ func _ready() -> void:
 	_mesh_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_mesh_instance.visible = false
 	add_child(_mesh_instance)
+	_punch_instance = MeshInstance3D.new()
+	_punch_instance.name = "DepthMeshPunch"
+	_punch_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_punch_instance.material_override = PUNCH_MATERIAL
+	_punch_instance.visible = false
+	add_child(_punch_instance)
 	_scan_instance = MeshInstance3D.new()
 	_scan_instance.name = "DepthScan"
 	_scan_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -120,6 +142,17 @@ func _ready() -> void:
 	_scan_instance.material_override = SCAN_MATERIAL.duplicate()
 	add_child(_scan_instance)
 	_install_js_hook()
+
+## Push a shader parameter onto every occludable object's material (group
+## 'webxr_occludable'; their ShaderMaterial drives the per-object soft occlusion).
+func _push_occlusion(param: StringName, value: Variant) -> void:
+	for node in get_tree().get_nodes_in_group("webxr_occludable"):
+		if node is MeshInstance3D:
+			var mat: Material = node.get_surface_override_material(0)
+			if mat == null:
+				mat = node.material_override
+			if mat is ShaderMaterial:
+				mat.set_shader_parameter(param, value)
 
 func _install_js_hook() -> void:
 	if _installed:
@@ -132,7 +165,7 @@ func _install_js_hook() -> void:
 	const bridge = {
 		harvest: false, refType: 'local-floor', _ref: null, _refPending: false,
 		seq: 0, frame: null, intervalMs: 250, _last: 0,
-		gridW: 96, gridH: 72, status: 'idle', usage: '', format: '', size: '', path: '',
+		gridW: 128, gridH: 96, status: 'idle', usage: '', format: '', size: '', path: '',
 		// Accumulated scan: world-anchored voxel occupancy. Grid points whose
 		// cell is NEW this harvest get flagged fresh, so the consumer can
 		// accumulate triangulated patches of only-new surface - looking
@@ -175,7 +208,7 @@ func _install_js_hook() -> void:
 	// tiny shader pass and read it back. Runs on the engine's own WebGL2
 	// context inside the rAF (XR textures are frame-scoped), with full GL
 	// state save/restore around the pass.
-	function gpuHarvestMeters(frame, view) {
+	function gpuHarvestMeters(frame, view, layerIdx) {
 		const g = bridge._gpu || (bridge._gpu = {});
 		if (g.fail) { bridge.status = g.failWhy; return null; }
 		const gw = bridge.gridW, gh = bridge.gridH;
@@ -256,7 +289,11 @@ func _install_js_hook() -> void:
 			depthFar = d.depthFar;
 		}
 		try {
-			if (!g.fbo) {
+			if (!g.fbo || g.gw !== gw || g.gh !== gh) {
+				// Rebuild the readback target when the resolution changes at
+				// runtime (the resolution stepper), freeing the old one first.
+				if (g.fbo) { gl.deleteFramebuffer(g.fbo); gl.deleteTexture(g.tex); }
+				g.gw = gw; g.gh = gh;
 				g.tex = gl.createTexture();
 				gl.activeTexture(gl.TEXTURE0);
 				const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
@@ -270,16 +307,18 @@ func _install_js_hook() -> void:
 				gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, g.fbo);
 				gl.framebufferTexture2D(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, g.tex, 0);
 				gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, prevFbo);
-				g.vao = gl.createVertexArray();
+				if (!g.vao) { g.vao = gl.createVertexArray(); }
 				g.buf = new Uint8Array(gw * gh * 4);
 			}
 			const progKey = isArray ? 'progArr' : 'prog2d';
 			if (!g[progKey]) {
 				const vs = '#version 300 es\\nvoid main(){vec2 p=vec2(float((gl_VertexID<<1)&2),float(gl_VertexID&2));gl_Position=vec4(p*2.0-1.0,0.0,1.0);}';
 				const samp = isArray ? 'uniform highp sampler2DArray depthTex;' : 'uniform highp sampler2D depthTex;';
-				const fetch = isArray ? 'texture(depthTex, vec3(uv, 0.0))' : 'texture(depthTex, uv)';
+				// uLayer picks the eye's array layer (0 = left, 1 = right) so the
+				// right eye reads its OWN depth, not the left's.
+				const fetch = isArray ? 'texture(depthTex, vec3(uv, uLayer))' : 'texture(depthTex, uv)';
 				const fs = '#version 300 es\\nprecision highp float;\\n' + samp +
-					'\\nuniform mat4 uvTransform;\\nuniform vec2 gridSize;\\nuniform int fmt;\\nuniform float rawToMeters;\\nuniform vec2 nearFar;\\nuniform vec2 pmv;\\nout vec4 outColor;\\n' +
+					'\\nuniform mat4 uvTransform;\\nuniform vec2 gridSize;\\nuniform int fmt;\\nuniform float rawToMeters;\\nuniform vec2 nearFar;\\nuniform vec2 pmv;\\nuniform float uLayer;\\nout vec4 outColor;\\n' +
 					'void main(){\\n' +
 					// gl_FragCoord.y is bottom-up, but the depth transform (and
 					// the CPU getDepthInMeters path) use a top-down normalized
@@ -340,6 +379,7 @@ func _install_js_hook() -> void:
 					r2m: gl.getUniformLocation(prog, 'rawToMeters'),
 					nf: gl.getUniformLocation(prog, 'nearFar'),
 					pmv: gl.getUniformLocation(prog, 'pmv'),
+					layer: gl.getUniformLocation(prog, 'uLayer'),
 				};
 			}
 			// Save every piece of GL state the pass touches; the engine
@@ -386,6 +426,7 @@ func _install_js_hook() -> void:
 				gl.uniform1f(u.r2m, d.rawValueToMeters);
 				gl.uniform2f(u.nf, depthNear, depthFar);
 				gl.uniform2f(u.pmv, pm ? pm[10] : 0.0, pm ? pm[14] : 0.0);
+				if (u.layer) { gl.uniform1f(u.layer, layerIdx || 0.0); }
 				gl.drawArrays(gl.TRIANGLES, 0, 3);
 				gl.bindFramebuffer(gl.READ_FRAMEBUFFER, g.fbo);
 				gl.bindBuffer(gl.PIXEL_PACK_BUFFER, null);
@@ -525,8 +566,15 @@ func _install_js_hook() -> void:
 							// gpu-optimized grants refuse the CPU API by
 							// spec; go straight to the readback path there.
 							const meters = pan ? null : (bridge.usage === 'gpu-optimized')
-								? gpuHarvestMeters(frame, view)
+								? gpuHarvestMeters(frame, view, 0)
 								: cpuHarvestMeters(frame, view);
+							// Right eye, for stereo per-object occlusion. Layer 1
+							// of the depth array. Only once the decode is LOCKED
+							// (else two calls per frame fight over calibration).
+							const view1 = (vp.views.length > 1) ? vp.views[1] : null;
+							const meters1 = (bridge.wantMet && meters && view1 && bridge._gpu && bridge._gpu.locked)
+								? ((bridge.usage === 'gpu-optimized') ? gpuHarvestMeters(frame, view1, 1) : cpuHarvestMeters(frame, view1))
+								: null;
 							if (meters) {
 								bridge._last = t;
 								const p = view.projectionMatrix;
@@ -535,6 +583,11 @@ func _install_js_hook() -> void:
 								const pts = new Array(gw * gh * 3);
 								const val = new Array(gw * gh);
 								const fresh = new Array(gw * gh);
+								// Screen-space depth grid in millimetres for the
+								// per-pixel occlusion texture (0 = no data). Only
+								// built when the soft occluder asks (wantMet).
+								const met = bridge.wantMet ? new Array(gw * gh) : null;
+								const met1 = (bridge.wantMet && meters1) ? new Array(gw * gh) : null;
 								for (let gy = 0; gy < gh; gy++) {
 									// Normalized view coords have a top-left
 									// origin (y down); NDC y points up.
@@ -543,13 +596,18 @@ func _install_js_hook() -> void:
 									for (let gx = 0; gx < gw; gx++) {
 										const u = gx / (gw - 1);
 										const i = gy * gw + gx;
+										// Right-eye grid is independent of the
+										// left eye's per-cell validity.
+										if (met1) { const d1 = meters1[i]; met1[i] = (d1 > 0.1 && d1 < 8.0) ? Math.round(d1 * 1000) : 0; }
 										const dm = meters[i];
 										if (!(dm > 0.1 && dm < 8.0)) {
 											val[i] = 0;
 											fresh[i] = 0;
+											if (met) { met[i] = 0; }
 											pts[i * 3] = 0; pts[i * 3 + 1] = 0; pts[i * 3 + 2] = 0;
 											continue;
 										}
+										if (met) { met[i] = Math.round(dm * 1000); }
 										const nx = 2 * u - 1;
 										const ex = dm * (nx + p[8]) / p[0];
 										const ey = dm * (ny + p[9]) / p[5];
@@ -590,7 +648,8 @@ func _install_js_hook() -> void:
 									}
 								}
 								bridge.frame = {
-									seq: ++bridge.seq, gw: gw, gh: gh, pts: pts, val: val, fresh: fresh,
+									seq: ++bridge.seq, gw: gw, gh: gh, pts: pts, val: val,
+									met: met, met1: met1,
 									eye: [tr[12], tr[13], tr[14]],
 								};
 							}
@@ -613,6 +672,31 @@ func set_visualize(p_on: bool) -> void:
 		_last_seq = 0
 		_clear_scan()
 
+## Sampling resolution levels (fidelity stepper). Wider = sharper occlusion
+## and scan, up to the sensor's own resolution; cost is the per-harvest
+## JS->GDScript transport and, on the CPU path, one getDepthInMeters per cell.
+const RES_LEVELS := [
+	{ "name": "Low", "w": 96, "h": 72 },
+	{ "name": "Med", "w": 128, "h": 96 },
+	{ "name": "High", "w": 160, "h": 120 },
+	{ "name": "Ultra", "w": 224, "h": 168 },
+	{ "name": "Max", "w": 320, "h": 240 },
+]
+var res_level := 1
+
+## Set the harvest grid to a level index; the GPU readback rebuilds its target
+## on the next frame and the CPU path adapts automatically.
+func set_resolution_level(p_level: int) -> void:
+	res_level = clampi(p_level, 0, RES_LEVELS.size() - 1)
+	var lvl: Dictionary = RES_LEVELS[res_level]
+	Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.gridW = %d, window.GodotWebXRDepthBridge.gridH = %d);" % [lvl["w"], lvl["h"]], true)
+	_last_seq = 0
+
+## The label for the current level, e.g. "Med 128x96".
+func resolution_label() -> String:
+	var lvl: Dictionary = RES_LEVELS[res_level]
+	return "%s %dx%d" % [lvl["name"], lvl["w"], lvl["h"]]
+
 ## Occlusion mode: punch the live per-frame depth mesh so virtual content is
 ## hidden behind real surfaces, INCLUDING moving things (a hand) - the room
 ## mesh is static and cannot. Additive with the room-mesh occluder, not a
@@ -627,22 +711,20 @@ func set_occlude(p_on: bool) -> void:
 ## Depth harvesting (and the poll loop) run while EITHER the scan view or
 ## occlusion needs the data.
 func _sync_harvest() -> void:
-	var active := auto_visualize or occlude_enabled
+	var active := auto_visualize or occlude_enabled or _ext_harvest
 	Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.harvest = %s);" % ("true" if active else "false"), true)
 	set_process(active)
 	if not active:
 		_mesh_instance.mesh = null
+		_punch_instance.mesh = null
 
-## The live per-frame mesh serves two masters: an occlusion punch (dynamic)
-## or the visualization sweep. Occlusion wins when both are on.
+## Show and Occlude are independent: the visible sweep and the invisible punch
+## are two instances sharing the live per-frame geometry.
 func _sync_render() -> void:
-	if occlude_enabled:
-		_mesh_instance.material_override = PUNCH_MATERIAL
-		_mesh_instance.visible = true
-	else:
-		_mesh_instance.material_override = _material
-		_mesh_instance.visible = auto_visualize and show_live_sweep
-	_scan_instance.visible = auto_visualize and accumulate and not occlude_enabled
+	_mesh_instance.material_override = _material
+	_mesh_instance.visible = auto_visualize and show_live_sweep
+	_punch_instance.visible = occlude_enabled
+	_scan_instance.visible = auto_visualize and accumulate
 
 func _clear_scan() -> void:
 	_scan_chunks.clear()
@@ -716,18 +798,19 @@ func _on_session_started() -> void:
 
 func _on_session_ended() -> void:
 	_mesh_instance.mesh = null
+	_punch_instance.mesh = null
 	_last_seq = 0
 	_clear_scan()
 
 func _process(delta: float) -> void:
-	if not (auto_visualize or occlude_enabled):
+	if not (auto_visualize or occlude_enabled or _ext_harvest):
 		return
 	if _scan_rebuild_cooldown > 0.0:
 		_scan_rebuild_cooldown -= delta
 	elif _scan_dirty:
 		_rebuild_scan_mesh()
 	_poll_accum += delta
-	if _poll_accum < 0.25:
+	if _poll_accum < _poll_interval:
 		return
 	_poll_accum = 0.0
 	var js := Engine.get_singleton("JavaScriptBridge")
@@ -738,7 +821,90 @@ func _process(delta: float) -> void:
 	if data == null:
 		return
 	_last_seq = int(data["seq"])
-	_rebuild_mesh(data)
+	# The per-pixel env-depth texture is only built when a consumer (the soft
+	# occluder) asks for it - keeps the transport lean for Show/Hard-occlude.
+	if _ext_harvest:
+		_update_env_depth(data)
+	if auto_visualize or occlude_enabled:
+		_rebuild_mesh(data)
+
+## Upload the harvested metres grid as a FORMAT_RF texture for the per-pixel
+## (Meta-style) occlusion shader. Reuses the Image/ImageTexture across frames.
+func _update_env_depth(data: Dictionary) -> void:
+	var met_v: Variant = data.get("met", null)
+	if met_v == null:
+		return
+	var met: Array = met_v
+	var gw := int(data["gw"])
+	var gh := int(data["gh"])
+	if met.size() != gw * gh:
+		return
+	var met1_v: Variant = data.get("met1", null)
+	var img0 := _grid_to_image(met, gw, gh)
+	var img1: Image = _grid_to_image(met1_v, gw, gh) if (met1_v != null and (met1_v as Array).size() == gw * gh) else img0
+	if _env_depth_tex == null or _env_img0 == null or _env_img0.get_width() != gw or _env_img0.get_height() != gh:
+		_env_img0 = img0
+		_env_depth_tex = Texture2DArray.new()
+		_env_depth_tex.create_from_images([img0, img1])
+		_push_occlusion(&"env_size", Vector2(gw, gh))
+		_push_occlusion(&"env_depth", _env_depth_tex)
+	else:
+		_env_depth_tex.update_layer(img0, 0)
+		_env_depth_tex.update_layer(img1, 1)
+
+func _grid_to_image(grid: Array, gw: int, gh: int) -> Image:
+	var floats := PackedFloat32Array()
+	floats.resize(gw * gh)
+	for i in range(gw * gh):
+		floats[i] = float(grid[i]) / 1000.0
+	return Image.create_from_data(gw, gh, false, Image.FORMAT_RF, floats.to_byte_array())
+
+## The per-pixel occlusion env-depth texture array (null until the first harvest).
+func get_env_depth_texture() -> Texture:
+	return _env_depth_tex
+
+func get_env_size() -> Vector2:
+	return Vector2(_env_img0.get_width(), _env_img0.get_height()) if _env_img0 else Vector2(128, 96)
+
+## True while the per-object soft occlusion is feeding the env-depth globals.
+func is_soft_occluding() -> bool:
+	return _ext_harvest
+
+## Soft occlusion feeds the env-depth globals from the harvest without the
+## bridge rendering its own mesh (the objects' materials fade themselves).
+func set_ext_harvest(on: bool) -> void:
+	_ext_harvest = on
+	# Gate the metres grid in the JS payload; also harvest FASTER while occluding
+	# so the depth tracks head motion (stale depth = the occlusion "drags").
+	Engine.get_singleton("JavaScriptBridge").eval("window.GodotWebXRDepthBridge && (window.GodotWebXRDepthBridge.wantMet = %s, window.GodotWebXRDepthBridge.intervalMs = %d);" % [("true" if on else "false"), (100 if on else 250)], true)
+	_poll_interval = 0.1 if on else 0.25
+	# Swap to the transparent occlusion material for Soft, opaque otherwise, THEN
+	# push the enable flag (onto the now-active occlusion material).
+	_swap_occlusion_materials(on)
+	_push_occlusion(&"occ_enabled", 1.0 if on else 0.0)
+	if on:
+		_push_occlusion(&"softness", _occ_softness)
+	_sync_harvest()
+
+## Edge softness for the per-object occlusion (0 = crisp .. 1 = very soft).
+func set_occ_softness(v: float) -> void:
+	_occ_softness = clampf(v, 0.0, 1.0)
+	_push_occlusion(&"softness", _occ_softness)
+
+## Swap occludable objects to their transparent occlusion material for Soft mode,
+## back to opaque otherwise. An OPAQUE object writes depth so the Hard mesh punch
+## respects it; the transparent occlusion shader would let the punch through.
+func _swap_occlusion_materials(on: bool) -> void:
+	for node in get_tree().get_nodes_in_group("webxr_occludable"):
+		if not (node is MeshInstance3D):
+			continue
+		if on:
+			if node.has_meta("occ_material") and not (node.get_surface_override_material(0) is ShaderMaterial):
+				node.set_meta("opaque_material", node.get_surface_override_material(0))
+				node.set_surface_override_material(0, node.get_meta("occ_material"))
+		elif node.has_meta("opaque_material"):
+			node.set_surface_override_material(0, node.get_meta("opaque_material"))
+
 
 ## Bucket this harvest's connected triangles into world chunks by centroid
 ## and REPLACE each covered chunk's geometry with the newest version.
@@ -825,7 +991,8 @@ func _rebuild_mesh(data: Dictionary) -> void:
 		var p := Vector3(pts[i * 3], pts[i * 3 + 1], pts[i * 3 + 2])
 		verts[i] = p
 		var dist := clampf(eye.distance_to(p) / far_distance, 0.0, 1.0)
-		# Near cyan -> far deep blue, dimming with distance.
+		# Near cyan -> far deep blue, dimming with distance (the punch material
+		# ignores vertex color; the scan visualization uses it as its tint).
 		colors[i] = Color.from_hsv(0.5 + 0.16 * dist, 0.85, 1.0 - 0.5 * dist, 0.85)
 
 	var max_edge_sq := max_edge_length * max_edge_length
@@ -857,9 +1024,10 @@ func _rebuild_mesh(data: Dictionary) -> void:
 	# only (a moving hand must not smear into a persistent scan).
 	if accumulate and auto_visualize and not tris.is_empty():
 		_update_scan_chunks(verts, tris)
-	# Build the live mesh when the sweep view OR occlusion needs it.
-	if not (show_live_sweep or occlude_enabled) or indices.is_empty():
+	# Build the live mesh when the visible sweep OR the occlusion punch needs it.
+	if not ((auto_visualize and show_live_sweep) or occlude_enabled) or indices.is_empty():
 		_mesh_instance.mesh = null
+		_punch_instance.mesh = null
 		return
 	var arrays := []
 	arrays.resize(Mesh.ARRAY_MAX)
@@ -869,7 +1037,13 @@ func _rebuild_mesh(data: Dictionary) -> void:
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
 	mesh.surface_set_material(0, _material)
-	_mesh_instance.mesh = mesh
+	# Only the visible instance carries geometry (Show/Occlude are exclusive).
+	if occlude_enabled:
+		_mesh_instance.mesh = null
+		_punch_instance.mesh = mesh
+	else:
+		_mesh_instance.mesh = mesh
+		_punch_instance.mesh = null
 
 
 ## webxr_feature_provider contract, collected by webxr_bootstrap.gd before

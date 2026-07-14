@@ -68,6 +68,10 @@ var _planes := {}
 var _last_planes_payload := ""
 var _material: StandardMaterial3D
 var _merged: MeshInstance3D
+## Second instance sharing _merged's geometry but drawing the occlusion punch,
+## so Show (visible mesh) and Occlude (invisible passthrough punch) are
+## independent toggles rather than one material-swapped instance.
+var _merged_punch: MeshInstance3D
 var _render_dirty := false
 var _rebuild_cooldown := 0.0
 
@@ -92,6 +96,12 @@ func _ready() -> void:
 	_merged.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	_merged.visible = false
 	add_child(_merged)
+	_merged_punch = MeshInstance3D.new()
+	_merged_punch.name = "MergedRoomMeshPunch"
+	_merged_punch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_merged_punch.material_override = PUNCH_MATERIAL
+	_merged_punch.visible = false
+	add_child(_merged_punch)
 	_install_js_hook()
 
 func _install_js_hook() -> void:
@@ -258,7 +268,6 @@ func get_surface_count() -> int:
 func set_visualize(p_enabled: bool) -> void:
 	auto_visualize = p_enabled
 	if p_enabled:
-		occlusion_enabled = false
 		_refresh_gpu_geometry()
 	_apply_render_mode()
 
@@ -277,7 +286,6 @@ func set_labels(p_enabled: bool) -> void:
 func set_occlusion(p_enabled: bool) -> void:
 	occlusion_enabled = p_enabled
 	if p_enabled:
-		auto_visualize = false
 		_refresh_gpu_geometry()
 	_apply_render_mode()
 
@@ -506,11 +514,15 @@ func _rebuild_merged(p_force := false) -> void:
 	if not _render_dirty:
 		return
 	var mesh_on := auto_visualize or occlusion_enabled
-	_merged.visible = mesh_on
+	# Show and Occlude are independent: the visible mesh and the punch are two
+	# instances sharing one geometry.
+	_merged.visible = auto_visualize
+	_merged_punch.visible = occlusion_enabled
 	if not mesh_on:
 		# Free the GPU geometry; an invisible room-sized mesh should cost
 		# nothing.
 		_merged.mesh = null
+		_merged_punch.mesh = null
 	if not show_labels:
 		for key in _label_nodes.keys():
 			_label_nodes[key].queue_free()
@@ -571,6 +583,7 @@ func _rebuild_merged(p_force := false) -> void:
 		total_idx += (_chunks[id]["idx"] as PackedInt32Array).size()
 	if total_idx == 0:
 		_merged.mesh = null
+		_merged_punch.mesh = null
 		return
 
 	var positions := PackedVector3Array()
@@ -604,8 +617,11 @@ func _rebuild_merged(p_force := false) -> void:
 	arrays[Mesh.ARRAY_INDEX] = indices
 	var mesh := ArrayMesh.new()
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	_merged.mesh = mesh
-	_merged.material_override = PUNCH_MATERIAL if occlusion_enabled else _material
+	# Only the visible instance carries geometry (Show/Occlude are exclusive),
+	# so the hidden one costs nothing.
+	_merged.mesh = mesh if auto_visualize else null
+	_merged.material_override = _material
+	_merged_punch.mesh = mesh if occlusion_enabled else null
 
 func _update_label(key: String, text: String, world_pos: Vector3, color: Color) -> void:
 	var label_node: Label3D
@@ -614,7 +630,11 @@ func _update_label(key: String, text: String, world_pos: Vector3, color: Color) 
 	else:
 		label_node = Label3D.new()
 		label_node.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		label_node.no_depth_test = false
+		# Labels are an information overlay: draw on top of geometry and AFTER
+		# the occlusion punch (render_priority above the punch's 100), so the
+		# subtract-blend punch can't erase the words.
+		label_node.no_depth_test = true
+		label_node.render_priority = 127
 		label_node.pixel_size = 0.002
 		label_node.font_size = 48
 		label_node.outline_size = 8

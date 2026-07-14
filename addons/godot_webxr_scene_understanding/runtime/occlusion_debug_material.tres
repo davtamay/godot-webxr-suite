@@ -1,0 +1,8 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_occlusion_debug.gdshader" id="1_shader"]
+
+[resource]
+render_priority = 127
+shader = ExtResource("1_shader")
+shader_parameter/raw_to_meters = 1.0
