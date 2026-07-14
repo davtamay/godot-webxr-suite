@@ -1,0 +1,101 @@
+class_name WebXRRenderer
+extends RefCounted
+
+## Renderer selection for WebXR web apps (WebGL vs WebGPU).
+##
+## The graphics backend is chosen ONCE, at page load, before the first canvas
+## context exists: an HTML canvas is permanently locked to its first
+## getContext type, so WebGL2 and WebGPU can never share a canvas and the
+## renderer cannot be switched live. This helper lets a menu present the choice
+## EXPLICITLY - read which backend booted, ask what each backend can do on THIS
+## browser, and save a preference + reload to switch to the other.
+##
+## The preference is a localStorage key the export's HTML shell reads before
+## engine start-up and turns into GODOT_CONFIG.experimentalWebGPU
+## ("webgpu" keeps it on; anything else forces WebGL). Pure GDScript +
+## JavaScriptBridge; every call is safe off-web (returns sensible defaults so a
+## menu still builds in the editor).
+##
+## Why a user would switch: today the only WebGPU gap is depth sensing - Quest's
+## XRGPUBinding has no getDepthInformation - so depth scan and occlusion need
+## the WebGL path. webgpu_depth_available() feature-detects that method, so the
+## day a browser ships it the "not available" note disappears with no code
+## change.
+
+const PREF_KEY := "godot_renderer"
+
+## "webgpu" when the RenderingDevice (WebGPU) backend booted, else "webgl".
+static func active() -> String:
+    return "webgpu" if is_webgpu() else "webgl"
+
+## True when the app is running on the WebGPU (RenderingDevice) backend. On the
+## web the only RD driver is WebGPU, so RD-present == WebGPU; gated to web so a
+## desktop editor (Vulkan/D3D12 RD) does not read as "webgpu".
+static func is_webgpu() -> bool:
+    return OS.has_feature("web") and RenderingServer.get_rendering_device() != null
+
+## True when this BUILD can actually run WebGPU at all: exported with the WebGPU
+## driver (a custom engine that has the infrastructure) AND the browser supports
+## WebGPU. On stock Godot (no WebGPU driver) or a gl_compatibility export this is
+## false - so a menu offers the WebGPU choice ONLY where it exists and stays
+## WebGL-only everywhere else. This is what makes the addon portable: drop it in
+## any Godot project and it degrades gracefully.
+static func webgpu_supported() -> bool:
+    if is_webgpu():
+        return true
+    var js = _js()
+    if js == null:
+        return false
+    # __godotWebGPUCapable is stamped by a WebGPU-aware HTML shell; the
+    # GODOT_CONFIG.experimentalWebGPU key is present only in exports built with
+    # the WebGPU driver. Either one, plus a WebGPU-capable browser, means the
+    # user can switch to WebGPU. Absent on stock Godot -> false.
+    var probe := "(function(){try{if(window.__godotWebGPUCapable)return true;var c=(typeof GODOT_CONFIG!=='undefined')?GODOT_CONFIG:null;return !!(c&&('experimentalWebGPU' in c)&&navigator.gpu);}catch(e){return false;}})()"
+    return bool(js.eval(probe, true))
+
+## Does the WebGPU XR path expose real-world depth on THIS browser? Feature-
+## detects getDepthInformation on XRGPUBinding, so this flips to true on its own
+## the day a browser ships it (Quest's XRGPUBinding lacks it today).
+static func webgpu_depth_available() -> bool:
+    var js = _js()
+    if js == null:
+        return false
+    var probe := "(function(){try{return !!(window.XRGPUBinding && XRGPUBinding.prototype && ('getDepthInformation' in XRGPUBinding.prototype));}catch(e){return false;}})()"
+    return bool(js.eval(probe, true))
+
+## True when the app is on WebGPU AND this browser can't serve depth there, i.e.
+## depth scan / occlusion are unavailable until the user switches to WebGL.
+static func depth_blocked_here() -> bool:
+    return is_webgpu() and not webgpu_depth_available()
+
+## The saved renderer preference: "webgl", "webgpu", or "" (none set yet).
+static func preference() -> String:
+    var js = _js()
+    if js == null:
+        return ""
+    var v = js.eval("(function(){try{return localStorage.getItem('%s')||'';}catch(e){return '';}})()" % PREF_KEY, true)
+    return str(v) if v != null else ""
+
+## Save a renderer preference ("webgl" or "webgpu") and reload the page so the
+## shell boots the chosen backend. No-op off-web or for an unknown mode.
+static func switch_to(mode: String) -> void:
+    if mode != "webgl" and mode != "webgpu":
+        return
+    var js = _js()
+    if js == null:
+        return
+    js.eval("try{localStorage.setItem('%s','%s');}catch(e){}; location.reload();" % [PREF_KEY, mode], true)
+
+## A short human-readable coverage note for a menu label. `renderer` is
+## "webgl" or "webgpu"; the WebGPU note reflects THIS browser's depth support.
+static func coverage_note(renderer: String) -> String:
+    if renderer == "webgl":
+        return "Full features (depth scan, occlusion, room mesh, hands)."
+    if webgpu_depth_available():
+        return "Full features."
+    return "Rendering backend. Depth sensing (depth scan, occlusion) is not available on this browser yet - switch to WebGL for it."
+
+static func _js():
+    if OS.has_feature("web") and Engine.has_singleton("JavaScriptBridge"):
+        return Engine.get_singleton("JavaScriptBridge")
+    return null
