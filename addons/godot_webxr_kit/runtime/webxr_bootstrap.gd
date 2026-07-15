@@ -63,11 +63,18 @@ func _ready() -> void:
     _status_label = get_node_or_null(status_label_path) as Label
     _inspect_object = get_node_or_null(inspect_object_path) as MeshInstance3D
     _world_environment = get_node_or_null(world_environment_path) as WorldEnvironment
+    if _world_environment == null:
+        _world_environment = _find_world_environment()
     _base_transparent_bg = get_viewport().transparent_bg
     _base_clear_color = RenderingServer.get_default_clear_color()
     if _world_environment and _world_environment.environment:
         _base_environment_background_mode = _world_environment.environment.background_mode
         _base_environment_background_color = _world_environment.environment.background_color
+
+    # Zero-wiring path: if no session UI was wired, build our own (VR/AR
+    # buttons + status) so this bootstrap drops into any scene with no setup.
+    if _vr_button == null and _ar_button == null:
+        _build_default_ui()
 
     if _vr_button:
         _vr_button.pressed.connect(_on_enter_vr_pressed)
@@ -90,8 +97,7 @@ func _ready() -> void:
         _highlight_material.albedo_color = Color(0.25, 0.95, 0.68, 1.0)
         _highlight_material.emission = Color(0.25, 0.95, 0.68, 1.0)
         _highlight_material.emission_energy_multiplier = 1.2
-    else:
-        _set_status("Inspect object path is not assigned or does not point to a MeshInstance3D.")
+    # No inspect object is fine - it is an optional legacy demo feature.
 
     if not OS.has_feature("web"):
         _set_status("Not a web export. WebXRInterface is available only in web builds.")
@@ -347,3 +353,65 @@ func _show_browser_failure(message: String) -> void:
     var js_bridge = Engine.get_singleton("JavaScriptBridge")
     var encoded_message := JSON.stringify(message)
     js_bridge.eval("window.CompanyWebXRFailure = %s; console.error(%s);" % [encoded_message, encoded_message], true)
+
+
+func _build_default_ui() -> void:
+    # Self-contained VR/AR entry panel + status. Added to session_hide_group so
+    # it auto-hides during any immersive session. Wire your own buttons/label via
+    # the export paths to override this.
+    var canvas := CanvasLayer.new()
+    canvas.name = "WebXRSessionUI"
+    add_child(canvas)
+    canvas.add_to_group(session_hide_group)
+
+    var panel := PanelContainer.new()
+    panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
+    panel.offset_left = 24.0
+    panel.offset_top = 24.0
+    canvas.add_child(panel)
+
+    var margin := MarginContainer.new()
+    for side in ["left", "top", "right", "bottom"]:
+        margin.add_theme_constant_override("margin_" + side, 16)
+    panel.add_child(margin)
+
+    var vbox := VBoxContainer.new()
+    vbox.add_theme_constant_override("separation", 8)
+    margin.add_child(vbox)
+
+    var title := Label.new()
+    title.text = "WebXR"
+    title.add_theme_font_size_override("font_size", 22)
+    vbox.add_child(title)
+
+    _status_label = Label.new()
+    _status_label.text = "Checking WebXR support..."
+    _status_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    _status_label.custom_minimum_size = Vector2(300, 0)
+    vbox.add_child(_status_label)
+
+    var buttons := HBoxContainer.new()
+    buttons.add_theme_constant_override("separation", 8)
+    vbox.add_child(buttons)
+
+    _vr_button = Button.new()
+    _vr_button.text = "Enter VR"
+    _vr_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    buttons.add_child(_vr_button)
+
+    _ar_button = Button.new()
+    _ar_button.text = "Enter AR"
+    _ar_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    buttons.add_child(_ar_button)
+
+
+func _find_world_environment() -> WorldEnvironment:
+    # Auto-find the scene's WorldEnvironment when not wired, so AR passthrough can
+    # clear its background (sky/color) with no manual setup.
+    var scene := get_tree().current_scene
+    if scene == null:
+        return null
+    var found := scene.find_children("*", "WorldEnvironment", true, false)
+    if found.is_empty():
+        return null
+    return found[0] as WorldEnvironment

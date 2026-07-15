@@ -1,10 +1,7 @@
-[gd_scene load_steps=12 format=3]
+[gd_scene load_steps=10 format=3]
 
-[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="1_rig"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_boot"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="4_openxr"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="3_grab"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/samples/webxr_starter.gd" id="5_starter"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_xr"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="2_grab"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -35,7 +32,6 @@ roughness = 0.4
 size = Vector3(0.18, 0.18, 0.18)
 
 [node name="WebXRStarter" type="Node3D"]
-script = ExtResource("5_starter")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Env")
@@ -56,7 +52,7 @@ shape = SubResource("FloorShape")
 
 [node name="GrabCube" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, -0.6)
-script = ExtResource("3_grab")
+script = ExtResource("2_grab")
 
 [node name="Mesh" type="MeshInstance3D" parent="GrabCube"]
 mesh = SubResource("CubeMesh")
@@ -67,62 +63,4 @@ surface_material_override/0 = SubResource("CubeMat")
 [node name="CollisionShape3D" type="CollisionShape3D" parent="GrabCube/InteractableBody"]
 shape = SubResource("CubeShape")
 
-[node name="WebXRRig" parent="." instance=ExtResource("1_rig")]
-
-[node name="WebXRBootstrap" type="Node3D" parent="."]
-script = ExtResource("2_boot")
-enter_vr_button_path = NodePath("../CanvasLayer/Panel/Margin/VBox/SessionButtons/EnterVRButton")
-enter_ar_button_path = NodePath("../CanvasLayer/Panel/Margin/VBox/SessionButtons/EnterARButton")
-status_label_path = NodePath("../CanvasLayer/Panel/Margin/VBox/BootstrapStatus")
-world_environment_path = NodePath("../WorldEnvironment")
-
-[node name="OpenXRBootstrap" type="Node" parent="."]
-script = ExtResource("4_openxr")
-
-[node name="CanvasLayer" type="CanvasLayer" parent="." groups=["xr_session_hidden"]]
-
-[node name="Panel" type="PanelContainer" parent="CanvasLayer"]
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 540.0
-offset_bottom = 260.0
-
-[node name="Margin" type="MarginContainer" parent="CanvasLayer/Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
-
-[node name="VBox" type="VBoxContainer" parent="CanvasLayer/Panel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 26
-text = "WebXR Starter"
-
-[node name="Description" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
-layout_mode = 2
-text = "Enter VR or AR, then grab the cube with a hand or the pointer ray."
-autowrap_mode = 3
-
-[node name="BootstrapStatus" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
-layout_mode = 2
-text = "Checking WebXR support..."
-autowrap_mode = 3
-
-[node name="SessionButtons" type="HBoxContainer" parent="CanvasLayer/Panel/Margin/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="EnterVRButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox/SessionButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Enter VR"
-
-[node name="EnterARButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox/SessionButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Enter AR"
+[node name="WebXRPrefab" parent="." instance=ExtResource("1_xr")]

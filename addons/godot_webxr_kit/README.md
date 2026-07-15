@@ -10,7 +10,26 @@ export-template changes. Room mesh, occlusion, and depth sensing live in the
 **Requires** the `godot_xr_interaction_toolkit` addon (this kit builds on its
 abstract `XRInputAdapter` and `XRHandTracker` helpers). Install both.
 
-## Quick start: drop in the rig (recommended)
+## Quick start: drop in the prefab (recommended)
+
+Instance **one** scene under your scene's root and you have WebXR (browser) AND
+OpenXR (Quest Link / SteamVR / Android XR) — controllers, hands, grab, and an
+auto-built VR/AR entry UI, with **zero wiring**:
+
+> **Instantiate Child Scene → `webxr_prefab.tscn`** under your scene root. Done.
+
+- Works in new scenes and **drops into existing ones without fighting your
+  camera** — your scene's `Camera3D` stays the flat view; the XR camera takes over
+  only in-session.
+- Make an object grabbable: add an `XRGrabInteractable` (with a `CollisionObject3D`
+  child) anywhere in your scene.
+- No session UI to build, no NodePaths to wire, no per-scene setup.
+
+The prefab bundles the rig + both session bootstraps (auto-built UI) + procedural
+hands. The one-time *project* setup for each runtime (OpenXR toggle for in-editor
+testing, custom HTML shell for the WebXR export) is documented below.
+
+## Advanced: the rig only
 
 You do **not** have to hand-wire the origin, controllers, manager, adapter, and
 interactors. Instance the pre-wired rig scene once and add your grabbables:
@@ -37,7 +56,10 @@ example. The rig has no scene-specific content, so it drops into any project.
 
 ```text
 addons/godot_webxr_kit/
+  webxr_prefab.tscn / .gd         # THE drop-in: WebXR + OpenXR + hands + auto-UI, zero wiring
   plugin.cfg / plugin.gd
+  rig/
+    webxr_rig.tscn                # the pre-wired XR rig (used by the prefab)
   runtime/
     webxr_input_adapter.gd          # WebXRInputAdapter: WebXR session -> toolkit poses/events
     webxr_bootstrap.gd              # immersive-vr / immersive-ar session lifecycle

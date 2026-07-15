@@ -1,0 +1,17 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="1_rig"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_boot"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="3_openxr"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/webxr_prefab.gd" id="4_prefab"]
+
+[node name="WebXRPrefab" type="Node3D"]
+script = ExtResource("4_prefab")
+
+[node name="WebXRRig" parent="." instance=ExtResource("1_rig")]
+
+[node name="WebXRBootstrap" type="Node3D" parent="."]
+script = ExtResource("2_boot")
+
+[node name="OpenXRBootstrap" type="Node" parent="."]
+script = ExtResource("3_openxr")
