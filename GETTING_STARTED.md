@@ -19,7 +19,14 @@ which one to ship.)
 
 ## 2. Add the addons to your project
 
-Copy the `addons/` folder into your project. The suite is:
+**One command** (copies the addons in, and installs the web templates if you
+point it at the fork's `bin/`):
+
+```powershell
+.\setup.ps1 -Project C:\path\to\your\project -Engine C:\path\to\fork\bin
+```
+
+Or copy the `addons/` folder in by hand. The suite is:
 
 | Addon | What it gives you |
 |---|---|
