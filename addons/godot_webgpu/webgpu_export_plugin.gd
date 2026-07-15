@@ -98,5 +98,9 @@ func _base_ok() -> bool:
 
 
 func _is_on(option: String) -> bool:
+	# get_option() errors when there is no active preset (e.g. _should_update_
+	# export_options fires at editor startup before one exists), so guard it.
+	if get_export_preset() == null:
+		return false
 	var v: Variant = get_option(option)
 	return v != null and bool(v)
