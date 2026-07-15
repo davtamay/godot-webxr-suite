@@ -16,7 +16,7 @@ You do **not** have to hand-wire the origin, controllers, manager, adapter, and
 interactors. Instance the pre-wired rig scene once and add your grabbables:
 
 ```gdscript
-const RIG := preload("res://addons/godot_webxr_kit/rig/xr_webxr_rig.tscn")
+const RIG := preload("res://addons/godot_webxr_kit/rig/webxr_rig.tscn")
 
 func _ready() -> void:
     add_child(RIG.instantiate())   # XR origin + camera + 2 controllers + manager
@@ -26,7 +26,7 @@ func _ready() -> void:
     # with the rig's manager automatically (found by group).
 ```
 
-Or, in the editor: **Instantiate Child Scene → `xr_webxr_rig.tscn`** under your
+Or, in the editor: **Instantiate Child Scene → `webxr_rig.tscn`** under your
 scene root, then add `XRGrabInteractable` nodes (each with a `CollisionObject3D`
 child for the ray to hit). Session entry (requesting `immersive-vr`, setting
 `viewport.use_xr`) stays in your project — see `runtime/webxr_bootstrap.gd` or
@@ -41,6 +41,7 @@ addons/godot_webxr_kit/
   runtime/
     webxr_input_adapter.gd          # WebXRInputAdapter: WebXR session -> toolkit poses/events
     webxr_bootstrap.gd              # immersive-vr / immersive-ar session lifecycle
+    openxr_bootstrap.gd             # OpenXRBootstrap: same scene -> headset in-editor (Link/SteamVR)
     browser_capabilities.gd         # WebGL2 / multiview / WebXR / WebGPU capability probe
     webxr_renderer.gd               # WebXRRenderer: read/switch the WebGL vs WebGPU backend
   web/
@@ -76,6 +77,19 @@ requests `hand-tracking` optional by default (`require_hand_tracking = false`),
 so controller-only devices still start, and collects further session features
 from nodes in the `webxr_feature_provider` group (see
 `godot_webxr_scene_understanding`) — a scene only requests what it contains.
+
+## Test on the headset in-editor (OpenXR)
+
+`OpenXRBootstrap` (`runtime/openxr_bootstrap.gd`) is a drop-in sibling of the
+WebXR bootstrap for **editor-time / native testing** via Meta Quest Link,
+SteamVR, or Android XR's OpenXR runtime. Add it to your scene (the starter scene
+already has it), enable **Project Settings → XR → OpenXR**, restart the editor,
+start a runtime, and press **Play** — the *same scene* renders to the headset,
+no export, no browser. It's **inert on web** (the WebXR bootstrap owns the
+browser path), so leave both bootstraps in every scene and each activates on its
+own platform. Because everything sits on the standard XR nodes, hands,
+controllers, and interaction behave identically to the WebXR path — so you
+iterate fast in-editor, then export to WebXR for the browser.
 
 ## WebGPU builds
 

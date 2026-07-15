@@ -11,7 +11,7 @@ extends Node3D
 ##   Hits:    Transparency (overdraw), Dynamic shadows
 ##   Count:   Auto-ramp to 72 Hz, +512, -512, Clear
 
-const RIG := preload("res://addons/godot_webxr_kit/rig/xr_webxr_rig.tscn")
+const RIG := preload("res://addons/godot_webxr_kit/rig/webxr_rig.tscn")
 
 ## Preloaded so the shader baker can precompile it for web/WebGPU exports
 ## (the opaque combos below match the always-baked default material).

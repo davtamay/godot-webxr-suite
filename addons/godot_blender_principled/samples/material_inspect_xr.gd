@@ -11,7 +11,7 @@ extends Node3D
 ##   VR: point a controller/hand ray at a ball, pinch/trigger to grab; two hands to scale.
 ##   [Enter VR] starts the immersive session. [Tonemap] toggles parity/AgX.
 
-const RIG := preload("res://addons/godot_webxr_kit/rig/xr_webxr_rig.tscn")
+const RIG := preload("res://addons/godot_webxr_kit/rig/webxr_rig.tscn")
 const StrictParityEnvironment := preload("res://addons/godot_blender_principled/runtime/strict_parity_environment.gd")
 const PrincipledMaterial := preload("res://addons/godot_blender_principled/runtime/principled_material.gd")
 const XRGrabInteractable := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd")
