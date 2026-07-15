@@ -61,7 +61,7 @@ publishes three `window` globals consumed by GDScript:
 
 | JS global | Provided by | Consumed by |
 |---|---|---|
-| `CompanyWebXRHandBridge` | shell | `WebXRInputAdapter`; also `godot_xr_hands`' hand visualizer (optional) |
+| `CompanyWebXRHandBridge` | shell | `godot_xr_hands`' hand visualizer (optional) |
 | `CompanyWebXRFailure` | `webxr_bootstrap.gd` writes it | surfaced to the page on session failure |
 
 If you also install `godot_xr_hands`, its hand visualizer will use
