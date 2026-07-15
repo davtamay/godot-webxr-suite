@@ -17,6 +17,32 @@ extends Node3D
 
 var _was_xr := false
 
+func _ready() -> void:
+	# The rig ships both input adapters (WebXR + OpenXR); each is inert off its own
+	# platform. On web the interactors already point at WebXRInputAdapter; on native
+	# (OpenXR - Quest Link / SteamVR / Android XR) route them to the OpenXR source so
+	# the exact same scene gets controllers + hands in the editor. Runs after the
+	# interactors' own _ready (children resolve first), so this re-point wins.
+	if OS.has_feature("web"):
+		return
+	var openxr := get_node_or_null("OpenXRInputAdapter")
+	if openxr == null:
+		return
+	for interactor in _adapter_interactors(self):
+		interactor.set_input_adapter(openxr)
+
+
+func _adapter_interactors(root: Node) -> Array:
+	var out: Array = []
+	for child in root.get_children():
+		if child.has_method("set_input_adapter"):
+			var path: Variant = child.get("input_adapter_path")
+			if path is NodePath and not (path as NodePath).is_empty():
+				out.append(child)
+		out.append_array(_adapter_interactors(child))
+	return out
+
+
 func _process(_delta: float) -> void:
 	var now := get_viewport().use_xr
 	if now and not _was_xr and reset_origin_on_session_start and _origin:

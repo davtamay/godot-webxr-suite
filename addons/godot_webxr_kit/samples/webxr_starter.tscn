@@ -4,6 +4,7 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_boot"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="4_openxr"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="3_grab"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/samples/webxr_starter.gd" id="5_starter"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -34,6 +35,7 @@ roughness = 0.4
 size = Vector3(0.18, 0.18, 0.18)
 
 [node name="WebXRStarter" type="Node3D"]
+script = ExtResource("5_starter")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Env")
