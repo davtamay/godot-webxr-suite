@@ -1,0 +1,122 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/xr_webxr_rig.tscn" id="1_rig"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_boot"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="3_grab"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.09, 0.11, 0.14, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.7, 0.75, 0.82, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="PlaneMesh" id="FloorMesh"]
+size = Vector2(6, 6)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.22, 0.25, 0.3, 1)
+roughness = 0.9
+
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(6, 0.08, 6)
+
+[sub_resource type="BoxMesh" id="CubeMesh"]
+size = Vector3(0.18, 0.18, 0.18)
+
+[sub_resource type="StandardMaterial3D" id="CubeMat"]
+albedo_color = Color(0.16, 0.6, 1, 1)
+metallic = 0.2
+roughness = 0.4
+
+[sub_resource type="BoxShape3D" id="CubeShape"]
+size = Vector3(0.18, 0.18, 0.18)
+
+[node name="WebXRStarter" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+mesh = SubResource("FloorMesh")
+surface_material_override/0 = SubResource("FloorMat")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("FloorShape")
+
+[node name="GrabCube" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, -0.6)
+script = ExtResource("3_grab")
+
+[node name="Mesh" type="MeshInstance3D" parent="GrabCube"]
+mesh = SubResource("CubeMesh")
+surface_material_override/0 = SubResource("CubeMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="GrabCube"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GrabCube/InteractableBody"]
+shape = SubResource("CubeShape")
+
+[node name="XRWebXRRig" parent="." instance=ExtResource("1_rig")]
+
+[node name="WebXRBootstrap" type="Node3D" parent="."]
+script = ExtResource("2_boot")
+enter_vr_button_path = NodePath("../CanvasLayer/Panel/Margin/VBox/SessionButtons/EnterVRButton")
+enter_ar_button_path = NodePath("../CanvasLayer/Panel/Margin/VBox/SessionButtons/EnterARButton")
+status_label_path = NodePath("../CanvasLayer/Panel/Margin/VBox/BootstrapStatus")
+world_environment_path = NodePath("../WorldEnvironment")
+
+[node name="CanvasLayer" type="CanvasLayer" parent="." groups=["xr_session_hidden"]]
+
+[node name="Panel" type="PanelContainer" parent="CanvasLayer"]
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 540.0
+offset_bottom = 260.0
+
+[node name="Margin" type="MarginContainer" parent="CanvasLayer/Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="CanvasLayer/Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "WebXR Starter"
+
+[node name="Description" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Enter VR or AR, then grab the cube with a hand or the pointer ray."
+autowrap_mode = 3
+
+[node name="BootstrapStatus" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
+layout_mode = 2
+text = "Checking WebXR support..."
+autowrap_mode = 3
+
+[node name="SessionButtons" type="HBoxContainer" parent="CanvasLayer/Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EnterVRButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox/SessionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enter VR"
+
+[node name="EnterARButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox/SessionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enter AR"
