@@ -36,6 +36,19 @@ bridge owns the browser anchor objects and their deletion; consumers only
 respond to hit/anchor lifecycle signals. `hit_test_anchors_demo.tscn` provides
 the reference reticle, select-to-place flow, tracked beacons, and diagnostics.
 
+**Anchors drive standard `XRAnchor3D` nodes.** Each anchor is registered as an
+`XRServer` anchor tracker (`TRACKER_ANCHOR`, named `webxr_anchor_<id>`) and its
+pose is fed every frame — so you place anchors with Godot's stock `XRAnchor3D`
+node, exactly as you would on OpenXR. Two ways:
+
+- **Zero wiring:** set the bridge's `anchor_node_root` to your `XROrigin3D`. It
+  spawns an `XRAnchor3D` per anchor and emits `anchor_node_added(id, node)` —
+  attach your visuals to `node`.
+- **Your own nodes:** from `anchor_added(id, xf)`, add an `XRAnchor3D` under your
+  `XROrigin3D` with `tracker = bridge.get_anchor_tracker_name(id)`, `pose = "default"`.
+
+The lifecycle signals stay for non-node consumers.
+
 ## Session features: the `webxr_feature_provider` contract
 
 Nodes in the `webxr_feature_provider` group declare the WebXR session

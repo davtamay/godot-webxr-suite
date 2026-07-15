@@ -10,9 +10,17 @@ signal anchor_added(anchor_id: int, anchor_transform: Transform3D)
 signal anchor_updated(anchor_id: int, anchor_transform: Transform3D, tracked: bool)
 signal anchor_removed(anchor_id: int)
 signal anchor_failed(message: String)
+## Emitted when the bridge auto-spawns a standard XRAnchor3D (only when
+## anchor_node_root is set). Attach your visuals to anchor_node.
+signal anchor_node_added(anchor_id: int, anchor_node: XRAnchor3D)
 
 @export_range(0.016, 0.25, 0.001) var poll_interval := 0.033
 @export_range(1, 64, 1) var maximum_anchors := 16
+## Optional: an XROrigin3D (or a node under one). When set, the bridge spawns a
+## standard XRAnchor3D per anchor beneath it, each following that anchor's
+## XRServer tracker - drop the bridge in and get standard anchor nodes with zero
+## wiring. Leave empty to drive your own XRAnchor3D via get_anchor_tracker_name().
+@export var anchor_node_root: NodePath
 
 var _webxr: XRInterface
 var _installed := false
@@ -23,7 +31,11 @@ var _hit_transform := Transform3D.IDENTITY
 var _hit_mode := "viewer"
 var _hit_handedness := ""
 var _anchors := {}
+var _anchor_trackers := {}
+var _anchor_nodes := {}
 var _last_error := ""
+
+const ANCHOR_TRACKER_PREFIX := "webxr_anchor_"
 
 
 func _ready() -> void:
@@ -426,13 +438,16 @@ func _poll_bridge() -> void:
 			seen[anchor_id] = true
 			if not _anchors.has(anchor_id):
 				_anchors[anchor_id] = anchor_transform
+				_register_anchor_tracker(anchor_id, anchor_transform)
 				anchor_added.emit(anchor_id, anchor_transform)
 			else:
 				_anchors[anchor_id] = anchor_transform
+			_update_anchor_tracker(anchor_id, anchor_transform, tracked)
 			anchor_updated.emit(anchor_id, anchor_transform, tracked)
 		for existing_id in _anchors.keys().duplicate():
 			if not seen.has(existing_id):
 				_anchors.erase(existing_id)
+				_remove_anchor_tracker(existing_id)
 				anchor_removed.emit(existing_id)
 
 	var anchor_state := str(parsed.get("anchorStatus", ""))
@@ -467,6 +482,7 @@ func clear_anchors() -> void:
 }())
 """, true)
 	for anchor_id in _anchors.keys():
+		_remove_anchor_tracker(anchor_id)
 		anchor_removed.emit(anchor_id)
 	_anchors.clear()
 
@@ -475,6 +491,7 @@ func _reset_local_state() -> void:
 	if _has_hit:
 		hit_lost.emit()
 	for anchor_id in _anchors.keys():
+		_remove_anchor_tracker(anchor_id)
 		anchor_removed.emit(anchor_id)
 	_has_hit = false
 	_hit_transform = Transform3D.IDENTITY
@@ -540,6 +557,48 @@ func get_webxr_optional_features(session_mode: String) -> PackedStringArray:
 		return PackedStringArray(["hit-test", "anchors"])
 	return PackedStringArray()
 
+
+## Tracker name an XRAnchor3D should follow for a given anchor id, e.g. wire it
+## from the anchor_added signal: node.tracker = bridge.get_anchor_tracker_name(id).
+func get_anchor_tracker_name(anchor_id: int) -> StringName:
+	return StringName(ANCHOR_TRACKER_PREFIX + str(anchor_id))
+
+func _register_anchor_tracker(anchor_id: int, anchor_transform: Transform3D) -> void:
+	var tracker := XRPositionalTracker.new()
+	tracker.type = XRServer.TRACKER_ANCHOR
+	tracker.name = get_anchor_tracker_name(anchor_id)
+	XRServer.add_tracker(tracker)
+	_anchor_trackers[anchor_id] = tracker
+	_set_anchor_pose(tracker, anchor_transform, true)
+	if not anchor_node_root.is_empty():
+		var root := get_node_or_null(anchor_node_root)
+		if root != null:
+			var node := XRAnchor3D.new()
+			node.tracker = get_anchor_tracker_name(anchor_id)
+			node.pose = &"default"
+			root.add_child(node)
+			_anchor_nodes[anchor_id] = node
+			anchor_node_added.emit(anchor_id, node)
+
+func _update_anchor_tracker(anchor_id: int, anchor_transform: Transform3D, tracked: bool) -> void:
+	var tracker = _anchor_trackers.get(anchor_id)
+	if tracker != null:
+		_set_anchor_pose(tracker, anchor_transform, tracked)
+
+func _set_anchor_pose(tracker: XRPositionalTracker, anchor_transform: Transform3D, tracked: bool) -> void:
+	var confidence := XRPose.XR_TRACKING_CONFIDENCE_HIGH if tracked else XRPose.XR_TRACKING_CONFIDENCE_LOW
+	tracker.set_pose(&"default", anchor_transform, Vector3.ZERO, Vector3.ZERO, confidence)
+
+func _remove_anchor_tracker(anchor_id: int) -> void:
+	var tracker = _anchor_trackers.get(anchor_id)
+	if tracker != null:
+		XRServer.remove_tracker(tracker)
+		_anchor_trackers.erase(anchor_id)
+	var node = _anchor_nodes.get(anchor_id)
+	if node != null:
+		if is_instance_valid(node):
+			node.queue_free()
+		_anchor_nodes.erase(anchor_id)
 
 static func _matrix_to_transform(matrix: Array) -> Transform3D:
 	var basis := Basis(
