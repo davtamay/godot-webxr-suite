@@ -1,41 +1,17 @@
-[gd_scene load_steps=27 format=3]
+[gd_scene load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/light_estimation_demo.gd" id="1_root"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_bootstrap"]
-[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_light_estimation_bridge.gd" id="3_light_bridge"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="2_rig"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="3_openxr"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/browser_capabilities.gd" id="4_caps"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_manager.gd" id="5_manager"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_input_adapter.gd" id="6_adapter"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_direct_interactor.gd" id="7_direct"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ray_interactor.gd" id="8_ray"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interactor_line_visual.gd" id="9_line"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_visual.gd" id="10_reticle"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/light_estimation_manager.gd" id="5_lightmgr"]
 [ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="11_label"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_canvas_interactable.gd" id="12_ui_canvas"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/light_estimation_controls.gd" id="13_controls"]
-[ext_resource type="Shader" path="res://addons/godot_webxr_scene_understanding/runtime/light_estimation_sky.gdshader" id="14_sky"]
-
-[sub_resource type="ShaderMaterial" id="SkyMat_le"]
-shader = ExtResource("14_sky")
-shader_parameter/sh0 = Vector3(0.5, 0.5, 0.55)
-shader_parameter/sh1 = Vector3(0, 0, 0)
-shader_parameter/sh2 = Vector3(0, 0, 0)
-shader_parameter/sh3 = Vector3(0, 0, 0)
-shader_parameter/sh4 = Vector3(0, 0, 0)
-shader_parameter/sh5 = Vector3(0, 0, 0)
-shader_parameter/sh6 = Vector3(0, 0, 0)
-shader_parameter/sh7 = Vector3(0, 0, 0)
-shader_parameter/sh8 = Vector3(0, 0, 0)
-shader_parameter/sky_energy = 1.0
-
-[sub_resource type="Sky" id="Sky_le"]
-sky_material = SubResource("SkyMat_le")
-process_mode = 2
-radiance_size = 0
 
 [sub_resource type="Environment" id="Environment_light_lab"]
 background_mode = 2
-sky = SubResource("Sky_le")
 ambient_light_source = 3
 reflected_light_source = 2
 ambient_light_color = Color(0.66, 0.7, 0.78, 1)
@@ -90,24 +66,15 @@ light_color = Color(0.84, 0.9, 1, 1)
 light_energy = 1.15
 shadow_enabled = true
 
-[node name="EstimatedLight" type="DirectionalLight3D" parent="."]
-visible = false
-light_energy = 0.0
-shadow_enabled = true
-directional_shadow_max_distance = 8.0
+[node name="WebXRRig" parent="." instance=ExtResource("2_rig")]
 
-[node name="XRInteractionManager" type="Node" parent="."]
-script = ExtResource("5_manager")
+[node name="OpenXRBootstrap" type="Node" parent="."]
+script = ExtResource("3_openxr")
 
-[node name="WebXRInputAdapter" type="Node" parent="."]
-script = ExtResource("6_adapter")
-xr_origin_path = NodePath("../XROrigin3D")
-left_controller_path = NodePath("../XROrigin3D/LeftController")
-right_controller_path = NodePath("../XROrigin3D/RightController")
+[node name="LightEstimationManager" type="Node3D" parent="."]
+script = ExtResource("5_lightmgr")
 
-[node name="XROrigin3D" type="XROrigin3D" parent="."]
-
-[node name="LabelBakeAnchor" type="Label3D" parent="XROrigin3D"]
+[node name="LabelBakeAnchor" type="Label3D" parent="."]
 visible = false
 material_override = ExtResource("11_label")
 pixel_size = 0.001
@@ -115,59 +82,6 @@ billboard = 1
 text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 +-:/()."
 font_size = 48
 outline_size = 8
-
-[node name="LightEstimationBridge" type="Node" parent="XROrigin3D"]
-script = ExtResource("3_light_bridge")
-
-[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
-
-[node name="LeftController" type="XRController3D" parent="XROrigin3D"]
-tracker = &"left_hand"
-pose = &"aim"
-show_when_tracked = true
-
-[node name="RightController" type="XRController3D" parent="XROrigin3D"]
-tracker = &"right_hand"
-pose = &"aim"
-show_when_tracked = true
-
-[node name="LeftDirectInteractor" type="Node3D" parent="XROrigin3D"]
-script = ExtResource("7_direct")
-input_adapter_path = NodePath("../../WebXRInputAdapter")
-hand = 0
-hover_radius = 0.16
-
-[node name="RightDirectInteractor" type="Node3D" parent="XROrigin3D"]
-script = ExtResource("7_direct")
-input_adapter_path = NodePath("../../WebXRInputAdapter")
-hand = 1
-hover_radius = 0.16
-
-[node name="LeftRayInteractor" type="Node3D" parent="XROrigin3D"]
-script = ExtResource("8_ray")
-input_adapter_path = NodePath("../../WebXRInputAdapter")
-hand = 0
-suppress_interactor_path = NodePath("../LeftDirectInteractor")
-
-[node name="LineVisual" type="MeshInstance3D" parent="XROrigin3D/LeftRayInteractor"]
-script = ExtResource("9_line")
-color = Color(0.2, 0.75, 1, 0.85)
-
-[node name="Reticle" type="MeshInstance3D" parent="XROrigin3D/LeftRayInteractor"]
-script = ExtResource("10_reticle")
-
-[node name="RightRayInteractor" type="Node3D" parent="XROrigin3D"]
-script = ExtResource("8_ray")
-input_adapter_path = NodePath("../../WebXRInputAdapter")
-hand = 1
-suppress_interactor_path = NodePath("../RightDirectInteractor")
-
-[node name="LineVisual" type="MeshInstance3D" parent="XROrigin3D/RightRayInteractor"]
-script = ExtResource("9_line")
-color = Color(1, 0.58, 0.2, 0.85)
-
-[node name="Reticle" type="MeshInstance3D" parent="XROrigin3D/RightRayInteractor"]
-script = ExtResource("10_reticle")
 
 [node name="LightLab" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, -1.8)
@@ -222,10 +136,11 @@ surface_material_override/0 = SubResource("Material_arrow")
 [node name="ArrowLabel" type="Label3D" parent="LightLab/LightDirectionArrow"]
 position = Vector3(0, 0.1, 0.0)
 modulate = Color(0.78, 0.94, 1, 1)
+pixel_size = 0.001
 billboard = 1
 text = "POINTS AT YOUR MAIN LIGHT"
-font_size = 24
-outline_size = 6
+font_size = 20
+outline_size = 5
 
 [node name="StatusLabel" type="Label3D" parent="LightLab"]
 position = Vector3(0, 0.82, 0)
@@ -253,7 +168,7 @@ transform = Transform3D(0.951057, 0, -0.309017, 0, 1, 0, 0.309017, 0, 0.951057, 
 script = ExtResource("12_ui_canvas")
 viewport_path = NodePath("Viewport")
 panel_mesh_path = NodePath("PanelMesh")
-camera_path = NodePath("../XROrigin3D/XRCamera3D")
+camera_path = NodePath("../WebXRRig/XROrigin3D/XRCamera3D")
 panel_size = Vector2(1.45, 1.65)
 viewport_pixel_size = Vector2i(850, 960)
 

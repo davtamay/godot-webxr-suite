@@ -18,6 +18,15 @@ extends Node3D
 ## Quest Browser does not implement the feature - [method get_status] reports
 ## this honestly per device. Inert outside a web export.
 
+## Emitted after each smoothed estimate is applied - carries the same values
+## driving the sky and light, for telemetry UIs (direction arrows, colour
+## swatches, banners).
+signal estimate_applied(
+	direction_to_light: Vector3,
+	primary_intensity: Vector3,
+	spherical_harmonics: PackedVector3Array
+)
+
 const _BRIDGE_SCRIPT := "res://addons/godot_webxr_scene_understanding/runtime/webxr_light_estimation_bridge.gd"
 ## Pre-baked SH sky material template (WebGPU-export safe; uniform updates
 ## reuse the baked shader).
@@ -70,16 +79,9 @@ func _ready() -> void:
 	if Engine.is_editor_hint():
 		set_process(false)
 		return
-	if not OS.has_feature("web"):
-		set_process(false)
-		return  # WebXR-only feature; harmless no-op on desktop preview / OpenXR.
-	var script := load(_BRIDGE_SCRIPT)
-	_bridge = Node.new()
-	_bridge.name = "LightEstimationBridge"
-	_bridge.set_script(script)
-	add_child(_bridge)
-	_bridge.estimate_updated.connect(_on_estimate_updated)
-	_bridge.estimate_lost.connect(_on_estimate_lost)
+	# The sky + light are built on EVERY platform (the neutral sky keeps the
+	# flat/native views lit consistently); only the acquisition bridge is
+	# WebXR-specific.
 	_setup_sky()
 	if create_primary_light:
 		_light = DirectionalLight3D.new()
@@ -87,6 +89,16 @@ func _ready() -> void:
 		_light.shadow_enabled = primary_light_shadows
 		_light.visible = false
 		add_child(_light)
+	if not OS.has_feature("web"):
+		set_process(false)
+		return  # No estimate source off-web; harmless no-op on desktop / OpenXR.
+	var script := load(_BRIDGE_SCRIPT)
+	_bridge = Node.new()
+	_bridge.name = "LightEstimationBridge"
+	_bridge.set_script(script)
+	add_child(_bridge)
+	_bridge.estimate_updated.connect(_on_estimate_updated)
+	_bridge.estimate_lost.connect(_on_estimate_lost)
 	set_process(true)
 
 
@@ -147,6 +159,8 @@ func _on_estimate_updated(
 	primary_intensity: Vector3,
 	spherical_harmonics: PackedVector3Array
 ) -> void:
+	if not _is_estimate_usable(direction_to_light, primary_intensity, spherical_harmonics):
+		return  # An empty/degenerate sample would flash the scene black.
 	_target_direction = direction_to_light.normalized()
 	_target_intensity = primary_intensity
 	_target_sh = spherical_harmonics.duplicate()
@@ -164,8 +178,31 @@ func _on_estimate_lost() -> void:
 		_light.visible = false
 
 
+## Guard from in-headset bring-up: platforms occasionally serve an all-zero /
+## non-finite sample; applying it reads as a black flash.
+func _is_estimate_usable(
+	direction_to_light: Vector3,
+	primary_intensity: Vector3,
+	spherical_harmonics: PackedVector3Array
+) -> bool:
+	if not direction_to_light.is_finite() or not primary_intensity.is_finite():
+		return false
+	var intensity_peak := maxf(primary_intensity.x, maxf(primary_intensity.y, primary_intensity.z))
+	var sh_energy := 0.0
+	for coefficient in spherical_harmonics:
+		if not coefficient.is_finite():
+			return false
+		sh_energy += coefficient.length_squared()
+	return intensity_peak > 0.0001 or sh_energy > 0.000001
+
+
+## Stop following the estimate while false: the sky and light HOLD their last
+## values (a "frozen" comparison mode). Data keeps streaming, so re-enabling
+## snaps back to live.
+var enabled := true
+
 func _process(delta: float) -> void:
-	if not _has_target:
+	if not _has_target or not enabled:
 		return
 	var blend := 1.0 - exp(-delta * responsiveness)
 	_smoothed_direction = _smoothed_direction.lerp(_target_direction, blend).normalized()
@@ -176,6 +213,19 @@ func _process(delta: float) -> void:
 		for index in _target_sh.size():
 			_smoothed_sh[index] = _smoothed_sh[index].lerp(_target_sh[index], blend)
 	_apply_estimate()
+	estimate_applied.emit(_smoothed_direction, _smoothed_intensity, _smoothed_sh)
+
+
+## Restore neutral lighting (the sky template's defaults, estimated light
+## hidden) - a "no room estimate" comparison baseline. Pair with enabled=false
+## or the next live sample re-applies.
+func reset_to_neutral() -> void:
+	if _sky_material:
+		var neutral := _SKY_TEMPLATE as ShaderMaterial
+		for index in 9:
+			_sky_material.set_shader_parameter("sh%d" % index, neutral.get_shader_parameter("sh%d" % index))
+	if _light:
+		_light.visible = false
 
 
 func _apply_estimate() -> void:
