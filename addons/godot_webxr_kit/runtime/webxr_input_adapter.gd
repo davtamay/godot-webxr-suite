@@ -13,6 +13,10 @@ var _webxr
 func _ready() -> void:
 	_resolve_rig()
 	if not OS.has_feature("web"):
+		# The OpenXR adapter owns the native path. Also stop the base's
+		# _process, or BOTH adapters run the synthetic pinch detector in
+		# parallel (duplicate events/compute).
+		set_process(false)
 		return
 
 	_webxr = XRServer.find_interface("WebXR")

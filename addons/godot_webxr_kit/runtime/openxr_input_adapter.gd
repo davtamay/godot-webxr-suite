@@ -23,7 +23,11 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/input/xr_controller_h
 func _ready() -> void:
 	_resolve_rig()
 	if OS.has_feature("web"):
-		return  # WebXR adapter owns the browser path.
+		# WebXR adapter owns the browser path. Also stop the base's _process,
+		# or BOTH adapters run the synthetic pinch detector in parallel
+		# (duplicate events/compute - tap showed every pinch printed twice).
+		set_process(false)
+		return
 
 	_connect_controller(Hand.LEFT)
 	_connect_controller(Hand.RIGHT)

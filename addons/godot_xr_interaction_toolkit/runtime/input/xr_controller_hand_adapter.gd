@@ -46,6 +46,12 @@ var _select_source := {
 	Hand.LEFT: "",
 	Hand.RIGHT: "",
 }
+# Synthetic pinch re-arm state: cleared when any select starts, set once the
+# fingers open past pinch_end_distance (see _update_synthetic_pinch_select).
+var _synthetic_armed := {
+	Hand.LEFT: true,
+	Hand.RIGHT: true,
+}
 var _activate_down := {
 	Hand.LEFT: false,
 	Hand.RIGHT: false,
@@ -265,9 +271,18 @@ func _update_synthetic_pinch_select(hand_id: int) -> void:
 	if distance < 0.0:
 		if _select_source.get(hand_id, "") == SYNTHETIC_SELECT:
 			_emit_select_ended(hand_id, SYNTHETIC_SELECT)
+		_synthetic_armed[hand_id] = true
 		return
 
-	if not _select_down.get(hand_id, false) and distance <= pinch_start_distance:
+	# Re-arm hysteresis: after ANY select ends, the synthetic detector must not
+	# start again until the fingers have physically OPENED past the end
+	# threshold. Without it, a select that ends while the fingers are still
+	# closed (the browser's recognizer releases early - tap-proven at 3.2cm on
+	# Galaxy) re-presses instantly = a second click from one pinch.
+	if distance >= pinch_end_distance:
+		_synthetic_armed[hand_id] = true
+
+	if not _select_down.get(hand_id, false) and distance <= pinch_start_distance and _synthetic_armed.get(hand_id, true):
 		_emit_select_started(hand_id, SYNTHETIC_SELECT)
 	elif _select_source.get(hand_id, "") == SYNTHETIC_SELECT and distance >= pinch_end_distance:
 		_emit_select_ended(hand_id, SYNTHETIC_SELECT)
@@ -299,13 +314,21 @@ func _emit_select_started(hand_id: int, source: String) -> void:
 	_begin_select_stabilization(hand_id)
 	_select_down[hand_id] = true
 	_select_source[hand_id] = source
+	# Any select (either source) disarms the synthetic detector until the
+	# fingers reopen - one pinch can never produce a second synthetic press.
+	_synthetic_armed[hand_id] = false
 	select_started.emit(hand_id)
 
 
 func _emit_select_ended(hand_id: int, source: String) -> void:
 	if not _valid_hand(hand_id) or not _select_down.get(hand_id, false):
 		return
-	if source == SYNTHETIC_SELECT and _select_source.get(hand_id, "") == HARDWARE_SELECT:
+	# A select only ends from the source that started it (same rule as activate).
+	# The old one-way guard let the browser's EARLY selectend (its pinch
+	# recognizer releases while the fingers are still closed) kill our synthetic
+	# select mid-pinch - the synthetic detector then instantly re-pressed, giving
+	# TWO full clicks per pinch (tap-proven: every pinch double-toggled UI).
+	if source != _select_source.get(hand_id, ""):
 		return
 	_select_down[hand_id] = false
 	_select_source[hand_id] = ""
