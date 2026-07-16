@@ -81,3 +81,5 @@ custom_minimum_size = Vector2(0, 82)
 layout_mode = 2
 text = "Hit Test + Anchors: waiting for an immersive AR session."
 autowrap_mode = 3
+
+[editable path="XRSessionUI"]
