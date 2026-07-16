@@ -182,8 +182,13 @@ func _poll_estimate() -> void:
 	var parsed = JSON.parse_string(payload)
 	if not (parsed is Dictionary):
 		return
+	# seq starts at 0 in the JS hook and only increments when getLightEstimate
+	# returns a REAL sample - so seq 0 is the hook's zero-initialized packet,
+	# not data. Ingesting it marked the bridge "live" with all-zero values on
+	# devices that never grant the feature (Quest showed a green "reading your
+	# room's light" banner). A real sample always has seq >= 1.
 	var seq := int(parsed.get("seq", -1))
-	if seq < 0 or seq == _last_seq:
+	if seq <= 0 or seq == _last_seq:
 		return
 	var direction_value = parsed.get("direction", [])
 	var intensity_value = parsed.get("intensity", [])
