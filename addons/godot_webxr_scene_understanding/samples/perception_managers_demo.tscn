@@ -1,0 +1,128 @@
+[gd_scene load_steps=17 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="2_grab"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/environment_depth_manager.gd" id="3_depth"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/scene_mesh_manager.gd" id="4_mesh"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/light_estimation_manager.gd" id="5_light"]
+[ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="6_label"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.09, 0.11, 0.14, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.7, 0.75, 0.82, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="PlaneMesh" id="FloorMesh"]
+size = Vector2(6, 6)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.22, 0.25, 0.3, 1)
+roughness = 0.9
+
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(6, 0.08, 6)
+
+[sub_resource type="BoxMesh" id="CubeMesh"]
+size = Vector3(0.22, 0.22, 0.22)
+
+[sub_resource type="StandardMaterial3D" id="CubeMat"]
+albedo_color = Color(0.16, 0.6, 1, 1)
+metallic = 0.55
+roughness = 0.25
+
+[sub_resource type="BoxShape3D" id="CubeShape"]
+size = Vector3(0.22, 0.22, 0.22)
+
+[sub_resource type="SphereMesh" id="SphereMesh"]
+radius = 0.13
+height = 0.26
+
+[sub_resource type="StandardMaterial3D" id="SphereMat"]
+albedo_color = Color(1, 0.55, 0.15, 1)
+metallic = 0.85
+roughness = 0.12
+
+[sub_resource type="SphereShape3D" id="SphereShape"]
+radius = 0.14
+
+[node name="PerceptionManagersDemo" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+mesh = SubResource("FloorMesh")
+surface_material_override/0 = SubResource("FloorMat")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("FloorShape")
+
+[node name="GrabCube" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.35, 1.1, -0.7)
+script = ExtResource("2_grab")
+
+[node name="Mesh" type="MeshInstance3D" parent="GrabCube"]
+mesh = SubResource("CubeMesh")
+surface_material_override/0 = SubResource("CubeMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="GrabCube"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GrabCube/InteractableBody"]
+shape = SubResource("CubeShape")
+
+[node name="GrabSphere" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.35, 1.1, -0.7)
+script = ExtResource("2_grab")
+
+[node name="Mesh" type="MeshInstance3D" parent="GrabSphere"]
+mesh = SubResource("SphereMesh")
+surface_material_override/0 = SubResource("SphereMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="GrabSphere"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="GrabSphere/InteractableBody"]
+shape = SubResource("SphereShape")
+
+[node name="EnvironmentDepthManager" type="Node3D" parent="."]
+script = ExtResource("3_depth")
+occlusion_mode = 2
+occludees = Array[NodePath]([NodePath("../GrabCube"), NodePath("../GrabSphere")])
+
+[node name="SceneMeshManager" type="Node3D" parent="."]
+script = ExtResource("4_mesh")
+
+[node name="LightEstimationManager" type="Node3D" parent="."]
+script = ExtResource("5_light")
+
+[node name="InfoLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -1.6)
+pixel_size = 0.0013
+billboard = 1
+text = "DRAG-AND-DROP SCENE PERCEPTION - 3 manager nodes, zero code
+OCCLUSION: put your hand in front of the cube or sphere (soft fade)
+LIGHT: objects are lit by your real room (Android XR)
+Scene mesh manager is here too - visualize is one checkbox on its node"
+font_size = 26
+outline_size = 8
+width = 1600.0
+autowrap_mode = 2
+
+[node name="LabelBakeAnchor" type="Label3D" parent="."]
+visible = false
+material_override = ExtResource("6_label")
+pixel_size = 0.001
+billboard = 1
+text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 +-:/()."
+font_size = 48
+outline_size = 8
+
+[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]

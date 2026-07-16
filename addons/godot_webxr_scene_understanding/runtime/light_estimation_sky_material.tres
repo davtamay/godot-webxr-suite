@@ -1,0 +1,16 @@
+[gd_resource type="ShaderMaterial" load_steps=2 format=3]
+
+[ext_resource type="Shader" path="res://addons/godot_webxr_scene_understanding/runtime/light_estimation_sky.gdshader" id="1_shader"]
+
+[resource]
+shader = ExtResource("1_shader")
+shader_parameter/sh0 = Vector3(0.5, 0.5, 0.55)
+shader_parameter/sh1 = Vector3(0, 0, 0)
+shader_parameter/sh2 = Vector3(0, 0, 0)
+shader_parameter/sh3 = Vector3(0, 0, 0)
+shader_parameter/sh4 = Vector3(0, 0, 0)
+shader_parameter/sh5 = Vector3(0, 0, 0)
+shader_parameter/sh6 = Vector3(0, 0, 0)
+shader_parameter/sh7 = Vector3(0, 0, 0)
+shader_parameter/sh8 = Vector3(0, 0, 0)
+shader_parameter/sky_energy = 1.0

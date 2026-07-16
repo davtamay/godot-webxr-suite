@@ -1,6 +1,33 @@
 # Godot WebXR Scene Understanding
 
-Real-world awareness for WebXR sessions, as drop-in nodes:
+Real-world awareness for WebXR sessions, as drop-in nodes.
+
+## Quick start: the three managers (recommended)
+
+Drag-and-drop scene perception, mirroring the Unity / Meta component shape
+(`EnvironmentDepthManager`, `ARMeshManager`, light estimation). Add a node,
+set a property, done — each manager requests its own session feature, reports
+per-device availability via `get_status()`, and shows editor configuration
+warnings when something is mis-wired. `samples/perception_managers_demo.tscn`
+is the whole thing working with **zero code**.
+
+| Manager node | What you get | Key properties |
+|---|---|---|
+| `EnvironmentDepthManager` | Real-world **occlusion** (Meta parity): HARD = crisp depth-mesh punch over everything; SOFT = listed objects fade behind real surfaces (feathered, per-object). Occlusion materials are generated automatically from the pre-baked shader. Also the live depth debug view. | `occlusion_mode`, `occludees` (drag objects in; or mark objects with the `webxr_occludable` group; or `add_occludee()` at runtime), `edge_softness`, `debug_depth_visualization`, `depth_resolution` |
+| `SceneMeshManager` | The device's **room geometry**, device-adaptive: stored Space-Setup mesh on Quest, live reconstruction on Android XR. | `visualize`, `occlude` (static room occlusion), `scene_labels`, `generate_collision`, `mesh_color` |
+| `LightEstimationManager` | Virtual objects **lit by the real room**: SH environment sky (ambient + reflections) + a primary directional light with the room's colour/intensity/direction. Finds your WorldEnvironment automatically. | `affect_ambient`, `affect_reflections`, `create_primary_light`, `sky_intensity`, `responsiveness` |
+
+Platform notes: depth + light estimation are Android XR strengths (Quest
+serves gpu-only depth and no light estimation at all — see
+`samples/LIGHT_ESTIMATION_NOTES.md`); room mesh is a Quest strength (Android
+XR needs chrome://flags). The managers stay drop-in-safe everywhere —
+unsupported features report themselves honestly instead of breaking, and
+everything is inert outside a web export.
+
+## The acquisition bridges (advanced)
+
+The bridges are the layer the managers wrap — use them directly when you need
+custom behavior:
 
 | Node | Feature | WebXR API | Works out of the box on |
 |---|---|---|---|
