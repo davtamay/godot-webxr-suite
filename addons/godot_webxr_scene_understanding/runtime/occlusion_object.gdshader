@@ -5,12 +5,17 @@ shader_type spatial;
 // by the depth bridge from the CPU sensor harvest; it's compared against the
 // fragment's OWN view-space depth (a varying). NO scene DEPTH_TEXTURE needed
 // (unavailable to fullscreen quads in XR, which is why the fullscreen approach
-// failed). Two array layers = per eye; the projection picks the eye.
+// failed). Two array layers = per eye; the NEAREST actual eye position picks
+// the layer (the pass camera IS one of the two eyes).
 render_mode cull_back, depth_draw_opaque;
 
 uniform sampler2DArray env_depth : filter_linear, hint_default_black;   // metres
 uniform vec2 env_size = vec2(128.0, 96.0);
 uniform float occ_enabled = 0.0;
+// Actual per-eye positions, pushed by the depth bridge each harvest. Used to
+// pick the eye layer; both default to zero => layer 0 until the first push.
+uniform vec3 eye0_pos = vec3(0.0);
+uniform vec3 eye1_pos = vec3(0.0);
 
 // Keep the object looking like its old StandardMaterial3D (lit, with specular).
 uniform vec4 albedo : source_color = vec4(1.0);
@@ -35,9 +40,13 @@ void fragment() {
 	if (occ_enabled > 0.5) {
 		vec2 uv = vec2(SCREEN_UV.x, 1.0 - SCREEN_UV.y);
 		// Pick the eye's depth layer WITHOUT ViewIndex (which only exists under
-		// USE_MULTIVIEW). Each eye's frustum is off-centre with an opposite
-		// horizontal shift in the projection, so its sign identifies the eye.
-		float layer = (PROJECTION_MATRIX[2].x < 0.0) ? 0.0 : 1.0;
+		// USE_MULTIVIEW): this pass's camera IS one of the two eyes, so the
+		// nearest pushed eye position identifies it. Correct by construction -
+		// the old projection-sign heuristic misfired per-frame on Galaxy XR's
+		// projections and painted right-eye-only random occlusion during head
+		// motion.
+		vec3 cam_pos = INV_VIEW_MATRIX[3].xyz;
+		float layer = (distance(cam_pos, eye0_pos) <= distance(cam_pos, eye1_pos)) ? 0.0 : 1.0;
 		// Meta SOFT_OCCLUSION: average the occlusion over a small NEIGHBOURHOOD
 		// (spatial coverage), giving a consistent feathered silhouette instead
 		// of an edge that snaps to the low-res depth grid's cells. `softness`

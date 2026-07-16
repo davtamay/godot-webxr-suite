@@ -118,6 +118,7 @@ var _scan_instance: MeshInstance3D
 ## Two-layer env-depth (layer 0 = left eye, 1 = right eye) so the per-object
 ## occlusion shader can sample the correct eye via ViewIndex (stereo-correct).
 var _env_img0: Image
+var _env_img1: Image  # last VALID right-eye grid (kept when a harvest lacks met1)
 var _env_depth_tex: Texture2DArray
 var _ext_harvest := false
 ## Per-object occlusion edge softness (0 = crisp, 1 = very soft).
@@ -584,13 +585,18 @@ func _install_js_hook() -> void:
 							const meters = pan ? null : (bridge.usage === 'gpu-optimized')
 								? gpuHarvestMeters(frame, view, 0)
 								: cpuHarvestMeters(frame, view);
-							// Right eye, for stereo per-object occlusion. Layer 1
-							// of the depth array. The GPU-readback path waits for the decode LOCK
-							// (else two readbacks per frame fight over calibration); the CPU path
-							// has no calibration, so it harvests the right eye every time.
+							// Right eye, for stereo per-object occlusion. Layer 1 of the depth
+							// array. GPU path: its own readback, once the decode LOCK holds
+							// (else two readbacks per frame fight over calibration). CPU path:
+							// NO second getDepthInMeters sweep - Galaxy's view-1 CPU depth
+							// carries sustained reprojection junk during head motion (right-
+							// eye-only round occlusion blobs, A/B-proven); the right grid is
+							// instead REPROJECTED from the reliable left grid below - junk-free
+							// by construction, parallax-correct, disocclusion holes stay empty
+							// (= no occlusion), and a full sensor sweep cheaper per harvest.
 							const view1 = (vp.views.length > 1) ? vp.views[1] : null;
-							const meters1 = (bridge.wantMet && meters && view1 && ((bridge.usage === 'gpu-optimized') ? (bridge._gpu && bridge._gpu.locked) : true))
-								? ((bridge.usage === 'gpu-optimized') ? gpuHarvestMeters(frame, view1, 1) : cpuHarvestMeters(frame, view1))
+							const meters1 = (bridge.wantMet && meters && view1 && bridge.usage === 'gpu-optimized' && bridge._gpu && bridge._gpu.locked)
+								? gpuHarvestMeters(frame, view1, 1)
 								: null;
 							if (meters) {
 								bridge._last = t;
@@ -604,7 +610,16 @@ func _install_js_hook() -> void:
 								// per-pixel occlusion texture (0 = no data). Only
 								// built when the soft occluder asks (wantMet).
 								const met = bridge.wantMet ? new Array(gw * gh) : null;
-								const met1 = (bridge.wantMet && meters1) ? new Array(gw * gh) : null;
+								// gpu path: met1 filled from meters1 in the loop. cpu path: filled
+								// by reprojecting the left grid (met1Splat); starts all-zero.
+								const met1 = (bridge.wantMet && view1) ? new Array(gw * gh).fill(0) : null;
+								const met1Splat = !!(met1 && !meters1);
+								const inv1 = met1Splat ? view1.transform.inverse.matrix : null;
+								const p1 = met1Splat ? view1.projectionMatrix : null;
+								if (met1 && meters1 && (!bridge._m1raw || bridge._m1raw.length !== gw * gh)) {
+									bridge._m1raw = new Array(gw * gh).fill(0);
+									bridge._m1acc = new Array(gw * gh).fill(0);
+								}
 								const metFlip = (bridge.path === 'cpu');
 								// The CPU getDepthInMeters grid stores row 0 at view-top; the GPU-readback grid (which the soft occluder shader is tuned for) stores row 0 at view-bottom. Flip the occlusion grid on the CPU path so Soft occludes the same place on both platforms.
 								for (let gy = 0; gy < gh; gy++) {
@@ -617,9 +632,22 @@ func _install_js_hook() -> void:
 										const u = gx / (gw - 1);
 										const i = gy * gw + gx;
 										const mi = mrow * gw + gx;
-										// Right-eye grid is independent of the
-										// left eye's per-cell validity.
-										if (met1) { const d1 = meters1[i]; met1[mi] = (d1 > 0.1 && d1 < 8.0) ? Math.round(d1 * 1000) : 0; }
+										// GPU-path right-eye grid, with a TEMPORAL DEBOUNCE: a cell
+										// that suddenly jumps NEARER (or appears from invalid) must
+										// persist 2 consecutive harvests before it occludes - kills
+										// single-harvest sensor junk. Reveals stay instant.
+										if (met1 && meters1) {
+											const d1 = meters1[i];
+											const raw = (d1 > 0.1 && d1 < 8.0) ? Math.round(d1 * 1000) : 0;
+											const praw = bridge._m1raw[mi] || 0;
+											let out;
+											if (raw === 0) { out = 0; }
+											else if (praw > 0 && raw > praw - 400) { out = raw; }
+											else { out = bridge._m1acc[mi] || 0; }
+											bridge._m1raw[mi] = raw;
+											bridge._m1acc[mi] = out;
+											met1[mi] = out;
+										}
 										const dm = meters[i];
 										if (!(dm > 0.1 && dm < 8.0)) {
 											val[i] = 0;
@@ -642,6 +670,34 @@ func _install_js_hook() -> void:
 										pts[i * 3] = Math.round(wx * 1000) / 1000;
 										pts[i * 3 + 1] = Math.round(wy * 1000) / 1000;
 										pts[i * 3 + 2] = Math.round(wz * 1000) / 1000;
+										if (met1Splat) {
+											// Reproject this left-grid point into the RIGHT eye's grid.
+											const ex1 = inv1[0] * wx + inv1[4] * wy + inv1[8] * wz + inv1[12];
+											const ey1 = inv1[1] * wx + inv1[5] * wy + inv1[9] * wz + inv1[13];
+											const ez1 = inv1[2] * wx + inv1[6] * wy + inv1[10] * wz + inv1[14];
+											if (ez1 < -0.1) {
+												const cw1 = p1[3] * ex1 + p1[7] * ey1 + p1[11] * ez1 + p1[15];
+												const ndx = (p1[0] * ex1 + p1[4] * ey1 + p1[8] * ez1 + p1[12]) / cw1;
+												const ndy = (p1[1] * ex1 + p1[5] * ey1 + p1[9] * ez1 + p1[13]) / cw1;
+												if (ndx > -1 && ndx < 1 && ndy > -1 && ndy < 1) {
+													const fx = (ndx + 1) * 0.5 * (gw - 1);
+													const fy = (1 - ndy) * 0.5 * (gh - 1);
+													const dmm = Math.round(-ez1 * 1000);
+													// 2x2 min-splat: single-cell splats leave pinholes on
+													// slanted surfaces, and a zero-hole bilinear-mixed with
+													// a valid depth reads as a phantom NEAR value.
+													for (let sy = 0; sy < 2; sy++) {
+														const gy1 = Math.min(gh - 1, Math.floor(fy) + sy);
+														const my1 = metFlip ? (gh - 1 - gy1) : gy1;
+														for (let sx = 0; sx < 2; sx++) {
+															const gx1 = Math.min(gw - 1, Math.floor(fx) + sx);
+															const mi1 = my1 * gw + gx1;
+															if (!met1[mi1] || dmm < met1[mi1]) { met1[mi1] = dmm; }
+														}
+													}
+												}
+											}
+										}
 										fresh[i] = 0;
 										if (!bridge.cells) { bridge.cells = new Set(); }
 										if (bridge.cellCount < bridge.maxCells) {
@@ -672,6 +728,7 @@ func _install_js_hook() -> void:
 									seq: ++bridge.seq, gw: gw, gh: gh, pts: pts, val: val,
 									met: met, met1: met1,
 									eye: [tr[12], tr[13], tr[14]],
+									eye1: view1 ? [view1.transform.matrix[12], view1.transform.matrix[13], view1.transform.matrix[14]] : null,
 								};
 							}
 						}
@@ -862,7 +919,16 @@ func _update_env_depth(data: Dictionary) -> void:
 		return
 	var met1_v: Variant = data.get("met1", null)
 	var img0 := _grid_to_image(met, gw, gh)
-	var img1: Image = _grid_to_image(met1_v, gw, gh) if (met1_v != null and (met1_v as Array).size() == gw * gh) else img0
+	# Right eye: NEVER silently substitute the left grid when this harvest lacks
+	# met1 (platforms skip second-view depth on some frames, especially during
+	# head motion) - the left eye's grid is parallax-offset for the right eye and
+	# painted RANDOM occlusion spots in that eye only. A stale right-eye grid is
+	# strictly better than the other eye's fresh one.
+	if met1_v != null and (met1_v as Array).size() == gw * gh:
+		_env_img1 = _grid_to_image(met1_v, gw, gh)
+	elif _env_img1 == null or _env_img1.get_width() != gw or _env_img1.get_height() != gh:
+		_env_img1 = img0  # no right-eye grid served yet (first frames / res change)
+	var img1: Image = _env_img1
 	if _env_depth_tex == null or _env_img0 == null or _env_img0.get_width() != gw or _env_img0.get_height() != gh:
 		_env_img0 = img0
 		_env_depth_tex = Texture2DArray.new()
@@ -872,6 +938,15 @@ func _update_env_depth(data: Dictionary) -> void:
 	else:
 		_env_depth_tex.update_layer(img0, 0)
 		_env_depth_tex.update_layer(img1, 1)
+	# Actual eye positions for the shader's eye-layer selection (nearest eye to
+	# the pass camera) - replaces the projection-sign heuristic that misfired on
+	# Galaxy XR's projections.
+	var eye_v: Variant = data.get("eye", null)
+	if eye_v is Array and (eye_v as Array).size() == 3:
+		_push_occlusion(&"eye0_pos", Vector3(float(eye_v[0]), float(eye_v[1]), float(eye_v[2])))
+	var eye1_v: Variant = data.get("eye1", null)
+	if eye1_v is Array and (eye1_v as Array).size() == 3:
+		_push_occlusion(&"eye1_pos", Vector3(float(eye1_v[0]), float(eye1_v[1]), float(eye1_v[2])))
 
 func _grid_to_image(grid: Array, gw: int, gh: int) -> Image:
 	var floats := PackedFloat32Array()
