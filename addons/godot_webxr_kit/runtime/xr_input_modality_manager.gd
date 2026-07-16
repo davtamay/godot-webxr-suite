@@ -57,9 +57,19 @@ const _DEBOUNCE_SECONDS := 0.25
 ## Show controller models while a hand is in CONTROLLER modality.
 @export var show_controller_models := true
 
-## Match the model to the reported controller profile (registry models in
-## controller_models/). Off = always the built-in stylized primitives.
+## Match the model to the reported controller profile. Off = always the
+## built-in stylized primitives.
 @export var use_profile_models := true
+
+## Fetch device-specific models at runtime from the registry repository and
+## cache them in user:// (downloads once per device). Off = only bundled
+## models (the generic fallback ships in controller_models/).
+@export var fetch_profile_models := true
+
+## Where device models are fetched from - the WebXR Input Profiles assets
+## layout (<url>/<profile-id>/<left|right>.glb). Point at your own copy of
+## @webxr-input-profiles/assets/dist/profiles to self-host.
+@export var model_repository_url := "https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets/dist/profiles"
 
 ## The rig's XRController3D nodes (aim pose), used for the primitive fallback
 ## models and to locate the XROrigin3D for grip attachment.
@@ -156,22 +166,100 @@ func _detect(hand: int) -> Modality:
 
 ## ---- profile-matched models -------------------------------------------------
 
+const _REMAP_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/gltf_remap_material.tres")
+
+var _fetching := [false, false]
+
 func _try_resolve_profile_model(hand: int) -> void:
 	if not use_profile_models or _grip_nodes[hand] == null:
 		return
-	for profile in _candidate_profiles(hand):
-		var path := "%s/%s/%s.glb" % [_MODELS_DIR, profile, "left" if hand == 0 else "right"]
+	var candidates := _candidate_profiles(hand)
+	var side := "left" if hand == 0 else "right"
+	# Best BUNDLED match attaches instantly (usually the generic fallback)...
+	for profile in candidates:
+		var path := "%s/%s/%s.glb" % [_MODELS_DIR, profile, side]
 		if not ResourceLoader.exists(path):
 			continue
 		var scene := load(path) as PackedScene
-		if scene == null:
-			continue
-		var model := scene.instantiate() as Node3D
-		model.name = "ProfileControllerModel"
-		_grip_nodes[hand].add_child(model)
-		_profile_models[hand] = model
-		_resolved_profile[hand] = profile
+		if scene:
+			_attach_profile_model(hand, (scene.instantiate() as Node3D), profile)
+			break
+	# ...and the top DEVICE-SPECIFIC profile upgrades it from cache/repository.
+	if fetch_profile_models and not candidates.is_empty():
+		var top := str(candidates[0])
+		if top != _resolved_profile[hand] and top != _GENERIC_PROFILE:
+			_fetch_model(hand, top)
+
+
+func _attach_profile_model(hand: int, model: Node3D, profile: String) -> void:
+	if _profile_models[hand]:
+		_profile_models[hand].queue_free()
+	model.name = "ProfileControllerModel"
+	_grip_nodes[hand].add_child(model)
+	_profile_models[hand] = model
+	_resolved_profile[hand] = profile
+	_set_controller_visuals(hand, _modality[hand] == Modality.CONTROLLER)
+
+
+func _fetch_model(hand: int, profile: String) -> void:
+	if _fetching[hand]:
 		return
+	var side := "left" if hand == 0 else "right"
+	var cache_path := "user://controller_models/%s_%s.glb" % [profile, side]
+	if FileAccess.file_exists(cache_path):
+		_attach_gltf_bytes(hand, profile, FileAccess.get_file_as_bytes(cache_path))
+		return
+	_fetching[hand] = true
+	var request := HTTPRequest.new()
+	add_child(request)
+	request.request_completed.connect(func(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+		request.queue_free()
+		_fetching[hand] = false
+		if code != 200 or body.is_empty():
+			return  # offline / unknown profile: the bundled model stays
+		DirAccess.make_dir_recursive_absolute("user://controller_models")
+		var file := FileAccess.open(cache_path, FileAccess.WRITE)
+		if file:
+			file.store_buffer(body)
+			file.close()
+		_attach_gltf_bytes(hand, profile, body))
+	if request.request("%s/%s/%s.glb" % [model_repository_url, profile, side]) != OK:
+		request.queue_free()
+		_fetching[hand] = false
+
+
+func _attach_gltf_bytes(hand: int, profile: String, bytes: PackedByteArray) -> void:
+	var doc := GLTFDocument.new()
+	var state := GLTFState.new()
+	if doc.append_from_buffer(bytes, "", state) != OK:
+		return
+	var model := doc.generate_scene(state) as Node3D
+	if model == null:
+		return
+	# Runtime-parsed glTF creates fresh materials whose shader variants are NOT
+	# in a WebGPU export's baked cache (they render invisible there). Remap
+	# every surface onto duplicates of one small PRE-BAKED template, copying
+	# colour/texture/metallic/roughness as uniforms - uniform changes reuse the
+	# baked shader, so the fetched model is guaranteed to render.
+	_remap_materials(model)
+	_attach_profile_model(hand, model, profile)
+
+
+func _remap_materials(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mesh_instance := node as MeshInstance3D
+		for surface in mesh_instance.get_surface_override_material_count():
+			var source := mesh_instance.get_active_material(surface)
+			var remapped := _REMAP_MATERIAL.duplicate() as StandardMaterial3D
+			if source is BaseMaterial3D:
+				var base := source as BaseMaterial3D
+				remapped.albedo_color = base.albedo_color
+				remapped.albedo_texture = base.albedo_texture
+				remapped.metallic = base.metallic
+				remapped.roughness = base.roughness
+			mesh_instance.set_surface_override_material(surface, remapped)
+	for child in node.get_children():
+		_remap_materials(child)
 
 
 func _candidate_profiles(hand: int) -> PackedStringArray:
