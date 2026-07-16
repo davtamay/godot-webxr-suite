@@ -11,6 +11,12 @@ extends Node3D
 
 const HAND_VISUALIZER := "res://addons/godot_xr_hands/runtime/hand_visualizer.gd"
 
+## Show the virtual hand meshes during AR passthrough. Off by default: in AR you
+## see your REAL hands, and the virtual meshes would cover them (e.g. hiding that
+## your own hand is doing the occluding). Hands stay visible in VR either way,
+## and hand INPUT (pinch, grab, rays) works in AR regardless.
+@export var virtual_hands_in_ar := false
+
 var _xr_cam: XRCamera3D
 var _flat_cam: Camera3D
 var _was_xr := false
@@ -24,7 +30,18 @@ func _ready() -> void:
 	if origin and ResourceLoader.exists(HAND_VISUALIZER):
 		var hands: Node3D = load(HAND_VISUALIZER).new()
 		hands.prefer_browser_hand_bridge = false
-		origin.add_child(hands)
+		# Wrapped in a container so the AR hide owns the container's visibility
+		# while the visualizer stays free to manage its own (tracking watchdog).
+		var hand_mount := Node3D.new()
+		hand_mount.name = "HandVisualizerMount"
+		hand_mount.add_child(hands)
+		origin.add_child(hand_mount)
+		if not virtual_hands_in_ar:
+			# The bootstrap hides this group during AR passthrough and restores
+			# it on exit/VR - the same mechanic scenes use for floors.
+			var bootstrap := get_node_or_null("WebXRBootstrap")
+			var group := str(bootstrap.ar_hide_group) if bootstrap and "ar_hide_group" in bootstrap else "ar_passthrough_hidden"
+			hand_mount.add_to_group(group)
 
 	# Existing-scene camera: keep the scene's own camera for the flat view; the XR
 	# camera drives only in-session (toggled in _process). A bare scene with no
