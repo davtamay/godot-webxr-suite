@@ -1,3 +1,4 @@
+@icon("res://addons/godot_webxr_kit/icons/browser_capabilities.svg")
 extends Control
 
 ## Attach this to a small diagnostics Control in the Godot demo.

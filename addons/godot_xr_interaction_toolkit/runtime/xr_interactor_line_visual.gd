@@ -1,3 +1,4 @@
+@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_interactor_line_visual.svg")
 class_name XRInteractorLineVisual
 extends MeshInstance3D
 

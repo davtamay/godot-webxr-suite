@@ -1,3 +1,4 @@
+@icon("res://addons/godot_webxr_kit/icons/webxr_input_adapter.svg")
 class_name WebXRInputAdapter
 extends "res://addons/godot_xr_interaction_toolkit/runtime/input/xr_controller_hand_adapter.gd"
 

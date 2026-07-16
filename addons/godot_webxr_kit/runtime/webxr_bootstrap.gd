@@ -1,8 +1,18 @@
+@icon("res://addons/godot_webxr_kit/icons/webxr_bootstrap.svg")
+class_name WebXRBootstrap
 extends Node3D
 
 ## Minimal WebXR startup flow.
 ## Attach to a Node3D in the demo scene and wire VR/AR Buttons plus optional status Label.
 ## This intentionally uses Godot's WebXRInterface, not custom WebGPU rendering.
+
+## The groups this bootstrap acts on, as constants so consumers never typo the
+## magic strings (a misspelled group fails SILENTLY - e.g. a HUD outside
+## GROUP_SESSION_HIDDEN renders into both eyes).
+const GROUP_SESSION_HIDDEN := "xr_session_hidden"
+const GROUP_AR_PASSTHROUGH_HIDDEN := "ar_passthrough_hidden"
+const GROUP_FEATURE_PROVIDER := "webxr_feature_provider"
+const GROUP_SESSION_UI := "xr_session_ui"
 
 ## Legacy single-button path. If enter_vr_button_path is empty, this is used as the VR button.
 @export var enter_xr_button_path: NodePath
@@ -17,11 +27,11 @@ extends Node3D
 ## hands disabled in system settings). Off by default: hand tracking is then
 ## requested as an optional feature and still granted where available.
 @export var require_hand_tracking := false
-@export var ar_hide_group := "ar_passthrough_hidden"
+@export var ar_hide_group := GROUP_AR_PASSTHROUGH_HIDDEN
 ## Nodes in this group are hidden during ANY immersive session (VR or AR)
 ## and restored on exit. Put screen-space UI (CanvasLayer HUDs) here:
 ## Godot composites the 2D canvas into each eye's view otherwise.
-@export var session_hide_group := "xr_session_hidden"
+@export var session_hide_group := GROUP_SESSION_HIDDEN
 ## Snap the camera back to the design forward when a session ends. XR leaves
 ## the camera at your last head orientation, which on the flat page can face
 ## you away from the scene and its UI. Turn off for apps that deliberately
@@ -71,8 +81,12 @@ func _ready() -> void:
         _base_environment_background_mode = _world_environment.environment.background_mode
         _base_environment_background_color = _world_environment.environment.background_color
 
-    # Zero-wiring path: if no session UI was wired, build our own (VR/AR
-    # buttons + status) so this bootstrap drops into any scene with no setup.
+    # Zero-wiring paths, in order: adopt an XRSessionUI block if the scene has
+    # one (the polished HUD, found by group - it joins in _enter_tree so it is
+    # visible here regardless of ready order); else build the minimal default
+    # UI so this bootstrap drops into any scene with no setup at all.
+    if _vr_button == null and _ar_button == null:
+        _adopt_session_ui()
     if _vr_button == null and _ar_button == null:
         _build_default_ui()
 
@@ -297,7 +311,7 @@ func _optional_features_for(session_mode: String) -> String:
     return ", ".join(features)
 
 func _merge_provider_features(features: Array[String], method: StringName, session_mode: String) -> void:
-    for node in get_tree().get_nodes_in_group("webxr_feature_provider"):
+    for node in get_tree().get_nodes_in_group(GROUP_FEATURE_PROVIDER):
         if not node.has_method(method):
             continue
         for f in node.call(method, session_mode):
@@ -353,6 +367,15 @@ func _show_browser_failure(message: String) -> void:
     var js_bridge = Engine.get_singleton("JavaScriptBridge")
     var encoded_message := JSON.stringify(message)
     js_bridge.eval("window.CompanyWebXRFailure = %s; console.error(%s);" % [encoded_message, encoded_message], true)
+
+
+func _adopt_session_ui() -> void:
+    for ui in get_tree().get_nodes_in_group(GROUP_SESSION_UI):
+        if ui.has_method("get_vr_button"):
+            _vr_button = ui.get_vr_button()
+            _ar_button = ui.get_ar_button()
+            _status_label = ui.get_status_label()
+            return
 
 
 func _build_default_ui() -> void:

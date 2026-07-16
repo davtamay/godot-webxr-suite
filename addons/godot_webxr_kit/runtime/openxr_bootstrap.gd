@@ -1,3 +1,4 @@
+@icon("res://addons/godot_webxr_kit/icons/openxr_bootstrap.svg")
 class_name OpenXRBootstrap
 extends Node
 

@@ -1,3 +1,4 @@
+@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_ui_canvas_interactable.svg")
 class_name XRUICanvasInteractable
 extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactable.gd"
 

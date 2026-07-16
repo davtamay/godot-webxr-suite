@@ -3,14 +3,14 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="1_webxr"]
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="2_rig"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="3_openxr"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/browser_capabilities.gd" id="5_caps"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/xr_session_ui.tscn" id="5_session_ui"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/scene_mesh_manager.gd" id="6_meshmgr"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/environment_depth_manager.gd" id="7_depthmgr"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="9_grab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_canvas_interactable.gd" id="12_ui_canvas"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/feature_panel.gd" id="14_feature_panel"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/scene_understanding_demo.gd" id="15_root"]
-[ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="16_labelbake"]
+[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="16_fontbake"]
 
 [sub_resource type="Environment" id="Environment_demo"]
 background_mode = 2
@@ -81,14 +81,8 @@ script = ExtResource("6_meshmgr")
 script = ExtResource("7_depthmgr")
 occludees = Array[NodePath]([NodePath("../GrabCube"), NodePath("../GrabSphere")])
 
-[node name="LabelBakeAnchor" type="Label3D" parent="."]
-visible = false
-material_override = ExtResource("16_labelbake")
-pixel_size = 0.002
-billboard = 1
-text = "bake"
-font_size = 48
-outline_size = 8
+[node name="FontBakeAnchor" type="Label3D" parent="."]
+script = ExtResource("16_fontbake")
 
 [node name="SampleEnvironment" type="Node3D" parent="."]
 
@@ -219,60 +213,8 @@ text = "WebXR features: Room Mesh & Live Recon -> mesh-detection. Depth Scan -> 
 
 [node name="WebXRBootstrap" type="Node3D" parent="."]
 script = ExtResource("1_webxr")
-enter_vr_button_path = NodePath("../CanvasLayer/Panel/MarginContainer/VBoxContainer/SessionButtons/EnterVRButton")
-enter_ar_button_path = NodePath("../CanvasLayer/Panel/MarginContainer/VBoxContainer/SessionButtons/EnterARButton")
-status_label_path = NodePath("../CanvasLayer/Panel/MarginContainer/VBoxContainer/StatusLabel")
 world_environment_path = NodePath("../WorldEnvironment")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="." groups=["xr_session_hidden"]]
-
-[node name="Panel" type="PanelContainer" parent="CanvasLayer"]
-offsets_preset = 1
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 560.0
-offset_bottom = 460.0
-
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 14
-theme_override_constants/margin_top = 14
-theme_override_constants/margin_right = 14
-theme_override_constants/margin_bottom = 14
-
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/Panel/MarginContainer"]
-layout_mode = 2
-
-[node name="TitleLabel" type="Label" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "WebXR Scene Understanding Demo"
-
-[node name="StatusLabel" type="Label" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Enter AR, then toggle Room Mesh, Scene Labels, Occlusion, or Depth Sensing on the in-world panel."
-autowrap_mode = 3
-
-[node name="SessionButtons" type="HBoxContainer" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="EnterVRButton" type="Button" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer/SessionButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Enter VR"
-
-[node name="EnterARButton" type="Button" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer/SessionButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Enter AR"
-
-[node name="CapsLabel" type="Label" parent="CanvasLayer/Panel/MarginContainer/VBoxContainer"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Capabilities"
-autowrap_mode = 3
-
-[node name="BrowserCapabilities" type="Control" parent="CanvasLayer"]
-script = ExtResource("5_caps")
-output_label_path = NodePath("../Panel/MarginContainer/VBoxContainer/CapsLabel")
+[node name="XRSessionUI" parent="." instance=ExtResource("5_session_ui")]
+title_text = "WebXR Scene Understanding Demo"
+description_text = "Enter AR, then toggle Room Mesh, Scene Labels, Occlusion, or Depth Sensing on the in-world panel."

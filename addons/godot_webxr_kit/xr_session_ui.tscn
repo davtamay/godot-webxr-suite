@@ -1,0 +1,63 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/xr_session_ui.gd" id="1_ui"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/browser_capabilities.gd" id="2_caps"]
+
+[node name="XRSessionUI" type="CanvasLayer"]
+script = ExtResource("1_ui")
+
+[node name="Panel" type="PanelContainer" parent="."]
+offsets_preset = 1
+offset_left = 24.0
+offset_top = 24.0
+offset_right = 620.0
+offset_bottom = 440.0
+
+[node name="Margin" type="MarginContainer" parent="Panel"]
+layout_mode = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="Panel/Margin"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Title" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 26
+text = "WebXR"
+
+[node name="Description" type="Label" parent="Panel/Margin/VBox"]
+visible = false
+layout_mode = 2
+autowrap_mode = 3
+
+[node name="BootstrapStatus" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+text = "Checking WebXR support..."
+autowrap_mode = 3
+
+[node name="SessionButtons" type="HBoxContainer" parent="Panel/Margin/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="EnterVRButton" type="Button" parent="Panel/Margin/VBox/SessionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enter VR"
+
+[node name="EnterARButton" type="Button" parent="Panel/Margin/VBox/SessionButtons"]
+layout_mode = 2
+size_flags_horizontal = 3
+text = "Enter AR"
+
+[node name="CapsLabel" type="Label" parent="Panel/Margin/VBox"]
+layout_mode = 2
+text = "Capabilities"
+autowrap_mode = 3
+
+[node name="BrowserCapabilities" type="Control" parent="."]
+script = ExtResource("2_caps")
+output_label_path = NodePath("../Panel/Margin/VBox/CapsLabel")

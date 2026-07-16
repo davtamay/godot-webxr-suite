@@ -1,3 +1,4 @@
+@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_reticle_visual.svg")
 class_name XRReticleVisual
 extends MeshInstance3D
 

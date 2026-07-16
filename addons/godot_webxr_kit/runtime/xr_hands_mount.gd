@@ -1,3 +1,4 @@
+@icon("res://addons/godot_webxr_kit/icons/xr_hands_mount.svg")
 class_name XRHandsMount
 extends Node3D
 

@@ -1,3 +1,4 @@
+@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_interaction_manager.svg")
 class_name XRInteractionManager
 extends Node
 

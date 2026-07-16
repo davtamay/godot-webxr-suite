@@ -1,3 +1,4 @@
+@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_socket_interactor.svg")
 class_name XRSocketInteractor
 extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd"
 

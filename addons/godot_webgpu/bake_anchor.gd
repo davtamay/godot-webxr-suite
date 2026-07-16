@@ -1,4 +1,5 @@
 @tool
+@icon("res://addons/godot_webgpu/icons/bake_anchor.svg")
 class_name BakeAnchor
 extends Node3D
 
