@@ -5,7 +5,7 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/environment_depth_manager.gd" id="3_depth"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/scene_mesh_manager.gd" id="4_mesh"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/light_estimation_manager.gd" id="5_light"]
-[ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="6_label"]
+[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="6_fontbake"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -116,13 +116,7 @@ outline_size = 8
 width = 1600.0
 autowrap_mode = 2
 
-[node name="LabelBakeAnchor" type="Label3D" parent="."]
-visible = false
-material_override = ExtResource("6_label")
-pixel_size = 0.001
-billboard = 1
-text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 +-:/()."
-font_size = 48
-outline_size = 8
+[node name="FontBakeAnchor" type="Label3D" parent="."]
+script = ExtResource("6_fontbake")
 
 [node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]

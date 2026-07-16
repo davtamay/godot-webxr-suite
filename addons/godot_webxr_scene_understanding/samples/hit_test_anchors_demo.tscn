@@ -4,8 +4,8 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_bootstrap"]
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="2_rig"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="3_openxr"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/browser_capabilities.gd" id="4_caps"]
-[ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="5_label"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/xr_session_ui.tscn" id="4_session_ui"]
+[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="5_fontbake"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/hit_test_anchor_manager.gd" id="6_mgr"]
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_scene_understanding/samples/hit_reticle.tscn" id="7_reticle"]
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_scene_understanding/samples/anchor_marker.tscn" id="8_marker"]
@@ -37,14 +37,8 @@ script = ExtResource("6_mgr")
 reticle_scene = ExtResource("7_reticle")
 placed_scene = ExtResource("8_marker")
 
-[node name="LabelBakeAnchor" type="Label3D" parent="."]
-visible = false
-material_override = ExtResource("5_label")
-pixel_size = 0.001
-billboard = 1
-text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 +-:/()."
-font_size = 48
-outline_size = 8
+[node name="FontBakeAnchor" type="Label3D" parent="."]
+script = ExtResource("5_fontbake")
 
 [node name="GuidePanel" type="Node3D" parent="."]
 position = Vector3(0, 1.55, -1.45)
@@ -70,78 +64,20 @@ autowrap_mode = 2
 
 [node name="WebXRBootstrap" type="Node3D" parent="."]
 script = ExtResource("2_bootstrap")
-enter_vr_button_path = NodePath("../CanvasLayer/Panel/Margin/VBox/SessionButtons/EnterVRButton")
-enter_ar_button_path = NodePath("../CanvasLayer/Panel/Margin/VBox/SessionButtons/EnterARButton")
-status_label_path = NodePath("../CanvasLayer/Panel/Margin/VBox/BootstrapStatus")
 world_environment_path = NodePath("../WorldEnvironment")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="." groups=["xr_session_hidden"]]
+[node name="XRSessionUI" parent="." instance=ExtResource("4_session_ui")]
+title_text = "WebXR Hit Test + Anchors"
+description_text = "Tracked hand/controller rays find real surfaces, with head-view fallback. Pinch, tap, or press trigger to create runtime-tracked animated beacons."
 
-[node name="Panel" type="PanelContainer" parent="CanvasLayer"]
-offsets_preset = 1
-offset_left = 24.0
-offset_top = 24.0
-offset_right = 650.0
-offset_bottom = 430.0
-
-[node name="Margin" type="MarginContainer" parent="CanvasLayer/Panel"]
-layout_mode = 2
-theme_override_constants/margin_left = 16
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 16
-theme_override_constants/margin_bottom = 16
-
-[node name="VBox" type="VBoxContainer" parent="CanvasLayer/Panel/Margin"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="Title" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
-layout_mode = 2
-theme_override_font_sizes/font_size = 26
-text = "WebXR Hit Test + Anchors"
-
-[node name="Description" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
-layout_mode = 2
-text = "Tracked hand/controller rays find real surfaces, with head-view fallback. Pinch, tap, or press trigger to create runtime-tracked animated beacons."
-autowrap_mode = 3
-
-[node name="BootstrapStatus" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
-layout_mode = 2
-text = "Checking WebXR support..."
-autowrap_mode = 3
-
-[node name="SessionButtons" type="HBoxContainer" parent="CanvasLayer/Panel/Margin/VBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-
-[node name="EnterVRButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox/SessionButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Enter VR (fallback)"
-
-[node name="EnterARButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox/SessionButtons"]
-layout_mode = 2
-size_flags_horizontal = 3
-text = "Enter AR"
-
-[node name="ClearButton" type="Button" parent="CanvasLayer/Panel/Margin/VBox"]
+[node name="ClearButton" type="Button" parent="XRSessionUI/Panel/Margin/VBox"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Clear Anchors"
 
-[node name="DemoStatus" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
+[node name="DemoStatus" type="Label" parent="XRSessionUI/Panel/Margin/VBox"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 82)
 layout_mode = 2
 text = "Hit Test + Anchors: waiting for an immersive AR session."
 autowrap_mode = 3
-
-[node name="Capabilities" type="Label" parent="CanvasLayer/Panel/Margin/VBox"]
-unique_name_in_owner = true
-layout_mode = 2
-text = "Capabilities"
-autowrap_mode = 3
-
-[node name="BrowserCapabilities" type="Control" parent="CanvasLayer"]
-script = ExtResource("4_caps")
-output_label_path = NodePath("../Panel/Margin/VBox/Capabilities")
