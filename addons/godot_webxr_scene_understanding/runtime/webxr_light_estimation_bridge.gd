@@ -266,6 +266,16 @@ func get_status() -> String:
 			return "Light estimation: waiting for an immersive AR session."
 
 
+func get_state() -> String:
+	# Raw JS status token for a clean UI state machine: "live", "not-granted",
+	# "api-unavailable", "requesting-probe"/"probe-ready"/"waiting-estimate",
+	# "waiting-session"/"session-ended", "frame-error". Consumers map it to labels.
+	if not OS.has_feature("web") or not Engine.has_singleton("JavaScriptBridge"):
+		return "unavailable"
+	var js := Engine.get_singleton("JavaScriptBridge")
+	return str(js.eval("window.GodotWebXRLightEstimationBridge ? window.GodotWebXRLightEstimationBridge.status : 'no-bridge'", true))
+
+
 func get_reflection_status() -> String:
 	if not OS.has_feature("web") or not Engine.has_singleton("JavaScriptBridge"):
 		return "Reflection probe unavailable outside WebXR."

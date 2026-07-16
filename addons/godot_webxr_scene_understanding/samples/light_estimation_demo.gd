@@ -19,11 +19,7 @@ enum DisplayMode { LIVE, FROZEN, NEUTRAL }
 @onready var _screen_status: Label = %DemoStatus
 @onready var _mode_label: Label3D = $LightLab/ModeLabel
 @onready var _controls = $XRUIPanel/Viewport/Root
-@onready var _rgb_bars: Array[MeshInstance3D] = [
-	$LightLab/LightMeter/Red,
-	$LightLab/LightMeter/Green,
-	$LightLab/LightMeter/Blue,
-]
+@onready var _color_swatch: MeshInstance3D = $LightLab/LightMeter/Swatch
 
 var _material: ShaderMaterial
 var _sh_sky_material: ShaderMaterial
@@ -36,7 +32,7 @@ var _target_sh := PackedVector3Array()
 var _smoothed_direction := Vector3.UP
 var _smoothed_intensity := Vector3.ZERO
 var _smoothed_sh := PackedVector3Array()
-var _sh_pips: Array[MeshInstance3D] = []
+var _swatch_material: StandardMaterial3D
 var _hero_mesh: MeshInstance3D
 var _estimate_degraded := false
 
@@ -76,20 +72,30 @@ func _process(delta: float) -> void:
 	if _status_accum < 0.2:
 		return
 	_status_accum = 0.0
-	var status := "Mode: %s - grab the hero object and tune its material on the XR panel.\n" % _mode_name()
-	status += str(_bridge.get_status())
+	_update_status_banner()
+
+
+func _update_status_banner() -> void:
+	# ONE unmistakable state - you should never have to hunt for the word "live".
+	# Also carries the per-feature "not supported on this headset" message.
+	var text := ""
+	var color := Color(0.78, 0.94, 1.0)
 	if _bridge.has_live_estimate():
-		var direction: Vector3 = _bridge.get_primary_direction()
-		var intensity: Vector3 = _bridge.get_primary_intensity()
-		status += "\nTo light: (%+.2f, %+.2f, %+.2f)  RGB: (%.2f, %.2f, %.2f)" % [
-			direction.x, direction.y, direction.z,
-			intensity.x, intensity.y, intensity.z,
-		]
-	status += "\n" + str(_bridge.get_reflection_status())
-	if _estimate_degraded:
-		status += "\nEstimate sample was empty or invalid; retaining the safe visible fallback."
-	_world_status.text = status
-	_screen_status.text = status
+		text = "READING YOUR ROOM'S LIGHT\nThese objects are lit by your real room."
+		color = Color(0.45, 1.0, 0.55)
+	else:
+		match str(_bridge.get_state()):
+			"not-granted", "api-unavailable", "unavailable", "no-bridge":
+				text = "LIGHT ESTIMATION NOT AVAILABLE ON THIS HEADSET\nIt's an Android XR / ARCore feature - Quest 3 doesn't have it."
+				color = Color(1.0, 0.72, 0.3)
+			"requesting-probe", "probe-ready", "waiting-estimate", "live":
+				text = "WARMING UP...\nWaiting for the first light estimate (about a second)."
+			_:
+				text = "ENTER AR\nStep into AR to light these objects with your real room."
+	_world_status.text = text
+	_world_status.modulate = color
+	_screen_status.text = text
+	_screen_status.modulate = color
 	if _controls.has_method("set_runtime_status"):
 		_controls.set_runtime_status("%s | %s" % [_mode_name(), str(_bridge.get_status())])
 
@@ -240,44 +246,26 @@ func _apply_fallback() -> void:
 
 
 func _prepare_telemetry() -> void:
-	var coefficient_root := get_node_or_null("LightLab/SHCoefficients")
-	if coefficient_root:
-		for child in coefficient_root.get_children():
-			if child is MeshInstance3D:
-				var pip := child as MeshInstance3D
-				var source_material := pip.get_active_material(0)
-				if source_material:
-					pip.material_override = source_material.duplicate()
-				_sh_pips.append(pip)
+	# The "room light color" swatch gets its own material instance so we can recolor
+	# it live (albedo is a uniform, so the WebGPU-baked shader is reused).
+	var mat := _color_swatch.get_active_material(0)
+	if mat is StandardMaterial3D:
+		_swatch_material = (mat as StandardMaterial3D).duplicate()
+		_color_swatch.material_override = _swatch_material
 
 
-func _update_telemetry(primary_intensity: Vector3, spherical_harmonics: PackedVector3Array) -> void:
-	var channels := [primary_intensity.x, primary_intensity.y, primary_intensity.z]
-	for index in range(mini(_rgb_bars.size(), channels.size())):
-		# Light-estimate intensities are unbounded. A square-root display keeps
-		# dim rooms readable without allowing bright rooms to peg the meter.
-		var amount := clampf(sqrt(maxf(0.0, channels[index])) / 2.2, 0.035, 1.0)
-		_rgb_bars[index].scale.y = amount
-		_rgb_bars[index].position.y = -0.46 + amount * 0.42
-
-	for index in range(_sh_pips.size()):
-		var coefficient := spherical_harmonics[index] if index < spherical_harmonics.size() else Vector3.ZERO
-		var magnitude := coefficient.length()
-		var color_vector := coefficient.abs()
-		var color_peak := maxf(0.001, maxf(color_vector.x, maxf(color_vector.y, color_vector.z)))
-		var color := Color(
-			color_vector.x / color_peak,
-			color_vector.y / color_peak,
-			color_vector.z / color_peak,
-			1.0
-		)
-		var size := 0.45 + clampf(sqrt(magnitude) * 0.42, 0.0, 0.8)
-		_sh_pips[index].scale = Vector3.ONE * size
-		var material := _sh_pips[index].material_override as StandardMaterial3D
-		if material:
-			material.albedo_color = color.darkened(0.18) if magnitude > 0.0001 else Color(0.08, 0.1, 0.13)
-			material.emission = color if magnitude > 0.0001 else Color(0.015, 0.02, 0.025)
-			material.emission_energy_multiplier = 0.7 + clampf(magnitude, 0.0, 2.5)
+func _update_telemetry(primary_intensity: Vector3, _spherical_harmonics: PackedVector3Array) -> void:
+	# Show the room's light COLOR on the swatch (normalized hue of the primary
+	# intensity) - something a user can actually read (warm lamp vs cool daylight),
+	# instead of abstract per-channel bars or raw SH numbers.
+	if _swatch_material == null:
+		return
+	var peak := maxf(primary_intensity.x, maxf(primary_intensity.y, primary_intensity.z))
+	if peak > 0.0001:
+		_swatch_material.albedo_color = Color(
+			primary_intensity.x / peak, primary_intensity.y / peak, primary_intensity.z / peak, 1.0)
+	else:
+		_swatch_material.albedo_color = Color(0.6, 0.6, 0.62, 1.0)
 
 
 func _on_material_values_changed(values: Dictionary) -> void:

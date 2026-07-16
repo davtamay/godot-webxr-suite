@@ -1,4 +1,4 @@
-[gd_scene load_steps=31 format=3]
+[gd_scene load_steps=27 format=3]
 
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/light_estimation_demo.gd" id="1_root"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_bootstrap"]
@@ -65,42 +65,12 @@ emission = Color(0.08, 0.78, 1, 1)
 emission_energy_multiplier = 2.2
 roughness = 0.24
 
-[sub_resource type="BoxMesh" id="BoxMesh_meter"]
-size = Vector3(0.075, 0.84, 0.075)
+[sub_resource type="BoxMesh" id="BoxMesh_swatch"]
+size = Vector3(0.34, 0.34, 0.05)
 
-[sub_resource type="StandardMaterial3D" id="Material_red"]
+[sub_resource type="StandardMaterial3D" id="Material_swatch"]
 shading_mode = 0
-albedo_color = Color(1, 0.12, 0.08, 1)
-emission_enabled = true
-emission = Color(1, 0.025, 0.015, 1)
-emission_energy_multiplier = 2.0
-
-[sub_resource type="StandardMaterial3D" id="Material_green"]
-shading_mode = 0
-albedo_color = Color(0.1, 1, 0.28, 1)
-emission_enabled = true
-emission = Color(0.015, 1, 0.08, 1)
-emission_energy_multiplier = 2.0
-
-[sub_resource type="StandardMaterial3D" id="Material_blue"]
-shading_mode = 0
-albedo_color = Color(0.08, 0.42, 1, 1)
-emission_enabled = true
-emission = Color(0.015, 0.16, 1, 1)
-emission_energy_multiplier = 2.0
-
-[sub_resource type="SphereMesh" id="SphereMesh_sh"]
-radius = 0.055
-height = 0.11
-radial_segments = 20
-rings = 10
-
-[sub_resource type="StandardMaterial3D" id="Material_sh"]
-shading_mode = 0
-albedo_color = Color(0.08, 0.1, 0.13, 1)
-emission_enabled = true
-emission = Color(0.015, 0.02, 0.025, 1)
-emission_energy_multiplier = 0.7
+albedo_color = Color(0.6, 0.6, 0.62, 1)
 
 [sub_resource type="QuadMesh" id="QuadMesh_controls"]
 size = Vector2(1.45, 1.65)
@@ -222,92 +192,22 @@ outline_size = 6
 [node name="LightMeter" type="Node3D" parent="LightLab"]
 position = Vector3(-0.32, 0, 0)
 
-[node name="Red" type="MeshInstance3D" parent="LightLab/LightMeter"]
-position = Vector3(-0.11, -0.4453, 0)
-scale = Vector3(1, 0.035, 1)
-mesh = SubResource("BoxMesh_meter")
-surface_material_override/0 = SubResource("Material_red")
-
-[node name="Green" type="MeshInstance3D" parent="LightLab/LightMeter"]
-position = Vector3(0, -0.4453, 0)
-scale = Vector3(1, 0.035, 1)
-mesh = SubResource("BoxMesh_meter")
-surface_material_override/0 = SubResource("Material_green")
-
-[node name="Blue" type="MeshInstance3D" parent="LightLab/LightMeter"]
-position = Vector3(0.11, -0.4453, 0)
-scale = Vector3(1, 0.035, 1)
-mesh = SubResource("BoxMesh_meter")
-surface_material_override/0 = SubResource("Material_blue")
+[node name="Swatch" type="MeshInstance3D" parent="LightLab/LightMeter"]
+position = Vector3(0, 0.02, 0)
+mesh = SubResource("BoxMesh_swatch")
+surface_material_override/0 = SubResource("Material_swatch")
 
 [node name="MeterLabel" type="Label3D" parent="LightLab/LightMeter"]
-position = Vector3(0, 0.53, 0)
+position = Vector3(0, 0.4, 0)
 modulate = Color(0.78, 0.94, 1, 1)
-pixel_size = 0.00115
+pixel_size = 0.00125
 billboard = 1
-text = "PRIMARY RGB"
-font_size = 22
-outline_size = 6
-
-[node name="SHCoefficients" type="Node3D" parent="LightLab"]
-position = Vector3(0.3, 0, 0)
-
-[node name="SH0" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(-0.16, 0.28, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SH1" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(0, 0.28, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SH2" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(0.16, 0.28, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SH3" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(-0.16, 0.08, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SH4" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(0, 0.08, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SH5" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(0.16, 0.08, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SH6" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(-0.16, -0.12, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SH7" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(0, -0.12, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SH8" type="MeshInstance3D" parent="LightLab/SHCoefficients"]
-position = Vector3(0.16, -0.12, 0)
-mesh = SubResource("SphereMesh_sh")
-surface_material_override/0 = SubResource("Material_sh")
-
-[node name="SHLabel" type="Label3D" parent="LightLab/SHCoefficients"]
-position = Vector3(0, 0.53, 0)
-modulate = Color(0.78, 0.94, 1, 1)
-pixel_size = 0.00115
-billboard = 1
-text = "SH 0-8"
+text = "ROOM LIGHT COLOR"
 font_size = 22
 outline_size = 6
 
 [node name="LightDirectionArrow" type="Node3D" parent="LightLab"]
-position = Vector3(0.98, 0.16, 0.0)
+position = Vector3(0.3, 0.16, 0.0)
 
 [node name="Shaft" type="MeshInstance3D" parent="LightLab/LightDirectionArrow"]
 position = Vector3(0, 0, -0.19)
@@ -323,7 +223,7 @@ surface_material_override/0 = SubResource("Material_arrow")
 position = Vector3(0, 0.1, 0.0)
 modulate = Color(0.78, 0.94, 1, 1)
 billboard = 1
-text = "TO REAL LIGHT"
+text = "POINTS AT YOUR MAIN LIGHT"
 font_size = 24
 outline_size = 6
 
