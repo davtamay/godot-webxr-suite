@@ -610,16 +610,17 @@ func _install_js_hook() -> void:
 								// per-pixel occlusion texture (0 = no data). Only
 								// built when the soft occluder asks (wantMet).
 								const met = bridge.wantMet ? new Array(gw * gh) : null;
-								// gpu path: met1 filled from meters1 in the loop. cpu path: filled
-								// by reprojecting the left grid (met1Splat); starts all-zero.
-								const met1 = (bridge.wantMet && view1) ? new Array(gw * gh).fill(0) : null;
-								const met1Splat = !!(met1 && !meters1);
+								// gpu path (Quest): met1 from its own readback ONLY - on a
+								// readback gap met1 stays null and GDScript holds the last valid
+								// right grid (the Quest-verified behavior; splatting into gaps
+								// made the right eye ping-pong between differing grids = flaky).
+								// cpu path (Galaxy): met1 ALWAYS by reprojecting the left grid
+								// (met1Splat) - its own view-1 depth serves junk (blob fix).
+								const gpuPath = (bridge.usage === 'gpu-optimized');
+								const met1 = (bridge.wantMet && view1 && (meters1 || !gpuPath)) ? new Array(gw * gh).fill(0) : null;
+								const met1Splat = !!(met1 && !meters1 && !gpuPath);
 								const inv1 = met1Splat ? view1.transform.inverse.matrix : null;
 								const p1 = met1Splat ? view1.projectionMatrix : null;
-								if (met1 && meters1 && (!bridge._m1raw || bridge._m1raw.length !== gw * gh)) {
-									bridge._m1raw = new Array(gw * gh).fill(0);
-									bridge._m1acc = new Array(gw * gh).fill(0);
-								}
 								const metFlip = (bridge.path === 'cpu');
 								// The CPU getDepthInMeters grid stores row 0 at view-top; the GPU-readback grid (which the soft occluder shader is tuned for) stores row 0 at view-bottom. Flip the occlusion grid on the CPU path so Soft occludes the same place on both platforms.
 								for (let gy = 0; gy < gh; gy++) {
@@ -632,21 +633,13 @@ func _install_js_hook() -> void:
 										const u = gx / (gw - 1);
 										const i = gy * gw + gx;
 										const mi = mrow * gw + gx;
-										// GPU-path right-eye grid, with a TEMPORAL DEBOUNCE: a cell
-										// that suddenly jumps NEARER (or appears from invalid) must
-										// persist 2 consecutive harvests before it occludes - kills
-										// single-harvest sensor junk. Reveals stay instant.
+										// GPU-path right-eye grid: raw fill, exactly the behavior
+										// verified on Quest. (A near-jump debounce was tried here and
+										// REGRESSED Quest - it delays every moving occluder's leading
+										// edge per-cell, which reads as flicker. Don't re-add.)
 										if (met1 && meters1) {
 											const d1 = meters1[i];
-											const raw = (d1 > 0.1 && d1 < 8.0) ? Math.round(d1 * 1000) : 0;
-											const praw = bridge._m1raw[mi] || 0;
-											let out;
-											if (raw === 0) { out = 0; }
-											else if (praw > 0 && raw > praw - 400) { out = raw; }
-											else { out = bridge._m1acc[mi] || 0; }
-											bridge._m1raw[mi] = raw;
-											bridge._m1acc[mi] = out;
-											met1[mi] = out;
+											met1[mi] = (d1 > 0.1 && d1 < 8.0) ? Math.round(d1 * 1000) : 0;
 										}
 										const dm = meters[i];
 										if (!(dm > 0.1 && dm < 8.0)) {
@@ -686,9 +679,16 @@ func _install_js_hook() -> void:
 													// 2x2 min-splat: single-cell splats leave pinholes on
 													// slanted surfaces, and a zero-hole bilinear-mixed with
 													// a valid depth reads as a phantom NEAR value.
+													// Met grids are BOTTOM-origin on BOTH paths (the cpu
+													// path flips its top-origin source rows; the gpu
+													// readback is natively bottom-origin). fy is a
+													// TOP-origin row, so ALWAYS flip - the old metFlip-
+													// conditional fed Quest an UPSIDE-DOWN right grid
+													// whenever the splat covered a readback gap (flaky
+													// occlusion that cut out and came back).
 													for (let sy = 0; sy < 2; sy++) {
 														const gy1 = Math.min(gh - 1, Math.floor(fy) + sy);
-														const my1 = metFlip ? (gh - 1 - gy1) : gy1;
+														const my1 = gh - 1 - gy1;
 														for (let sx = 0; sx < 2; sx++) {
 															const gx1 = Math.min(gw - 1, Math.floor(fx) + sx);
 															const mi1 = my1 * gw + gx1;
@@ -938,9 +938,12 @@ func _update_env_depth(data: Dictionary) -> void:
 	else:
 		_env_depth_tex.update_layer(img0, 0)
 		_env_depth_tex.update_layer(img1, 1)
-	# Actual eye positions for the shader's eye-layer selection (nearest eye to
-	# the pass camera) - replaces the projection-sign heuristic that misfired on
-	# Galaxy XR's projections.
+	# Eye-layer selector: each platform runs the selector VERIFIED on it.
+	# Quest (gpu-optimized) = projection-sign (the nearest-eye test flickered
+	# there); Galaxy (cpu) = nearest actual eye position (the sign heuristic
+	# misfired on its projections and painted right-eye-only blobs).
+	_push_occlusion(&"eye_select", 0.0 if get_usage() == "gpu-optimized" else 1.0)
+	# Actual eye positions for the nearest-eye selector.
 	var eye_v: Variant = data.get("eye", null)
 	if eye_v is Array and (eye_v as Array).size() == 3:
 		_push_occlusion(&"eye0_pos", Vector3(float(eye_v[0]), float(eye_v[1]), float(eye_v[2])))
