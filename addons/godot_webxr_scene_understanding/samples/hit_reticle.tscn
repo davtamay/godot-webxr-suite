@@ -1,0 +1,32 @@
+[gd_scene load_steps=4 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_reticle"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.05, 0.88, 1, 0.9)
+emission_enabled = true
+emission = Color(0.02, 0.75, 1, 1)
+emission_energy_multiplier = 3.2
+
+[sub_resource type="TorusMesh" id="Torus_reticle"]
+inner_radius = 0.085
+outer_radius = 0.105
+rings = 40
+ring_segments = 12
+
+[sub_resource type="CylinderMesh" id="Cylinder_reticle_center"]
+top_radius = 0.018
+bottom_radius = 0.018
+height = 0.006
+radial_segments = 20
+
+[node name="HitReticle" type="Node3D"]
+
+[node name="Ring" type="MeshInstance3D" parent="."]
+mesh = SubResource("Torus_reticle")
+surface_material_override/0 = SubResource("Material_reticle")
+
+[node name="Center" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.004, 0)
+mesh = SubResource("Cylinder_reticle_center")
+surface_material_override/0 = SubResource("Material_reticle")

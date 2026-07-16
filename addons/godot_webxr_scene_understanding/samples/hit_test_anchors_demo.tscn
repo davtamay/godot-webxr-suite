@@ -2,35 +2,19 @@
 
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/hit_test_anchors_demo.gd" id="1_root"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_bootstrap"]
-[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_hit_test_anchor_bridge.gd" id="3_hit_anchor"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="2_rig"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="3_openxr"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/browser_capabilities.gd" id="4_caps"]
 [ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="5_label"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/hit_test_anchor_manager.gd" id="6_mgr"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_scene_understanding/samples/hit_reticle.tscn" id="7_reticle"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_scene_understanding/samples/anchor_marker.tscn" id="8_marker"]
 
 [sub_resource type="Environment" id="Environment_demo"]
 background_mode = 2
 ambient_light_source = 3
 ambient_light_color = Color(0.62, 0.68, 0.76, 1)
 ambient_light_energy = 0.55
-
-[sub_resource type="StandardMaterial3D" id="Material_reticle"]
-transparency = 1
-shading_mode = 0
-albedo_color = Color(0.05, 0.88, 1, 0.9)
-emission_enabled = true
-emission = Color(0.02, 0.75, 1, 1)
-emission_energy_multiplier = 3.2
-
-[sub_resource type="TorusMesh" id="Torus_reticle"]
-inner_radius = 0.085
-outer_radius = 0.105
-rings = 40
-ring_segments = 12
-
-[sub_resource type="CylinderMesh" id="Cylinder_reticle_center"]
-top_radius = 0.018
-bottom_radius = 0.018
-height = 0.006
-radial_segments = 20
 
 [node name="HitTestAnchorsDemo" type="Node3D"]
 script = ExtResource("1_root")
@@ -43,9 +27,17 @@ transform = Transform3D(0.866025, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, -0.43
 light_energy = 1.35
 shadow_enabled = true
 
-[node name="XROrigin3D" type="XROrigin3D" parent="."]
+[node name="WebXRRig" parent="." instance=ExtResource("2_rig")]
 
-[node name="LabelBakeAnchor" type="Label3D" parent="XROrigin3D"]
+[node name="OpenXRBootstrap" type="Node" parent="."]
+script = ExtResource("3_openxr")
+
+[node name="HitTestAnchorManager" type="Node3D" parent="."]
+script = ExtResource("6_mgr")
+reticle_scene = ExtResource("7_reticle")
+placed_scene = ExtResource("8_marker")
+
+[node name="LabelBakeAnchor" type="Label3D" parent="."]
 visible = false
 material_override = ExtResource("5_label")
 pixel_size = 0.001
@@ -54,38 +46,10 @@ text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 +-:/().
 font_size = 48
 outline_size = 8
 
-[node name="HitTestAnchorBridge" type="Node" parent="XROrigin3D"]
-script = ExtResource("3_hit_anchor")
-
-[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
-
-[node name="LeftController" type="XRController3D" parent="XROrigin3D"]
-tracker = &"left_hand"
-pose = &"aim"
-show_when_tracked = true
-
-[node name="RightController" type="XRController3D" parent="XROrigin3D"]
-tracker = &"right_hand"
-pose = &"aim"
-show_when_tracked = true
-
-[node name="HitReticle" type="Node3D" parent="XROrigin3D"]
-
-[node name="Ring" type="MeshInstance3D" parent="XROrigin3D/HitReticle"]
-mesh = SubResource("Torus_reticle")
-surface_material_override/0 = SubResource("Material_reticle")
-
-[node name="Center" type="MeshInstance3D" parent="XROrigin3D/HitReticle"]
-position = Vector3(0, 0.004, 0)
-mesh = SubResource("Cylinder_reticle_center")
-surface_material_override/0 = SubResource("Material_reticle")
-
-[node name="AnchoredObjects" type="Node3D" parent="XROrigin3D"]
-
-[node name="GuidePanel" type="Node3D" parent="XROrigin3D"]
+[node name="GuidePanel" type="Node3D" parent="."]
 position = Vector3(0, 1.55, -1.45)
 
-[node name="Title" type="Label3D" parent="XROrigin3D/GuidePanel"]
+[node name="Title" type="Label3D" parent="GuidePanel"]
 position = Vector3(0, 0.16, 0)
 modulate = Color(0.76, 0.95, 1, 1)
 pixel_size = 0.0015
@@ -94,7 +58,7 @@ text = "WEBXR HIT TEST + ANCHORS"
 font_size = 32
 outline_size = 8
 
-[node name="Status" type="Label3D" parent="XROrigin3D/GuidePanel"]
+[node name="Status" type="Label3D" parent="GuidePanel"]
 modulate = Color(0.76, 0.95, 1, 1)
 pixel_size = 0.00125
 billboard = 1
