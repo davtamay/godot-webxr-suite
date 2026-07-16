@@ -169,6 +169,13 @@ func _detect(hand: int) -> Modality:
 const _REMAP_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/gltf_remap_material.tres")
 
 var _fetching := [false, false]
+var _fetch_queue: Array[Array] = [[], []]
+
+
+func _fetch_next(hand: int) -> void:
+	if _fetching[hand] or _fetch_queue[hand].is_empty():
+		return
+	_fetch_model(hand, str(_fetch_queue[hand].pop_front()))
 
 func _try_resolve_profile_model(hand: int) -> void:
 	if not use_profile_models or _grip_nodes[hand] == null:
@@ -184,11 +191,17 @@ func _try_resolve_profile_model(hand: int) -> void:
 		if scene:
 			_attach_profile_model(hand, (scene.instantiate() as Node3D), profile)
 			break
-	# ...and the top DEVICE-SPECIFIC profile upgrades it from cache/repository.
-	if fetch_profile_models and not candidates.is_empty():
-		var top := str(candidates[0])
-		if top != _resolved_profile[hand] and top != _GENERIC_PROFILE:
-			_fetch_model(hand, top)
+	# ...and the best DEVICE-SPECIFIC profile upgrades it from cache/repository.
+	# The whole candidate list queues: registries lack assets for some ids a
+	# device reports first (Quest 3 lists meta-touch-plus before
+	# oculus-touch-v3), so a miss moves to the next candidate.
+	if fetch_profile_models:
+		_fetch_queue[hand].clear()
+		for candidate in candidates:
+			var id := str(candidate)
+			if id != _resolved_profile[hand] and id != _GENERIC_PROFILE:
+				_fetch_queue[hand].append(id)
+		_fetch_next(hand)
 
 
 func _attach_profile_model(hand: int, model: Node3D, profile: String) -> void:
@@ -216,7 +229,8 @@ func _fetch_model(hand: int, profile: String) -> void:
 		request.queue_free()
 		_fetching[hand] = false
 		if code != 200 or body.is_empty():
-			return  # offline / unknown profile: the bundled model stays
+			_fetch_next(hand)  # asset miss for this id: try the next candidate
+			return
 		DirAccess.make_dir_recursive_absolute("user://controller_models")
 		var file := FileAccess.open(cache_path, FileAccess.WRITE)
 		if file:
