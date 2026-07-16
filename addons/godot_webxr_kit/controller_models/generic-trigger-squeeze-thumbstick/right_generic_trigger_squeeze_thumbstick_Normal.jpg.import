@@ -3,11 +3,9 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dqf2gtl8maq87"
-path.s3tc="res://.godot/imported/right_generic_trigger_squeeze_thumbstick_Normal.jpg-8261032755ae2f5c57115cc597ac672e.s3tc.ctex"
-path.etc2="res://.godot/imported/right_generic_trigger_squeeze_thumbstick_Normal.jpg-8261032755ae2f5c57115cc597ac672e.etc2.ctex"
+path="res://.godot/imported/right_generic_trigger_squeeze_thumbstick_Normal.jpg-8261032755ae2f5c57115cc597ac672e.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
 "md5": "4a7f85caaff82381dc3022c03b502d91"
@@ -16,11 +14,11 @@ generator_parameters={
 [deps]
 
 source_file="res://addons/godot_webxr_kit/controller_models/generic-trigger-squeeze-thumbstick/right_generic_trigger_squeeze_thumbstick_Normal.jpg"
-dest_files=["res://.godot/imported/right_generic_trigger_squeeze_thumbstick_Normal.jpg-8261032755ae2f5c57115cc597ac672e.s3tc.ctex", "res://.godot/imported/right_generic_trigger_squeeze_thumbstick_Normal.jpg-8261032755ae2f5c57115cc597ac672e.etc2.ctex"]
+dest_files=["res://.godot/imported/right_generic_trigger_squeeze_thumbstick_Normal.jpg-8261032755ae2f5c57115cc597ac672e.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/high_quality_mode=0
 compress/lossy_quality=0.7

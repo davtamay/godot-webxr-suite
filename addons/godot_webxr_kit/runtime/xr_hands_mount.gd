@@ -15,8 +15,12 @@ extends Node3D
 
 const HAND_VISUALIZER := "res://addons/godot_xr_hands/runtime/hand_visualizer.gd"
 
-## Show the virtual hand meshes during AR passthrough too (off = real hands).
-@export var virtual_hands_in_ar := false
+## Show the virtual hand meshes during AR passthrough too. Default ON: without
+## real-hand depth occlusion, virtual objects draw OVER your passthrough hands,
+## so hiding the virtual meshes leaves you handless exactly while interacting.
+## Turn OFF for scenes that ship hand/depth occlusion (e.g. the scene-
+## understanding EnvironmentDepthManager) - there your real hands stay visible.
+@export var virtual_hands_in_ar := true
 
 ## Forwarded to the visualizer; false = XRHandTracker joints on every platform.
 @export var prefer_browser_hand_bridge := false

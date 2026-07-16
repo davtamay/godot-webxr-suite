@@ -3,11 +3,9 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dedqv0bhby0x5"
-path.s3tc="res://.godot/imported/left_generic_trigger_squeeze_thumbstick_BaseColor_Inverted.jpg-6f6db0054fe9c9dc26a752141c890345.s3tc.ctex"
-path.etc2="res://.godot/imported/left_generic_trigger_squeeze_thumbstick_BaseColor_Inverted.jpg-6f6db0054fe9c9dc26a752141c890345.etc2.ctex"
+path="res://.godot/imported/left_generic_trigger_squeeze_thumbstick_BaseColor_Inverted.jpg-6f6db0054fe9c9dc26a752141c890345.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
-"vram_texture": true
+"vram_texture": false
 }
 generator_parameters={
 "md5": "9903ee72be03ddaccd0a4cef39709458"
@@ -16,11 +14,11 @@ generator_parameters={
 [deps]
 
 source_file="res://addons/godot_webxr_kit/controller_models/generic-trigger-squeeze-thumbstick/left_generic_trigger_squeeze_thumbstick_BaseColor_Inverted.jpg"
-dest_files=["res://.godot/imported/left_generic_trigger_squeeze_thumbstick_BaseColor_Inverted.jpg-6f6db0054fe9c9dc26a752141c890345.s3tc.ctex", "res://.godot/imported/left_generic_trigger_squeeze_thumbstick_BaseColor_Inverted.jpg-6f6db0054fe9c9dc26a752141c890345.etc2.ctex"]
+dest_files=["res://.godot/imported/left_generic_trigger_squeeze_thumbstick_BaseColor_Inverted.jpg-6f6db0054fe9c9dc26a752141c890345.ctex"]
 
 [params]
 
-compress/mode=2
+compress/mode=0
 compress/high_quality=false
 compress/high_quality_mode=0
 compress/lossy_quality=0.7

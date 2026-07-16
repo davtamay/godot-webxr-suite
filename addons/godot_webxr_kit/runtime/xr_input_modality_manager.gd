@@ -193,6 +193,7 @@ static func _profile_is_controller(profile: String) -> bool:
 ## ---- profile-matched models -------------------------------------------------
 
 const _REMAP_MATERIAL := preload("res://addons/godot_webxr_kit/runtime/gltf_remap_material.tres")
+const _REMAP_MATERIAL_TEXTURED := preload("res://addons/godot_webxr_kit/runtime/gltf_remap_material_textured.tres")
 
 var _fetching := [false, false]
 var _fetch_queue: Array[Array] = [[], []]
@@ -251,10 +252,11 @@ func _fetch_model(hand: int, profile: String) -> void:
 	_fetching[hand] = true
 	var request := HTTPRequest.new()
 	add_child(request)
-	request.request_completed.connect(func(_result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
+	request.request_completed.connect(func(result: int, code: int, _headers: PackedStringArray, body: PackedByteArray) -> void:
 		request.queue_free()
 		_fetching[hand] = false
 		if code != 200 or body.is_empty():
+			print("XRInputModalityManager: model fetch miss '%s' %s (result %d, HTTP %d) - trying next candidate." % [profile, side, result, code])
 			_fetch_next(hand)  # asset miss for this id: try the next candidate
 			return
 		DirAccess.make_dir_recursive_absolute("user://controller_models")
@@ -271,11 +273,15 @@ func _fetch_model(hand: int, profile: String) -> void:
 func _attach_gltf_bytes(hand: int, profile: String, bytes: PackedByteArray) -> void:
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
-	if doc.append_from_buffer(bytes, "", state) != OK:
+	var parse_error := doc.append_from_buffer(bytes, "", state)
+	if parse_error != OK:
+		push_warning("XRInputModalityManager: glTF parse failed for '%s' (error %d)." % [profile, parse_error])
 		return
 	var model := doc.generate_scene(state) as Node3D
 	if model == null:
+		push_warning("XRInputModalityManager: glTF scene generation failed for '%s'." % profile)
 		return
+	print("XRInputModalityManager: controller model '%s' attached (%d bytes)." % [profile, bytes.size()])
 	# Runtime-parsed glTF creates fresh materials whose shader variants are NOT
 	# in a WebGPU export's baked cache (they render invisible there). Remap
 	# every surface onto duplicates of one small PRE-BAKED template, copying
@@ -290,11 +296,19 @@ func _remap_materials(node: Node) -> void:
 		var mesh_instance := node as MeshInstance3D
 		for surface in mesh_instance.get_surface_override_material_count():
 			var source := mesh_instance.get_active_material(surface)
-			var remapped := _REMAP_MATERIAL.duplicate() as StandardMaterial3D
+			# Texture PRESENCE is shader codegen in BaseMaterial3D (WebGPU-
+			# proven: textured remaps hit "missing from the baked shader
+			# cache"), so textured surfaces duplicate the TEXTURED template
+			# (baked with a placeholder albedo) and only SWAP the texture -
+			# a uniform change that reuses the baked shader.
+			var has_texture: bool = source is BaseMaterial3D and (source as BaseMaterial3D).albedo_texture != null
+			var template := _REMAP_MATERIAL_TEXTURED if has_texture else _REMAP_MATERIAL
+			var remapped := template.duplicate() as StandardMaterial3D
 			if source is BaseMaterial3D:
 				var base := source as BaseMaterial3D
 				remapped.albedo_color = base.albedo_color
-				remapped.albedo_texture = base.albedo_texture
+				if has_texture:
+					remapped.albedo_texture = base.albedo_texture
 				remapped.metallic = base.metallic
 				remapped.roughness = base.roughness
 			mesh_instance.set_surface_override_material(surface, remapped)

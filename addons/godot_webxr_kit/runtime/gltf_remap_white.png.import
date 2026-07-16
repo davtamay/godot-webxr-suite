@@ -2,19 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://m841m4fxkvvs"
-path="res://.godot/imported/right_generic_trigger_squeeze_thumbstick_BaseColor.jpg-a552e3978de29f3bdf7f159c61469ced.ctex"
+uid="uid://xolc3114f4gs"
+path="res://.godot/imported/gltf_remap_white.png-6979a598430e34a6779defc0e9b18189.ctex"
 metadata={
 "vram_texture": false
-}
-generator_parameters={
-"md5": "fc681a711be962f7dfef9e9bbae80c7e"
 }
 
 [deps]
 
-source_file="res://addons/godot_webxr_kit/controller_models/generic-trigger-squeeze-thumbstick/right_generic_trigger_squeeze_thumbstick_BaseColor.jpg"
-dest_files=["res://.godot/imported/right_generic_trigger_squeeze_thumbstick_BaseColor.jpg-a552e3978de29f3bdf7f159c61469ced.ctex"]
+source_file="res://addons/godot_webxr_kit/runtime/gltf_remap_white.png"
+dest_files=["res://.godot/imported/gltf_remap_white.png-6979a598430e34a6779defc0e9b18189.ctex"]
 
 [params]
 
@@ -27,7 +24,7 @@ compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
 compress/normal_map=0
 compress/channel_pack=0
-mipmaps/generate=true
+mipmaps/generate=false
 mipmaps/limit=-1
 roughness/mode=0
 roughness/src_normal=""
@@ -41,4 +38,4 @@ process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
-detect_3d/compress_to=0
+detect_3d/compress_to=1
