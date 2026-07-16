@@ -20,6 +20,16 @@ extends Node
 ## bootstrap so 2D HUDs don't composite into both eyes).
 @export var session_hide_group := "xr_session_hidden"
 
+## Ask the runtime to track hands AND controllers at the same time, so each
+## hand can hold a controller or go bare independently (Unity-XRI-style
+## multimodal). Needs the godot_openxr_vendors plugin in the project AND a
+## runtime that ships XR_META_simultaneous_hands_and_controllers (Quest 3 /
+## Touch Pro, incl. over Link). Silently no-ops everywhere else - without it,
+## platforms keep their own all-or-nothing hands<->controllers transition.
+@export var simultaneous_hands_and_controllers := true
+
+const _MULTIMODAL_CLASS := &"OpenXRMetaSimultaneousHandsAndControllersExtension"
+
 var _xr: XRInterface
 
 
@@ -38,6 +48,29 @@ func _ready() -> void:
 
 	_set_group_hidden(true)
 	get_viewport().use_xr = true
+
+	if simultaneous_hands_and_controllers:
+		# The session may already be running (editor Play initializes OpenXR at
+		# startup) or begin later - cover both.
+		_resume_multimodal()
+		if _xr.has_signal("session_begun"):
+			_xr.session_begun.connect(_resume_multimodal)
+
+
+## Turn on simultaneous hands + controllers via the vendors plugin's extension
+## wrapper (registered as an Engine singleton). Looked up by name so this
+## script parses and runs in projects without the plugin installed.
+func _resume_multimodal() -> void:
+	if not Engine.has_singleton(_MULTIMODAL_CLASS):
+		return
+	var wrapper := Engine.get_singleton(_MULTIMODAL_CLASS)
+	if wrapper == null or not wrapper.has_method("is_simultaneous_hands_and_controllers_supported"):
+		return
+	if not wrapper.is_simultaneous_hands_and_controllers_supported():
+		print("OpenXRBootstrap: simultaneous hands+controllers not supported by this runtime.")
+		return
+	wrapper.resume_simultaneous_hands_and_controllers_tracking()
+	print("OpenXRBootstrap: simultaneous hands+controllers tracking resumed.")
 
 
 func _exit_tree() -> void:

@@ -84,6 +84,16 @@ var _profile_models: Array[Node3D] = [null, null]
 var _grip_nodes: Array[XRController3D] = [null, null]
 var _resolved_profile := ["", ""]
 
+## Discovery group other blocks use to find the manager (joined in _enter_tree
+## so it is ready-order-proof - e.g. XRHandsMount hides a hand's virtual mesh
+## while that hand holds a controller).
+const GROUP := "xr_input_modality_manager"
+
+
+func _enter_tree() -> void:
+	if not Engine.is_editor_hint():
+		add_to_group(GROUP)
+
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
@@ -153,15 +163,31 @@ func _detect(hand: int) -> Modality:
 		ForcedModality.HAND:
 			return Modality.HAND if hand_live else Modality.NONE
 		_:
-			# Real tracked hands win: on both WebXR and OpenXR the controller
-			# tracker is ALSO populated while bare hands are tracked (that is
-			# how the rig's aim poses work hands-only), so hand-presence is
-			# the discriminator, not controller-tracker liveness.
+			# A controller IDENTIFIED in this hand wins (Unity's rule). With
+			# multimodal (simultaneous hands + controllers) the runtime serves
+			# real hand joints OVER a held controller, so hand-presence alone
+			# cannot discriminate. The tracker's bound interaction profile can:
+			# a physical controller reads e.g. .../oculus/touch_controller
+			# (OpenXR) or oculus-touch-v3 (WebXR, via the profiles hook), while
+			# bare-hand sources read hand profiles or none. Trackers that are
+			# live but carry no profile (plain WebXR without the hook) keep the
+			# old hand-first behavior.
+			if controller_live and _profile_is_controller(controller_tracker.profile):
+				return Modality.CONTROLLER
 			if hand_live:
 				return Modality.HAND
 			if controller_live:
 				return Modality.CONTROLLER
 			return Modality.NONE
+
+
+## True when a tracker's bound interaction profile identifies a physical
+## controller rather than a bare-hand source ("/interaction_profiles/none",
+## ".../ext/hand_interaction_ext", "generic-hand-select", ...) or nothing.
+static func _profile_is_controller(profile: String) -> bool:
+	if profile.is_empty() or profile.ends_with("/none"):
+		return false
+	return not profile.contains("hand")
 
 
 ## ---- profile-matched models -------------------------------------------------

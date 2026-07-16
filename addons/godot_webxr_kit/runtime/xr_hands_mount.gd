@@ -24,14 +24,49 @@ const HAND_VISUALIZER := "res://addons/godot_xr_hands/runtime/hand_visualizer.gd
 ## The group WebXRBootstrap hides during AR passthrough.
 @export var ar_hide_group := "ar_passthrough_hidden"
 
+## Hide a hand's virtual mesh while THAT hand is driving a controller (the
+## Unity-XRI visual swap: you see the controller model instead of the hand).
+## With multimodal runtimes (simultaneous hands + controllers) hand joints keep
+## tracking over a held controller, so without this the virtual hand draws
+## wrapped around the controller model. Off = Meta-Home-style hands-over-
+## controller presentation. Needs an XRInputModalityManager in the scene.
+@export var hide_hand_while_using_controller := true
+
+var _hands: Node3D
+
 
 func _ready() -> void:
 	if not ResourceLoader.exists(HAND_VISUALIZER):
 		return  # godot_xr_hands not installed; nothing to mount.
-	var hands: Node3D = load(HAND_VISUALIZER).new()
-	hands.prefer_browser_hand_bridge = prefer_browser_hand_bridge
+	_hands = load(HAND_VISUALIZER).new()
+	_hands.prefer_browser_hand_bridge = prefer_browser_hand_bridge
 	# The visualizer manages its own visibility (tracking watchdog), so the AR
 	# hide targets THIS mount - the two never fight.
-	add_child(hands)
+	add_child(_hands)
 	if not virtual_hands_in_ar:
 		add_to_group(ar_hide_group)
+	if hide_hand_while_using_controller:
+		_connect_modality.call_deferred()
+
+
+func _connect_modality() -> void:
+	var manager := get_tree().get_first_node_in_group(XRInputModalityManager.GROUP)
+	if manager == null or not manager.has_signal("modality_changed"):
+		return  # No modality manager in the scene - hands stay always-on.
+	manager.modality_changed.connect(_on_modality_changed)
+	for hand in 2:
+		_on_modality_changed(hand, manager.get_modality(hand))
+
+
+func _on_modality_changed(hand: int, modality: int) -> void:
+	if _hands == null:
+		return
+	var side := "Right" if hand == 1 else "Left"
+	var hand_root := _hands.get_node_or_null("%sHandTracking" % side)
+	if hand_root == null:
+		return
+	# Hide via render layers, not `visible` - the visualizer's own tracking
+	# watchdog drives `visible` and would fight (and win) every frame.
+	var shown := modality != XRInputModalityManager.Modality.CONTROLLER
+	for mesh in hand_root.find_children("*", "VisualInstance3D", true, false):
+		mesh.layers = 1 if shown else 0
