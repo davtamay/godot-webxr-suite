@@ -26,6 +26,7 @@ enum DisplayMode { LIVE, FROZEN, NEUTRAL }
 ]
 
 var _material: ShaderMaterial
+var _sh_sky_material: ShaderMaterial
 var _status_accum := 0.0
 var _display_mode := DisplayMode.LIVE
 var _has_target := false
@@ -48,6 +49,7 @@ func _ready() -> void:
 			add_child(menu_button.new())
 
 	_material = LIGHT_MATERIAL.duplicate() as ShaderMaterial
+	_setup_environment_sky()
 	_build_hero_object()
 	_prepare_telemetry()
 	_controls.material_values_changed.connect(_on_material_values_changed)
@@ -64,6 +66,7 @@ func _ready() -> void:
 	})
 	_apply_fallback()
 	_update_mode_label()
+	_build_renderer_toggle()
 
 
 func _process(delta: float) -> void:
@@ -150,7 +153,11 @@ func _on_estimate_updated(
 
 
 func _update_smoothed_estimate(delta: float) -> void:
-	var blend := 1.0 - exp(-delta * 5.5)
+	# ARCore already hands us a stable, temporally-smoothed estimate, so our own
+	# smoothing can be light - just enough to avoid a hard snap. A fast rate keeps
+	# our added latency minimal (the ~1-2s transition feel is ARCore's convergence,
+	# which we can't change).
+	var blend := 1.0 - exp(-delta * 20.0)
 	_smoothed_direction = _smoothed_direction.lerp(_target_direction, blend).normalized()
 	_smoothed_intensity = _smoothed_intensity.lerp(_target_intensity, blend)
 	if _smoothed_sh.size() != _target_sh.size():
@@ -181,30 +188,24 @@ func _apply_estimate(
 	)
 	_estimated_light.light_energy = clampf(sqrt(intensity_scalar), 0.3, 5.0)
 
-	# WebXR reports the vector pointing TO the real light. Godot's local -Z
-	# is the direction the light rays travel, so those vectors are opposite.
-	_set_forward(_estimated_light, -direction_to_light)
-	_set_forward(_light_arrow, direction_to_light)
+	# Light direction - convention SETTLED FROM IN-HEADSET GROUND-TRUTH DATA (full
+	# write-up + evidence: LIGHT_ESTIMATION_NOTES.md next to this file). Android XR /
+	# ARCore report primaryLightDirection as the direction the light TRAVELS (away
+	# from the source), NOT toward it: measured on Galaxy XR, with the user looking
+	# straight at the chandelier, dot(raw, camFwd) held at -0.79. So the source is at
+	# -raw. Use the RAW vector directly - an earlier attempt derived direction from
+	# the SH L1 via luminance and was SIGN-UNSTABLE (flipped when the luminance
+	# crossed zero, e.g. for a bluish light, inverting the arrow while the user sat
+	# still). Do NOT reintroduce an SH-luminance derivation here.
+	var light_dir := direction_to_light
+	if light_dir.length_squared() > 0.000001:
+		_set_forward(_estimated_light, light_dir)   # -Z = travel dir: rays go FROM the source
+		_set_forward(_light_arrow, -light_dir)      # arrow points to -raw, at the source
 
 	for index in mini(9, spherical_harmonics.size()):
-		_material.set_shader_parameter("sh%d" % index, spherical_harmonics[index])
+		_sh_sky_material.set_shader_parameter("sh%d" % index, spherical_harmonics[index])
 	_update_telemetry(primary_intensity, spherical_harmonics)
 
-	# The complete SH field is evaluated by the probe-sphere shader. A small
-	# c0 approximation also keeps the non-probe stage readable.
-	if not spherical_harmonics.is_empty() and _world_environment.environment:
-		var c0 := Vector3(
-			maxf(0.0, spherical_harmonics[0].x),
-			maxf(0.0, spherical_harmonics[0].y),
-			maxf(0.0, spherical_harmonics[0].z)
-		)
-		var ambient_scale := maxf(0.001, maxf(c0.x, maxf(c0.y, c0.z)))
-		_world_environment.environment.ambient_light_color = Color(
-			clampf(c0.x / ambient_scale, 0.08, 1.0),
-			clampf(c0.y / ambient_scale, 0.08, 1.0),
-			clampf(c0.z / ambient_scale, 0.08, 1.0)
-		)
-		_world_environment.environment.ambient_light_energy = clampf(sqrt(ambient_scale) * 0.22, 0.16, 0.7)
 
 
 func _on_estimate_lost() -> void:
@@ -234,11 +235,8 @@ func _apply_fallback() -> void:
 	_estimated_light.visible = false
 	_set_forward(_light_arrow, Vector3(0.35, 0.8, 0.45).normalized())
 	for index in range(9):
-		_material.set_shader_parameter("sh%d" % index, Vector3(0.7, 0.74, 0.82) if index == 0 else Vector3.ZERO)
+		_sh_sky_material.set_shader_parameter("sh%d" % index, Vector3(0.7, 0.74, 0.82) if index == 0 else Vector3.ZERO)
 	_update_telemetry(Vector3.ZERO, PackedVector3Array())
-	if _world_environment.environment:
-		_world_environment.environment.ambient_light_color = Color(0.66, 0.7, 0.78)
-		_world_environment.environment.ambient_light_energy = 0.45
 
 
 func _prepare_telemetry() -> void:
@@ -288,7 +286,8 @@ func _on_material_values_changed(values: Dictionary) -> void:
 	_hero_mesh.set_instance_shader_parameter("base_color", values.get("base_color", Color.WHITE))
 	_hero_mesh.set_instance_shader_parameter("material_metallic", float(values.get("metallic", 0.0)))
 	_hero_mesh.set_instance_shader_parameter("material_roughness", float(values.get("roughness", 0.5)))
-	_hero_mesh.set_instance_shader_parameter("sh_gain", float(values.get("gain", 1.0)))
+	if _sh_sky_material:
+		_sh_sky_material.set_shader_parameter("sky_energy", float(values.get("gain", 1.0)))
 	var reflection := float(values.get("reflection", 0.5)) if bool(values.get("reflection_enabled", true)) else 0.0
 	_hero_mesh.set_instance_shader_parameter("reflection_strength", reflection)
 
@@ -336,3 +335,53 @@ func _set_forward(node: Node3D, forward: Vector3) -> void:
 	if absf(normalized.dot(up)) > 0.98:
 		up = Vector3.FORWARD
 	node.basis = Basis.looking_at(normalized, up)
+
+
+func _setup_environment_sky() -> void:
+	# Drive the whole scene's ambient + reflections from the WebXR light estimate:
+	# a Sky whose shader reconstructs the real room's radiance from the SH
+	# coefficients, so EVERY object is lit by (and reflects) the real world.
+	# Prefer the scene-defined sky - its shader is baked into the WebGPU export;
+	# fall back to building one at runtime (GL compiles shaders on the fly).
+	# NOTE: REALTIME sky mode is broken for custom shaders (a set-2 uniform format
+	# mismatch renders objects black); the scene sky + this fallback use INCREMENTAL.
+	if _world_environment.environment == null:
+		_world_environment.environment = Environment.new()
+	var env := _world_environment.environment
+	if env.sky != null and env.sky.sky_material is ShaderMaterial:
+		_sh_sky_material = env.sky.sky_material
+	else:
+		var sky := Sky.new()
+		sky.process_mode = Sky.PROCESS_MODE_INCREMENTAL
+		sky.radiance_size = Sky.RADIANCE_SIZE_32
+		_sh_sky_material = ShaderMaterial.new()
+		_sh_sky_material.shader = load("res://addons/godot_webxr_scene_understanding/runtime/light_estimation_sky.gdshader")
+		sky.sky_material = _sh_sky_material
+		env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+
+
+func _build_renderer_toggle() -> void:
+	# A GL <-> WebGPU switch on the flat page. The graphics backend is a boot
+	# decision (a canvas is locked to its first context type), so switching saves a
+	# localStorage preference and reloads. Shown only where this build can actually
+	# run WebGPU-XR, so it never appears as a dead button (WebGL-only builds/browsers
+	# get nothing). Lets you compare light estimation on both renderers.
+	if not OS.has_feature("web") or not WebXRRenderer.webgpu_supported():
+		return
+	var layer := CanvasLayer.new()
+	layer.name = "RendererToggle"
+	layer.layer = 40
+	add_child(layer)
+	var btn := Button.new()
+	btn.text = "Renderer: %s  -  tap to switch" % ("WebGPU" if WebXRRenderer.is_webgpu() else "WebGL")
+	btn.anchor_left = 1.0
+	btn.anchor_right = 1.0
+	btn.offset_left = -360.0
+	btn.offset_top = 14.0
+	btn.offset_right = -14.0
+	btn.offset_bottom = 58.0
+	btn.pressed.connect(func() -> void:
+		WebXRRenderer.switch_to("webgl" if WebXRRenderer.is_webgpu() else "webgpu"))
+	layer.add_child(btn)

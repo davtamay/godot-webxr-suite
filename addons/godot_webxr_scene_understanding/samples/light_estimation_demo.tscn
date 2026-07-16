@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=31 format=3]
 
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/light_estimation_demo.gd" id="1_root"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_bootstrap"]
@@ -13,10 +13,31 @@
 [ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="11_label"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_canvas_interactable.gd" id="12_ui_canvas"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/light_estimation_controls.gd" id="13_controls"]
+[ext_resource type="Shader" path="res://addons/godot_webxr_scene_understanding/runtime/light_estimation_sky.gdshader" id="14_sky"]
+
+[sub_resource type="ShaderMaterial" id="SkyMat_le"]
+shader = ExtResource("14_sky")
+shader_parameter/sh0 = Vector3(0.5, 0.5, 0.55)
+shader_parameter/sh1 = Vector3(0, 0, 0)
+shader_parameter/sh2 = Vector3(0, 0, 0)
+shader_parameter/sh3 = Vector3(0, 0, 0)
+shader_parameter/sh4 = Vector3(0, 0, 0)
+shader_parameter/sh5 = Vector3(0, 0, 0)
+shader_parameter/sh6 = Vector3(0, 0, 0)
+shader_parameter/sh7 = Vector3(0, 0, 0)
+shader_parameter/sh8 = Vector3(0, 0, 0)
+shader_parameter/sky_energy = 1.0
+
+[sub_resource type="Sky" id="Sky_le"]
+sky_material = SubResource("SkyMat_le")
+process_mode = 2
+radiance_size = 0
 
 [sub_resource type="Environment" id="Environment_light_lab"]
 background_mode = 2
+sky = SubResource("Sky_le")
 ambient_light_source = 3
+reflected_light_source = 2
 ambient_light_color = Color(0.66, 0.7, 0.78, 1)
 ambient_light_energy = 0.45
 
