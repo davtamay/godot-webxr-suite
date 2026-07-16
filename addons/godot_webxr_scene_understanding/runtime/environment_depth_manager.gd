@@ -88,6 +88,12 @@ func _ready() -> void:
 	_bridge.global_transform = Transform3D.IDENTITY
 	_bridge.set_resolution_level(depth_resolution)
 	_bridge.set_visualize(debug_depth_visualization)
+	# Prep the occludees regardless of the current mode: cheap and idempotent
+	# (group membership + occ_material metadata; materials only swap when SOFT
+	# engages), and it lets external UIs (e.g. the feature panel) drive the
+	# bridge's Hard/Soft toggles directly with the objects already prepared.
+	for mesh in _resolve_occludee_meshes():
+		_prepare_occludee(mesh)
 	_apply_occlusion()
 
 

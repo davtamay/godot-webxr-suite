@@ -1,22 +1,16 @@
 [gd_scene format=3]
 
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="1_webxr"]
-[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_mesh_bridge.gd" id="2_meshbridge"]
-[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/webxr_depth_bridge.gd" id="3_depthbridge"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="2_rig"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="3_openxr"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/browser_capabilities.gd" id="5_caps"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_manager.gd" id="6_manager"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_input_adapter.gd" id="7_adapter"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ray_interactor.gd" id="8_ray"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/scene_mesh_manager.gd" id="6_meshmgr"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/environment_depth_manager.gd" id="7_depthmgr"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="9_grab"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interactor_line_visual.gd" id="10_line"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_visual.gd" id="11_reticle"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_canvas_interactable.gd" id="12_ui_canvas"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_screen_ray_interactor.gd" id="13_screen_ray"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/feature_panel.gd" id="14_feature_panel"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/scene_understanding_demo.gd" id="15_root"]
 [ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/label_bake_material.tres" id="16_labelbake"]
-[ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/grab_cube_material.tres" id="17_cubemat"]
-[ext_resource type="Material" path="res://addons/godot_webxr_scene_understanding/runtime/grab_sphere_material.tres" id="18_spheremat"]
 
 [sub_resource type="Environment" id="Environment_demo"]
 background_mode = 2
@@ -75,26 +69,19 @@ transform = Transform3D(0.866025, -0.25, 0.433013, 0, 0.866025, 0.5, -0.5, -0.43
 light_energy = 1.65
 shadow_enabled = true
 
-[node name="XRInteractionManager" type="Node" parent="."]
-script = ExtResource("6_manager")
+[node name="WebXRRig" parent="." instance=ExtResource("2_rig")]
 
-[node name="WebXRInputAdapter" type="Node" parent="."]
-script = ExtResource("7_adapter")
-xr_origin_path = NodePath("../XROrigin3D")
-left_controller_path = NodePath("../XROrigin3D/LeftController")
-right_controller_path = NodePath("../XROrigin3D/RightController")
+[node name="OpenXRBootstrap" type="Node" parent="."]
+script = ExtResource("3_openxr")
 
-[node name="ScreenRayInteractor" type="Node3D" parent="."]
-script = ExtResource("13_screen_ray")
-camera_path = NodePath("../XROrigin3D/XRCamera3D")
+[node name="SceneMeshManager" type="Node3D" parent="."]
+script = ExtResource("6_meshmgr")
 
-[node name="XROrigin3D" type="XROrigin3D" parent="."]
+[node name="EnvironmentDepthManager" type="Node3D" parent="."]
+script = ExtResource("7_depthmgr")
+occludees = Array[NodePath]([NodePath("../GrabCube"), NodePath("../GrabSphere")])
 
-[node name="MeshBridge" type="Node3D" parent="XROrigin3D"]
-script = ExtResource("2_meshbridge")
-generate_collision = false
-
-[node name="LabelBakeAnchor" type="Label3D" parent="XROrigin3D/MeshBridge"]
+[node name="LabelBakeAnchor" type="Label3D" parent="."]
 visible = false
 material_override = ExtResource("16_labelbake")
 pixel_size = 0.002
@@ -102,45 +89,6 @@ billboard = 1
 text = "bake"
 font_size = 48
 outline_size = 8
-
-[node name="DepthBridge" type="Node3D" parent="XROrigin3D"]
-script = ExtResource("3_depthbridge")
-
-[node name="XRCamera3D" type="XRCamera3D" parent="XROrigin3D"]
-
-[node name="LeftController" type="XRController3D" parent="XROrigin3D"]
-tracker = &"left_hand"
-pose = &"aim"
-show_when_tracked = true
-
-[node name="RightController" type="XRController3D" parent="XROrigin3D"]
-tracker = &"right_hand"
-pose = &"aim"
-show_when_tracked = true
-
-[node name="LeftRayInteractor" type="Node3D" parent="XROrigin3D"]
-script = ExtResource("8_ray")
-input_adapter_path = NodePath("../../WebXRInputAdapter")
-hand = 0
-
-[node name="LineVisual" type="MeshInstance3D" parent="XROrigin3D/LeftRayInteractor"]
-script = ExtResource("10_line")
-color = Color(0.2, 0.75, 1, 0.85)
-
-[node name="Reticle" type="MeshInstance3D" parent="XROrigin3D/LeftRayInteractor"]
-script = ExtResource("11_reticle")
-
-[node name="RightRayInteractor" type="Node3D" parent="XROrigin3D"]
-script = ExtResource("8_ray")
-input_adapter_path = NodePath("../../WebXRInputAdapter")
-hand = 1
-
-[node name="LineVisual" type="MeshInstance3D" parent="XROrigin3D/RightRayInteractor"]
-script = ExtResource("10_line")
-color = Color(1, 0.58, 0.2, 0.85)
-
-[node name="Reticle" type="MeshInstance3D" parent="XROrigin3D/RightRayInteractor"]
-script = ExtResource("11_reticle")
 
 [node name="SampleEnvironment" type="Node3D" parent="."]
 
@@ -158,10 +106,9 @@ shape = SubResource("BoxShape_floor")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.55, 1.05, -1.4)
 script = ExtResource("9_grab")
 
-[node name="Mesh" type="MeshInstance3D" parent="GrabCube" groups=["webxr_occludable"]]
+[node name="Mesh" type="MeshInstance3D" parent="GrabCube"]
 mesh = SubResource("BoxMesh_cube")
 surface_material_override/0 = SubResource("Material_cube")
-metadata/occ_material = ExtResource("17_cubemat")
 
 [node name="InteractableBody" type="StaticBody3D" parent="GrabCube"]
 
@@ -172,10 +119,9 @@ shape = SubResource("BoxShape_cube")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.55, 1.05, -1.4)
 script = ExtResource("9_grab")
 
-[node name="Mesh" type="MeshInstance3D" parent="GrabSphere" groups=["webxr_occludable"]]
+[node name="Mesh" type="MeshInstance3D" parent="GrabSphere"]
 mesh = SubResource("SphereMesh_grab")
 surface_material_override/0 = SubResource("Material_sphere")
-metadata/occ_material = ExtResource("18_spheremat")
 
 [node name="InteractableBody" type="StaticBody3D" parent="GrabSphere"]
 
@@ -187,7 +133,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, -2.2)
 script = ExtResource("12_ui_canvas")
 viewport_path = NodePath("Viewport")
 panel_mesh_path = NodePath("PanelMesh")
-camera_path = NodePath("../XROrigin3D/XRCamera3D")
+camera_path = NodePath("../WebXRRig/XROrigin3D/XRCamera3D")
 panel_size = Vector2(1.7, 1.25)
 viewport_pixel_size = Vector2i(1000, 736)
 
