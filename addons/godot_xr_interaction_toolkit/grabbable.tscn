@@ -1,0 +1,26 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/grabbable.gd" id="1_root"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_highlight_affordance.gd" id="2_highlight"]
+
+[sub_resource type="BoxMesh" id="DefaultMesh"]
+size = Vector3(0.18, 0.18, 0.18)
+
+[sub_resource type="StandardMaterial3D" id="DefaultMat"]
+albedo_color = Color(0.55, 0.62, 0.7, 1)
+metallic = 0.15
+roughness = 0.45
+
+[node name="Grabbable" type="Node3D"]
+script = ExtResource("1_root")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("DefaultMesh")
+surface_material_override/0 = SubResource("DefaultMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractableBody"]
+
+[node name="Highlight" type="Node" parent="."]
+script = ExtResource("2_highlight")
