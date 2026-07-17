@@ -62,6 +62,7 @@ var _desc: Label
 var _add_button: Button
 var _visible_blocks := []  # parallel to list rows; null = category header row
 var _doctor: AcceptDialog
+var _new_scene_dialog: EditorFileDialog
 
 
 func _ready() -> void:
@@ -80,6 +81,13 @@ func _ready() -> void:
 	doctor_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	doctor_button.pressed.connect(_on_open_doctor)
 	project_row.add_child(doctor_button)
+
+	if ResourceLoader.exists(_Setup.KIT_PREFAB):
+		var new_scene_button := Button.new()
+		new_scene_button.text = "New XR Scene"
+		new_scene_button.tooltip_text = "Creates a ready playground scene: rig + sessions + hands + teleportable floor + sun + sky + a grabbable. Press Play to a headset or export for the browser."
+		new_scene_button.pressed.connect(_on_new_scene)
+		add_child(new_scene_button)
 
 	var hint := Label.new()
 	hint.text = "Double-click a block to add it to the scene."
@@ -107,6 +115,27 @@ func _on_setup_project() -> void:
 	for line in lines:
 		print("XR Setup: ", line)
 	_desc.text = "\n".join(lines)
+
+
+func _on_new_scene() -> void:
+	if _new_scene_dialog == null:
+		_new_scene_dialog = EditorFileDialog.new()
+		_new_scene_dialog.file_mode = EditorFileDialog.FILE_MODE_SAVE_FILE
+		_new_scene_dialog.add_filter("*.tscn", "Godot Scene")
+		_new_scene_dialog.current_file = "xr_playground.tscn"
+		_new_scene_dialog.file_selected.connect(_on_new_scene_path)
+		add_child(_new_scene_dialog)
+	_new_scene_dialog.popup_centered_ratio(0.5)
+
+
+func _on_new_scene_path(path: String) -> void:
+	var error := _Setup.save_starter_scene(path)
+	if not error.is_empty():
+		_desc.text = error
+		return
+	EditorInterface.get_resource_filesystem().scan()
+	EditorInterface.open_scene_from_path(path)
+	_desc.text = "XR playground created - teleport, grab, hands all live. Press Play to a headset or export for the browser."
 
 
 func _on_open_doctor() -> void:

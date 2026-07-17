@@ -13,9 +13,10 @@ themselves the moment you drop them in.
    and Web export preset an XR project needs (OpenXR + the kit's action map +
    renderer + WebXR-ready export) and reports every change. Restart the
    editor if it switched the renderer.
-3. Drop **WebXR Prefab** (rig + sessions + hands + auto VR/AR UI) and
-   **Floor (teleportable)**. Add a light (or let the Scene Doctor do it) and
-   a **Grabbable** to have something to pick up.
+3. Click **New XR Scene** — you get a ready playground: rig + sessions +
+   hands + teleportable floor + sun + sky + a grabbable in reach. (Or build
+   it yourself: drop **WebXR Prefab** and **Floor (teleportable)** from the
+   catalog and add a light.)
 
 That's a working scene: look around, teleport, grab, poke, pinch — in the
 browser via WebXR, or press Play straight to a headset over Quest Link (the

@@ -15,6 +15,7 @@ const KIT_ACTION_MAP := "res://addons/godot_webxr_kit/openxr/default_action_map.
 const KIT_SHELL := "res://addons/godot_webxr_kit/web/adaptable_shell.html"
 const KIT_PREFAB := "res://addons/godot_webxr_kit/webxr_prefab.tscn"
 const TOOLKIT_FLOOR := "res://addons/godot_xr_interaction_toolkit/xr_floor.tscn"
+const TOOLKIT_GRABBABLE := "res://addons/godot_xr_interaction_toolkit/grabbable.tscn"
 const PRESETS_PATH := "res://export_presets.cfg"
 
 ## Check ids (stable API for fix routing).
@@ -145,6 +146,59 @@ static func setup_project() -> PackedStringArray:
 	if lines.is_empty():
 		lines.append("Everything already configured - nothing to change.")
 	return lines
+
+
+## Builds the starter playground the Scene Doctor's checks describe: prefab
+## (rig + sessions + hands + VR/AR entry UI), teleportable floor, sun + sky
+## environment, and one grabbable in reach. Detached from any tree (no _ready
+## runs) so it can be packed and saved headless.
+static func build_starter_scene() -> Node3D:
+	var root := Node3D.new()
+	root.name = "XRPlayground"
+	if ResourceLoader.exists(KIT_PREFAB):
+		root.add_child((load(KIT_PREFAB) as PackedScene).instantiate())
+	if ResourceLoader.exists(TOOLKIT_FLOOR):
+		root.add_child((load(TOOLKIT_FLOOR) as PackedScene).instantiate())
+
+	var sun := DirectionalLight3D.new()
+	sun.name = "Sun"
+	sun.shadow_enabled = true
+	sun.rotation_degrees = Vector3(-50.0, -30.0, 0.0)
+	root.add_child(sun)
+
+	var world_env := WorldEnvironment.new()
+	world_env.name = "WorldEnvironment"
+	var env := Environment.new()
+	var sky := Sky.new()
+	sky.sky_material = ProceduralSkyMaterial.new()
+	env.background_mode = Environment.BG_SKY
+	env.sky = sky
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	world_env.environment = env
+	root.add_child(world_env)
+
+	if ResourceLoader.exists(TOOLKIT_GRABBABLE):
+		var grabbable := (load(TOOLKIT_GRABBABLE) as PackedScene).instantiate() as Node3D
+		grabbable.name = "Grabbable"
+		grabbable.position = Vector3(0.0, 0.9, -0.6)
+		root.add_child(grabbable)
+	return root
+
+
+## Saves the starter scene to path. Returns "" on success, an error line
+## otherwise.
+static func save_starter_scene(path: String) -> String:
+	var root := build_starter_scene()
+	for child in root.get_children():
+		child.owner = root
+	var packed := PackedScene.new()
+	var err := packed.pack(root)
+	if err == OK:
+		err = ResourceSaver.save(packed, path)
+	root.free()
+	if err != OK:
+		return "FAILED to save the starter scene (error %d)." % err
+	return ""
 
 
 static func _find_web_preset() -> Dictionary:
