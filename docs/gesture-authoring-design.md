@@ -60,3 +60,21 @@ by one extractor from raw joints:
 - **B:** the recorder (the authoring headline).
 - **C:** XRLocomotion intent API + gesture→locomotion driver.
 - **D:** sequences.
+
+## PARKED (2026-07-17, resume marker)
+
+Phases D/E parked by David to prioritize the poke interactor. When resuming:
+
+- **Phase D - sequences/microgestures**: add `thumb_along_index` /
+  `thumb_across_index` + contact features; sequence gestures as data (stages:
+  conditions + motion delta + time window); record-first derivation from the
+  captured time series. Target DELIBERATE swipes/taps (Meta's trained runtime
+  model keeps the subtle at-rest microgestures - input ceiling: signals the
+  joint estimator never resolves cannot be recovered downstream).
+- **Phase E - learned micro-model (the catch-up path)**: the recorder already
+  produces labeled feature time series; a tiny temporal classifier trained on
+  recorded examples (per-user or shipped) closes much of the temporal-
+  signature gap vs hand thresholds, runs trivially per frame, and inherits
+  every upstream tracker improvement. Native microgesture events (Link has
+  XR_META_hand_tracking_microgestures; vendors plugin does not wrap it yet)
+  plug in as a premium provider through the same signal vocabulary.
