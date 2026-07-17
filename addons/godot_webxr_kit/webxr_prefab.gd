@@ -15,6 +15,11 @@ extends Node3D
 ## and hand INPUT (pinch, grab, rays) works in AR regardless.
 @export var virtual_hands_in_ar := false
 
+## Virtual hand look: PROCEDURAL joints/bones, or the REALISTIC rigged hand
+## mesh (godot_xr_hands' bundled WebXR Input Profiles asset). Forwarded to the
+## hands mount. The XR Simulator's simulated hands render with the same choice.
+@export var hand_style := XRHandsMount.HandStyle.PROCEDURAL
+
 var _xr_cam: XRCamera3D
 var _flat_cam: Camera3D
 var _was_xr := false
@@ -29,6 +34,7 @@ func _ready() -> void:
 		var hand_mount := XRHandsMount.new()
 		hand_mount.name = "HandVisualizerMount"
 		hand_mount.virtual_hands_in_ar = virtual_hands_in_ar
+		hand_mount.hand_style = hand_style
 		var bootstrap := get_node_or_null("WebXRBootstrap")
 		if bootstrap and "ar_hide_group" in bootstrap:
 			hand_mount.ar_hide_group = str(bootstrap.ar_hide_group)

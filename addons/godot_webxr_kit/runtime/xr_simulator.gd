@@ -67,7 +67,11 @@ var _mode := SimMode.CONTROLLER
 var _mode_key_down := false
 var _hand_trackers := {}      # hand -> XRHandTracker WE registered
 var _poses := {}              # "open"/"fist" -> [left PackedVector3Array, right ...]
+var _pose_library: Array = [] # [{name, per_hand}] - open + presets + user recordings
+var _active_pose := 0         # library index applied to the RIGHT hand (0 = open)
+var _pose_key_down := -1
 var _current_pose: Array = [PackedVector3Array(), PackedVector3Array()]
+var _hand_visual: Node3D
 var _openxr_was_processing := true
 
 
@@ -285,6 +289,19 @@ func _update_common_keys() -> void:
 		_set_mode(SimMode.HAND if _mode == SimMode.CONTROLLER else SimMode.CONTROLLER)
 	_mode_key_down = mode_key
 
+	# Number keys apply library gesture poses to the right hand (hand mode).
+	if _mode == SimMode.HAND:
+		var pressed := -1
+		for i in range(0, mini(_pose_library.size(), 10)):
+			if Input.is_physical_key_pressed(KEY_0 + i):
+				pressed = i
+				break
+		if pressed >= 0 and pressed != _pose_key_down:
+			_active_pose = 0 if pressed == _active_pose else pressed
+			_update_help_text()
+			print("XRSimulator: right hand pose -> %s" % _pose_library[_active_pose]["name"])
+		_pose_key_down = pressed
+
 
 ## ---- simulated hands -----------------------------------------------------------
 
@@ -297,6 +314,20 @@ func _hands_available() -> bool:
 ## hand is a wrist-local x-flip - same convention as the gesture ghost hand).
 ## Soft-loaded so the kit never hard-depends on godot_xr_hands.
 const _GHOST_HAND_PATH := "res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_ghost_hand.gd"
+const _HAND_MESH_PATH := "res://addons/godot_xr_hands/runtime/xr_hand_mesh_visualizer.gd"
+
+## Finger chains (XRHandTracker joint ids) for deriving per-joint
+## orientations from the position snapshot: each joint aims +Y at its
+## successor (Godot's Humanoid hand convention - the engine maps OpenXR
+## Z+ back-along-bone to Godot Y-), so the realistic hand mesh skins
+## simulated poses with proper curl instead of uniform-orientation smear.
+const _FINGER_CHAINS := [
+	[XRHandTracker.HAND_JOINT_THUMB_METACARPAL, XRHandTracker.HAND_JOINT_THUMB_PHALANX_PROXIMAL, XRHandTracker.HAND_JOINT_THUMB_PHALANX_DISTAL, XRHandTracker.HAND_JOINT_THUMB_TIP],
+	[XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL, XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL, XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_INTERMEDIATE, XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_DISTAL, XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP],
+	[XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL, XRHandTracker.HAND_JOINT_MIDDLE_FINGER_PHALANX_PROXIMAL, XRHandTracker.HAND_JOINT_MIDDLE_FINGER_PHALANX_INTERMEDIATE, XRHandTracker.HAND_JOINT_MIDDLE_FINGER_PHALANX_DISTAL, XRHandTracker.HAND_JOINT_MIDDLE_FINGER_TIP],
+	[XRHandTracker.HAND_JOINT_RING_FINGER_METACARPAL, XRHandTracker.HAND_JOINT_RING_FINGER_PHALANX_PROXIMAL, XRHandTracker.HAND_JOINT_RING_FINGER_PHALANX_INTERMEDIATE, XRHandTracker.HAND_JOINT_RING_FINGER_PHALANX_DISTAL, XRHandTracker.HAND_JOINT_RING_FINGER_TIP],
+	[XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL, XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_PROXIMAL, XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_INTERMEDIATE, XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_DISTAL, XRHandTracker.HAND_JOINT_PINKY_FINGER_TIP],
+]
 
 func _load_hand_poses() -> void:
 	if not _poses.is_empty():
@@ -328,10 +359,51 @@ func _load_hand_poses() -> void:
 		for hand in 2:
 			per_hand[hand] = snapshot if hand == native_hand else _mirrored(snapshot)
 		_poses[key] = per_hand
+	if _hands_available():
+		_build_pose_library(synthesizer)
+	else:
+		_poses.clear()
 	if synthesizer:
 		synthesizer.free()
-	if not _hands_available():
-		_poses.clear()
+
+
+## The Unity-style editor gesture bench: number keys apply ANY authored
+## gesture to the simulated right hand - the shipped presets plus your own
+## Gesture Studio recordings (user://gestures) - so the scene's REAL
+## recognizers react while you test flat. Slot 0 = open palm; capped at 9.
+func _build_pose_library(synthesizer: Node) -> void:
+	_pose_library = [{"name": "open palm", "per_hand": _poses["open"]}]
+	var sources: Array = []
+	var preset_dir := DirAccess.open(_POSE_PATHS["open"].get_base_dir())
+	if preset_dir:
+		for file in preset_dir.get_files():
+			if file.ends_with(".tres") and file != "open_palm.tres":
+				sources.append(_POSE_PATHS["open"].get_base_dir().path_join(file))
+	var user_dir := DirAccess.open("user://gestures")
+	if user_dir:
+		for file in user_dir.get_files():
+			if file.ends_with(".tres"):
+				sources.append("user://gestures".path_join(file))
+	for path in sources:
+		if _pose_library.size() > 9:
+			break
+		var preset: Resource = load(path)
+		if preset == null or preset.get("stages") != null:
+			continue  # sequences (motion gestures) have no static pose
+		var snapshot: PackedVector3Array = preset.get("joint_snapshot") if preset.get("joint_snapshot") is PackedVector3Array else PackedVector3Array()
+		var native_hand := 1
+		if snapshot.size() >= XRHandTracker.HAND_JOINT_MAX:
+			var recorded: Variant = preset.get("recorded_hand")
+			native_hand = recorded if recorded is int and recorded >= 0 else 1
+		elif synthesizer and preset.get("conditions") is Dictionary:
+			snapshot = synthesizer._synthesize_snapshot(preset)
+		if snapshot.size() < XRHandTracker.HAND_JOINT_MAX:
+			continue
+		var per_hand := [null, null]
+		for hand in 2:
+			per_hand[hand] = snapshot if hand == native_hand else _mirrored(snapshot)
+		var pose_name: String = preset.get("gesture_name") if preset.get("gesture_name") else str(path.get_file().get_basename()).replace("_", " ")
+		_pose_library.append({"name": pose_name, "per_hand": per_hand})
 
 
 func _mirrored(snapshot: PackedVector3Array) -> PackedVector3Array:
@@ -350,6 +422,7 @@ func _set_mode(mode: SimMode) -> void:
 		return  # godot_xr_hands absent - controller simulation only
 	_mode = mode
 	if _mode == SimMode.HAND:
+		_active_pose = 0
 		_remove_controller_trackers()
 		_add_hand_trackers()
 	else:
@@ -392,12 +465,23 @@ func _add_hand_trackers() -> void:
 		XRServer.add_tracker(tracker)
 		_hand_trackers[hand] = tracker
 		_current_pose[hand] = (_poses["open"][hand] as PackedVector3Array).duplicate()
+	# The procedural hand visualizer is XR-session-gated (hard-hides flat),
+	# so the simulator shows the REALISTIC hand mesh - the same visual real
+	# scenes use - driven by these fake trackers. Soft-loaded; without the
+	# hands addon the simulated hands are input-only.
+	if _hand_visual == null and _origin and ResourceLoader.exists(_HAND_MESH_PATH):
+		_hand_visual = (load(_HAND_MESH_PATH) as GDScript).new()
+		_hand_visual.name = "SimulatedHandMesh"
+		_origin.add_child(_hand_visual)
 
 
 func _remove_hand_trackers() -> void:
 	for hand in _hand_trackers:
 		XRServer.remove_tracker(_hand_trackers[hand])
 	_hand_trackers.clear()
+	if _hand_visual:
+		_hand_visual.queue_free()
+		_hand_visual = null
 
 
 func _update_hand_poses(delta: float) -> void:
@@ -410,9 +494,15 @@ func _update_hand_poses(delta: float) -> void:
 		var tracker: XRHandTracker = _hand_trackers.get(hand)
 		if tracker == null:
 			continue
-		# Pose target: open palm; F makes the RIGHT hand a fist (gesture tests).
-		var target_key := "fist" if hand == 1 and Input.is_physical_key_pressed(KEY_F) else "open"
-		var target: PackedVector3Array = _poses[target_key][hand]
+		# Pose target: the library pose selected by number key (0 = open palm);
+		# F momentarily overrides the RIGHT hand with a fist.
+		var target: PackedVector3Array
+		if hand == 1 and Input.is_physical_key_pressed(KEY_F):
+			target = _poses["fist"][hand]
+		elif hand == 1 and _active_pose > 0 and _active_pose < _pose_library.size():
+			target = _pose_library[_active_pose]["per_hand"][hand]
+		else:
+			target = _poses["open"][hand]
 		var current: PackedVector3Array = _current_pose[hand]
 		for i in current.size():
 			current[i] = current[i].lerp(target[i], blend)
@@ -430,14 +520,64 @@ func _update_hand_poses(delta: float) -> void:
 			applied[XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP] = mid + (index - mid).normalized() * 0.008
 
 		# Wrist anchor mirrors the controller placement; the right hand aims
-		# at the mouse cursor so the hand ray is mouse-driven.
-		var anchor_pos := cam * Vector3(0.25 if hand == 1 else -0.25, -0.2, -controller_distance)
+		# at the mouse cursor so the hand ray is mouse-driven. The sub-mm sway
+		# mimics real tracking jitter - without it the hand visualizer's
+		# frozen-hand watchdog (built for Quest's stale-pose bug) classifies
+		# bit-identical simulated joints as frozen and hides the hand.
+		var sway_time := Time.get_ticks_msec() * 0.001
+		var sway := Vector3(sin(sway_time * 1.3 + hand), sin(sway_time * 1.7), sin(sway_time * 2.1)) * 0.0006
+		var anchor_pos := cam * Vector3(0.25 if hand == 1 else -0.25, -0.2, -controller_distance) + sway
 		var anchor_basis := _basis_looking(anchor_pos, _mouse_target(anchor_pos)) if hand == 1 else cam.basis
 		var anchor := to_origin * Transform3D(anchor_basis, anchor_pos)
+		var joint_bases := _derive_joint_bases(applied, hand)
 		for joint in applied.size():
-			tracker.set_hand_joint_transform(joint, Transform3D(anchor.basis, anchor * applied[joint]))
+			tracker.set_hand_joint_transform(joint,
+					Transform3D(anchor.basis * joint_bases[joint], anchor * applied[joint]))
 			tracker.set_hand_joint_flags(joint, _JOINT_FLAGS)
 		tracker.has_tracking_data = true
+
+
+## Per-joint orientations from the position snapshot, in Godot's Humanoid
+## hand convention: +Y aims at the next joint along the finger (tip-ward),
+## Z built from the palm normal (chirality-corrected). Consumers that read
+## orientations - most importantly the realistic hand mesh, whose driver
+## un-rebases back to the WebXR frame - get proper curl instead of a
+## uniform-orientation smear.
+func _derive_joint_bases(pose: PackedVector3Array, hand: int) -> Array:
+	var bases := []
+	bases.resize(pose.size())
+	var wrist := pose[XRHandTracker.HAND_JOINT_WRIST]
+	var palm_normal := (pose[XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL] - wrist).cross(
+			pose[XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL] - wrist).normalized()
+	if hand == 0:
+		palm_normal = -palm_normal
+	var wrist_basis := _basis_from_bone(
+			(pose[XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL] - wrist).normalized(), palm_normal)
+	for joint in pose.size():
+		bases[joint] = wrist_basis
+	for chain in _FINGER_CHAINS:
+		for i in chain.size():
+			var joint: int = chain[i]
+			var bone_dir: Vector3
+			if i < chain.size() - 1:
+				bone_dir = pose[chain[i + 1]] - pose[joint]
+			else:
+				bone_dir = pose[joint] - pose[chain[i - 1]]  # tip keeps its bone's aim
+			bases[joint] = _basis_from_bone(bone_dir.normalized(), palm_normal)
+	return bases
+
+
+func _basis_from_bone(y_dir: Vector3, reference_normal: Vector3) -> Basis:
+	if y_dir.length_squared() < 0.000001:
+		return Basis.IDENTITY
+	var x_axis := reference_normal.cross(y_dir)
+	if x_axis.length_squared() < 0.000001:
+		x_axis = y_dir.cross(Vector3.UP)
+		if x_axis.length_squared() < 0.000001:
+			x_axis = Vector3.RIGHT
+	x_axis = x_axis.normalized()
+	var z_axis := x_axis.cross(y_dir).normalized()
+	return Basis(x_axis, y_dir, z_axis)
 
 
 ## Unity XR Device Simulator-style on-screen bindings help, so nobody has to
@@ -499,6 +639,13 @@ func _update_help_text() -> void:
 			"Fist pose  hold F",
 			"X  switch to controllers",
 		]
+		if _pose_library.size() > 1:
+			var names := PackedStringArray()
+			for i in range(1, _pose_library.size()):
+				names.append("%d %s" % [i, _pose_library[i]["name"]])
+			lines.append("Gesture poses (again = open):  " + "  ".join(names))
+			if _active_pose > 0:
+				lines.append(">> holding: %s" % _pose_library[_active_pose]["name"])
 	lines.append("H  hide this help")
 	_help_body.text = "\n".join(lines)
 
