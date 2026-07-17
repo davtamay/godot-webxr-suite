@@ -61,7 +61,8 @@ var _grab_down := false
 var _snap_pulse := 0.0
 var _snap_direction := 0.0
 var _help_layer: CanvasLayer
-var _help_body: Label
+var _help_grid: GridContainer
+var _help_footer: Label
 var _help_key_down := false
 var _mode := SimMode.CONTROLLER
 var _mode_key_down := false
@@ -604,50 +605,73 @@ func _build_help_overlay() -> void:
 	margin.add_child(column)
 
 	var title := Label.new()
-	title.text = "XR SIMULATOR - flat testing"
+	title.text = "XR SIMULATOR"
 	title.add_theme_font_size_override("font_size", 13)
+	title.add_theme_color_override("font_color", Color(1.0, 1.0, 1.0))
 	column.add_child(title)
 
-	_help_body = Label.new()
-	_help_body.add_theme_font_size_override("font_size", 12)
-	_help_body.self_modulate = Color(0.85, 0.9, 1.0)
-	column.add_child(_help_body)
+	var subtitle := Label.new()
+	subtitle.text = "flat testing - no headset"
+	subtitle.add_theme_font_size_override("font_size", 10)
+	subtitle.add_theme_color_override("font_color", Color(0.6, 0.65, 0.72))
+	column.add_child(subtitle)
+
+	_help_grid = GridContainer.new()
+	_help_grid.columns = 2
+	_help_grid.add_theme_constant_override("h_separation", 14)
+	_help_grid.add_theme_constant_override("v_separation", 3)
+	column.add_child(_help_grid)
+
+	_help_footer = Label.new()
+	_help_footer.add_theme_font_size_override("font_size", 12)
+	_help_footer.add_theme_color_override("font_color", Color(0.45, 0.95, 0.55))
+	column.add_child(_help_footer)
 	_update_help_text()
 
 
 func _update_help_text() -> void:
-	if _help_body == null:
+	if _help_grid == null:
 		return
-	var lines := [
-		"Move  W A S D  +  Q / E up-down",
-		"Look  hold Left Mouse + drag",
+	for child in _help_grid.get_children():
+		child.queue_free()
+	var rows := [
+		["W A S D · Q E", "move / fly"],
+		["Left Mouse", "hold + drag to look"],
+		["Mouse cursor", "aims the ray"],
 	]
 	if _mode == SimMode.CONTROLLER:
-		lines += [
-			"Aim ray  move the mouse cursor",
-			"Trigger / select  hold Right Mouse",
-			"Grab button  hold F",
-			"Teleport  hold T, release to go",
-			"Snap turn  Z / C",
+		rows += [
+			["Right Mouse", "trigger — select / grab"],
+			["F", "grab button"],
+			["T", "hold to aim teleport, release to go"],
+			["Z / C", "snap turn"],
 		]
 		if _hands_available():
-			lines.append("X  switch to simulated HANDS")
+			rows.append(["X", "switch to simulated hands"])
 	else:
-		lines += [
-			"Aim hand ray  move the mouse cursor",
-			"Pinch (select/grab)  hold Right Mouse",
-			"Fist pose  hold F",
-			"X  switch to controllers",
+		rows += [
+			["Right Mouse", "pinch — select / grab"],
+			["F", "fist (hold)"],
+			["X", "switch to controllers"],
 		]
-		if _pose_library.size() > 1:
-			var names := PackedStringArray()
-			for i in range(1, _pose_library.size()):
-				names.append("%d %s" % [i, _pose_library[i]["name"]])
-			lines.append("Gesture poses (again = open):  " + "  ".join(names))
-			if _active_pose > 0:
-				lines.append(">> holding: %s" % _pose_library[_active_pose]["name"])
-	lines.append("H  hide this help")
-	_help_body.text = "\n".join(lines)
+		for i in range(1, _pose_library.size()):
+			rows.append([str(i), "pose: %s (again = open)" % _pose_library[i]["name"]])
+	rows.append(["H", "hide this help"])
+	for row in rows:
+		var key := Label.new()
+		key.text = row[0]
+		key.add_theme_font_size_override("font_size", 12)
+		key.add_theme_color_override("font_color", Color(0.55, 0.82, 1.0))
+		key.custom_minimum_size = Vector2(104, 0)
+		_help_grid.add_child(key)
+		var action := Label.new()
+		action.text = row[1]
+		action.add_theme_font_size_override("font_size", 12)
+		action.add_theme_color_override("font_color", Color(0.82, 0.86, 0.92))
+		_help_grid.add_child(action)
+	var holding := _mode == SimMode.HAND and _active_pose > 0 and _active_pose < _pose_library.size()
+	_help_footer.visible = holding
+	_help_footer.text = "holding: %s" % _pose_library[_active_pose]["name"] if holding else ""
 
 
 func _exit_tree() -> void:
