@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="XRHandSequence" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gesture_studio/xr_hand_sequence.gd" id="1_s"]
+
+[resource]
+script = ExtResource("1_s")
+sequence_name = "thumb_swipe_forward"
+stages = Array[Dictionary]([{
+"conditions": {
+"thumb_index_contact": Vector2(0.85, 0.4)
+},
+"motion_feature": "thumb_along_index",
+"motion_min_delta": 0.45,
+"max_seconds": 0.45
+}])
+cooldown_seconds = 0.4

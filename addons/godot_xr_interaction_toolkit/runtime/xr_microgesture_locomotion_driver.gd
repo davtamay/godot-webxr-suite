@@ -6,17 +6,18 @@ extends Node
 ## Thumb-microgesture locomotion driving the SAME teleport arc, marker, and
 ## snap turn as the thumbsticks - one locomotion system, many inputs.
 ##
-## Uses godot_xr_hands' thumb microgesture recognition when that addon is
-## installed (inert otherwise), with its canonical mapping:
-##   swipe LEFT / RIGHT  = snap turn
-##   swipe FORWARD       = aim the teleport arc (hand ray)
-##   swipe BACKWARD      = commit
-##   thumb TAP           = aim / commit toggle
-##
-## Drop anywhere (built into WebXRRig): it finds the XRLocomotion by group.
+## Powered by the hands addon's sequence recognition (godot_xr_hands
+## gesture_studio; soft dependency - inert when that addon is absent):
+##   thumb swipe LEFT / RIGHT  = snap turn
+##   thumb swipe FORWARD       = aim the teleport arc (hand ray)
+##   thumb swipe BACKWARD      = commit
+##   thumb TAP                 = aim / commit toggle
+## Rest your thumb on the side of your index finger and swipe - the Meta
+## microgesture vocabulary, recognized from joints, working in the browser.
 
-const _RUNTIME_SCRIPT := "res://addons/godot_xr_hands/runtime/recognition/xr_gesture_runtime.gd"
-const _RECOGNIZER_SCRIPT := "res://addons/godot_xr_hands/runtime/recognition/xr_thumb_microgesture_recognizer.gd"
+const _RECOGNIZER_SCRIPT := "res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_recognizer.gd"
+const _PRESET_DIR := "res://addons/godot_xr_hands/runtime/gesture_studio/presets"
+const _SEQUENCES := ["thumb_swipe_left", "thumb_swipe_right", "thumb_swipe_forward", "thumb_swipe_backward", "thumb_tap"]
 
 @export var enabled := true
 
@@ -29,35 +30,32 @@ var _locomotion: Node
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
-	if not ResourceLoader.exists(_RECOGNIZER_SCRIPT) or not ResourceLoader.exists(_RUNTIME_SCRIPT):
-		return  # godot_xr_hands not installed; microgesture locomotion stays off.
-	var runtime: Node = (load(_RUNTIME_SCRIPT) as GDScript).new()
-	runtime.name = "GestureRuntime"
-	add_child(runtime)
+	if not ResourceLoader.exists(_RECOGNIZER_SCRIPT):
+		return  # Hands addon not installed; microgesture locomotion stays off.
 	var recognizer: Node = (load(_RECOGNIZER_SCRIPT) as GDScript).new()
-	recognizer.name = "ThumbRecognizer"
-	recognizer.set("hand", -1)
-	recognizer.set("gesture_runtime_path", NodePath("../GestureRuntime"))
+	recognizer.name = "MicrogestureRecognizer"
+	for sequence_name in _SEQUENCES:
+		var sequence := load("%s/%s.tres" % [_PRESET_DIR, sequence_name])
+		if sequence:
+			(recognizer.get("sequences") as Array).append(sequence)
 	add_child(recognizer)
-	if recognizer.has_signal("gesture_performed"):
-		recognizer.connect("gesture_performed", _on_gesture)
+	if recognizer.has_signal("sequence_performed"):
+		recognizer.connect("sequence_performed", _on_sequence)
 
 
-func _on_gesture(gesture: int, hand: int, _confidence: float) -> void:
+func _on_sequence(sequence_name: String, hand: int) -> void:
 	if not enabled or not _resolve_locomotion():
 		return
-	# Gesture order matches XRMicrogestureSource.Gesture:
-	# LEFT, RIGHT, FORWARD, BACKWARD, TAP.
-	match gesture:
-		0:
+	match sequence_name:
+		"thumb_swipe_left":
 			_locomotion.do_snap_turn(1.0)
-		1:
+		"thumb_swipe_right":
 			_locomotion.do_snap_turn(-1.0)
-		2:
+		"thumb_swipe_forward":
 			_locomotion.begin_teleport_aim(hand)
-		3:
+		"thumb_swipe_backward":
 			_locomotion.commit_teleport(hand)
-		4:
+		"thumb_tap":
 			if _locomotion.is_aiming(hand):
 				_locomotion.commit_teleport(hand)
 			else:

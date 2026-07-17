@@ -88,12 +88,37 @@ static func extract(tracker: XRHandTracker, hand: int, origin: Transform3D = Tra
 	if hand == 1:
 		palm_normal = -palm_normal
 	if palm_normal.length_squared() > 0.000001:
-		palm_normal = (origin.basis * palm_normal).normalized()
+		var local_palm_normal := palm_normal.normalized()
+		palm_normal = (origin.basis * local_palm_normal).normalized()
 		features["palm_up"] = palm_normal.dot(Vector3.UP)
 		if head is Transform3D:
 			var to_head := ((head as Transform3D).origin - (origin * palm)).normalized()
 			features["palm_toward_head"] = palm_normal.dot(to_head)
+		_add_thumb_microgesture_features(tracker, local_palm_normal, features)
 	return features
+
+
+## Microgesture axis system: the thumb tip relative to the INDEX FINGER frame.
+## along = toward the index tip; across = perpendicular on the palm plane;
+## contact = thumb resting on the index's middle segment. Chirality-corrected
+## palm normal keeps left/right swipes symmetric across hands.
+static func _add_thumb_microgesture_features(tracker: XRHandTracker, palm_normal: Vector3, features: Dictionary) -> void:
+	var index_base := tracker.get_hand_joint_transform(XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL).origin
+	var index_mid := tracker.get_hand_joint_transform(XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_INTERMEDIATE).origin
+	var index_tip := tracker.get_hand_joint_transform(XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP).origin
+	var thumb_tip := tracker.get_hand_joint_transform(XRHandTracker.HAND_JOINT_THUMB_TIP).origin
+	var along_axis := index_tip - index_base
+	if along_axis.length_squared() < 0.000001:
+		return
+	along_axis = along_axis.normalized()
+	var across_axis := along_axis.cross(palm_normal)
+	if across_axis.length_squared() < 0.000001:
+		return
+	across_axis = across_axis.normalized()
+	var thumb_offset := thumb_tip - index_base
+	features["thumb_along_index"] = clampf(thumb_offset.dot(along_axis) / 0.08, -1.0, 1.0)
+	features["thumb_across_index"] = clampf(thumb_offset.dot(across_axis) / 0.05, -1.0, 1.0)
+	features["thumb_index_contact"] = clampf(1.0 - (thumb_tip.distance_to(index_mid) - 0.012) / 0.035, 0.0, 1.0)
 
 
 static func _segment_direction(tracker: XRHandTracker, from_joint: int, to_joint: int) -> Vector3:

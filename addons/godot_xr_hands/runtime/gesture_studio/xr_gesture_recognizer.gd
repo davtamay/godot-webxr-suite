@@ -19,11 +19,16 @@ const _DebugPanel := preload("res://addons/godot_xr_hands/runtime/gesture_studio
 ## A gesture began / ended on a hand (0 = left, 1 = right).
 signal gesture_started(gesture_name: String, hand: int)
 signal gesture_ended(gesture_name: String, hand: int)
+## A motion sequence (swipe, tap - see XRHandSequence) completed on a hand.
+signal sequence_performed(sequence_name: String, hand: int)
 
 @export var enabled := true
 
 ## The gesture library this recognizer matches.
 @export var gestures: Array[XRHandGesture] = []
+
+## Motion sequences (thumb swipes/taps) matched alongside the static poses.
+@export var sequences: Array[XRHandSequence] = []
 
 ## Camera (head) used for the palm_toward_head feature; found automatically
 ## when left empty.
@@ -44,6 +49,7 @@ var _hold := [{}, {}]
 var _features := [{}, {}]
 var _nearest := [{}, {}]
 var _panels := [null, null]
+var _sequence_state := [{}, {}]
 
 
 func _ready() -> void:
@@ -62,6 +68,7 @@ func _process(delta: float) -> void:
 		var head: Variant = _camera.global_transform if _camera else null
 		_features[hand] = XRHandFeatureExtractor.extract(tracker, hand, origin_xf, head)
 		_update_hand(hand, delta)
+		_update_sequences(hand, delta)
 		if show_debug:
 			_update_debug_panel(hand, tracker, origin_xf)
 		elif _panels[hand]:
@@ -109,6 +116,53 @@ func _update_hand(hand: int, delta: float) -> void:
 				_active[hand].erase(name)
 				gesture_ended.emit(name, hand)
 	_nearest[hand] = nearest
+
+
+## ---- sequences (motion gestures: swipes, taps) --------------------------------
+
+func _update_sequences(hand: int, delta: float) -> void:
+	var features: Dictionary = _features[hand]
+	for sequence in sequences:
+		if sequence == null or sequence.sequence_name.is_empty() or sequence.stages.is_empty():
+			continue
+		var states: Dictionary = _sequence_state[hand]
+		var state: Dictionary = states.get_or_add(sequence.sequence_name, {"stage": 0, "time": 0.0, "motion_start": 0.0, "cooldown": 0.0})
+		if state["cooldown"] > 0.0:
+			state["cooldown"] = maxf(state["cooldown"] - delta, 0.0)
+			continue
+		if features.is_empty():
+			_reset_sequence(state)
+			continue
+		var stage_index: int = state["stage"]
+		var stage: Dictionary = sequence.stages[stage_index]
+		if not sequence.stage_conditions_hold(stage_index, features):
+			# Stage 0 simply waits for its entry conditions; later stages fail.
+			if stage_index > 0:
+				_reset_sequence(state)
+			continue
+		var motion_feature: String = stage.get("motion_feature", "")
+		if state["time"] == 0.0 and not motion_feature.is_empty():
+			state["motion_start"] = features.get(motion_feature, 0.0)
+		state["time"] += delta
+		var complete := true
+		if not motion_feature.is_empty():
+			var min_delta: float = stage.get("motion_min_delta", 0.3)
+			var moved: float = (features.get(motion_feature, 0.0) as float) - (state["motion_start"] as float)
+			complete = (moved >= min_delta) if min_delta >= 0.0 else (moved <= min_delta)
+		if complete:
+			state["stage"] = stage_index + 1
+			state["time"] = 0.0
+			if state["stage"] >= sequence.stages.size():
+				state["stage"] = 0
+				state["cooldown"] = sequence.cooldown_seconds
+				sequence_performed.emit(sequence.sequence_name, hand)
+		elif state["time"] > (stage.get("max_seconds", 0.5) as float):
+			_reset_sequence(state)
+
+
+func _reset_sequence(state: Dictionary) -> void:
+	state["stage"] = 0
+	state["time"] = 0.0
 
 
 func _resolve_scene_refs() -> void:
