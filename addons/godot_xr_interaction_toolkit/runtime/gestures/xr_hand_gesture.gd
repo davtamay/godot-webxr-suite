@@ -29,6 +29,15 @@ extends Resource
 ## REPRESENTATION, letting a ghost hand display the pose to the user.
 @export var joint_snapshot := PackedVector3Array()
 
+## Which hand recorded the snapshot (0 = left, 1 = right; -1 = authored).
+## Display mirrors the snapshot when showing the other hand.
+@export var recorded_hand := -1
+
+## Non-destructive strictness: every condition's tolerance is multiplied by
+## this at match time (0.5 = twice as strict, 2 = twice as forgiving). The
+## recorded tolerances stay untouched, so tuning is always reversible.
+@export_range(0.4, 2.5, 0.05) var tolerance_scale := 1.0
+
 ## Extra tolerance while ACTIVE (hysteresis): the gesture releases only after
 ## drifting this far past its entry tolerance, killing boundary flicker.
 @export_range(0.0, 0.5, 0.01) var release_tolerance_bonus := 0.08
@@ -51,7 +60,7 @@ func failing_features(features: Dictionary, active: bool) -> PackedStringArray:
 			failing.append(feature)
 			continue
 		var target_tolerance := conditions[feature]
-		var tolerance := target_tolerance.y + (release_tolerance_bonus if active else 0.0)
+		var tolerance := target_tolerance.y * tolerance_scale + (release_tolerance_bonus if active else 0.0)
 		if absf((features[feature] as float) - target_tolerance.x) > tolerance:
 			failing.append(feature)
 	return failing

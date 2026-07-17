@@ -149,6 +149,7 @@ func _finish() -> void:
 		var tolerance := maxf(min_tolerance, (high - low) * 0.5 + 0.08)
 		conditions[feature] = Vector2(snappedf(mean, 0.01), snappedf(tolerance, 0.01))
 	gesture.conditions = conditions
+	gesture.recorded_hand = _hand
 	if not _joint_frames.is_empty():
 		gesture.joint_snapshot = _joint_frames[_joint_frames.size() / 2]
 

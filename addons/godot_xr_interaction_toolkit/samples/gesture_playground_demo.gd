@@ -16,6 +16,10 @@ extends Node3D
 var _selected: XRHandGesture
 var _custom_count := 0
 var _library_box: VBoxContainer
+var _authoring_box: VBoxContainer
+var _strictness: HSlider
+var _strictness_value: Label
+var _ghost_home := Vector3.ZERO
 
 
 func _ready() -> void:
@@ -72,6 +76,71 @@ func _build_library_panel() -> void:
 	_library_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_library_box.add_theme_constant_override("separation", 8)
 	scroll.add_child(_library_box)
+
+	# Authoring section for the SELECTED gesture: display hands, strictness,
+	# re-record, delete. Everything saves back to the gesture's .tres.
+	_authoring_box = VBoxContainer.new()
+	_authoring_box.add_theme_constant_override("separation", 8)
+	_authoring_box.visible = false
+	column.add_child(_authoring_box)
+
+	var hands_row := HBoxContainer.new()
+	hands_row.add_theme_constant_override("separation", 8)
+	_authoring_box.add_child(hands_row)
+	var hands_title := Label.new()
+	hands_title.text = "SHOW"
+	hands_title.add_theme_font_size_override("font_size", 26)
+	hands_row.add_child(hands_title)
+	for mode in [["LEFT", XRGestureGhostHand.HandMode.LEFT], ["RIGHT", XRGestureGhostHand.HandMode.RIGHT], ["BOTH", XRGestureGhostHand.HandMode.BOTH]]:
+		var mode_button := Button.new()
+		mode_button.text = mode[0]
+		mode_button.custom_minimum_size = Vector2(130, 56)
+		mode_button.add_theme_font_size_override("font_size", 24)
+		mode_button.pressed.connect(func() -> void: _ghost.hand_mode = mode[1])
+		hands_row.add_child(mode_button)
+
+	var strict_row := HBoxContainer.new()
+	strict_row.add_theme_constant_override("separation", 10)
+	_authoring_box.add_child(strict_row)
+	var strict_title := Label.new()
+	strict_title.text = "STRICT"
+	strict_title.add_theme_font_size_override("font_size", 26)
+	strict_row.add_child(strict_title)
+	_strictness = HSlider.new()
+	_strictness.min_value = 0.4
+	_strictness.max_value = 2.5
+	_strictness.step = 0.05
+	_strictness.value = 1.0
+	_strictness.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_strictness.custom_minimum_size = Vector2(0, 56)
+	_strictness.value_changed.connect(_on_strictness_changed)
+	strict_row.add_child(_strictness)
+	_strictness_value = Label.new()
+	_strictness_value.text = "1.00"
+	_strictness_value.add_theme_font_size_override("font_size", 26)
+	strict_row.add_child(_strictness_value)
+	var strict_hint := Label.new()
+	strict_hint.text = "left = stricter match, right = more forgiving (saves live)"
+	strict_hint.add_theme_font_size_override("font_size", 18)
+	strict_hint.modulate = Color(1, 1, 1, 0.6)
+	_authoring_box.add_child(strict_hint)
+
+	var actions_row := HBoxContainer.new()
+	actions_row.add_theme_constant_override("separation", 10)
+	_authoring_box.add_child(actions_row)
+	var rerecord := Button.new()
+	rerecord.text = "RE-RECORD"
+	rerecord.custom_minimum_size = Vector2(220, 56)
+	rerecord.add_theme_font_size_override("font_size", 24)
+	rerecord.pressed.connect(_on_rerecord_pressed)
+	actions_row.add_child(rerecord)
+	var delete := Button.new()
+	delete.text = "DELETE"
+	delete.custom_minimum_size = Vector2(180, 56)
+	delete.add_theme_font_size_override("font_size", 24)
+	delete.pressed.connect(_on_delete_pressed)
+	actions_row.add_child(delete)
+
 	_refresh_library()
 
 
@@ -97,6 +166,9 @@ func _on_library_selected(gesture: XRHandGesture) -> void:
 	_selected = gesture
 	_recognizer.focus_gesture_name = gesture.gesture_name
 	_refresh_library()
+	_authoring_box.visible = true
+	_strictness.set_value_no_signal(gesture.tolerance_scale)
+	_strictness_value.text = "%.2f" % gesture.tolerance_scale
 	var shown := _ghost.show_gesture(gesture)
 	_ghost.set_highlight(false)
 	if shown:
@@ -104,7 +176,49 @@ func _on_library_selected(gesture: XRHandGesture) -> void:
 		_status_label.text = "Practice '%s': red wrist bars show which finger blocks it." % gesture.gesture_name
 	else:
 		_ghost_label.text = "%s\n(recognition-only preset - no snapshot)" % gesture.gesture_name.replace("_", " ").to_upper()
-		_status_label.text = "'%s' has no recorded snapshot. Re-record it to get one." % gesture.gesture_name
+		_status_label.text = "'%s' has no recorded snapshot. RE-RECORD it to get one." % gesture.gesture_name
+
+
+func _on_strictness_changed(value: float) -> void:
+	if _selected == null:
+		return
+	_selected.tolerance_scale = value
+	_strictness_value.text = "%.2f" % value
+	_save_selected()
+
+
+func _on_rerecord_pressed() -> void:
+	if _selected == null or _recorder.is_recording():
+		return
+	var hand := _selected.recorded_hand if _selected.recorded_hand >= 0 else 1
+	_ghost.start_live(hand)
+	_move_ghost_for_hand(hand)
+	_recorder.start_recording(_selected.gesture_name, hand)
+
+
+func _on_delete_pressed() -> void:
+	if _selected == null:
+		return
+	var path := "user://gestures/%s.tres" % _selected.gesture_name
+	if not FileAccess.file_exists(path):
+		_status_label.text = "'%s' is a built-in preset - it cannot be deleted." % _selected.gesture_name
+		return
+	DirAccess.remove_absolute(path)
+	_recognizer.gestures.erase(_selected)
+	_recognizer.focus_gesture_name = ""
+	_selected = null
+	_authoring_box.visible = false
+	_ghost.show_gesture(null)
+	_ghost_label.text = "GHOST HAND\nselect a pose on the panel"
+	_refresh_library()
+	_status_label.text = "Deleted. Select or record another pose."
+
+
+func _save_selected() -> void:
+	# Custom gestures persist edits immediately; presets tune in-memory only
+	# (their .tres ships read-only inside the app).
+	if _selected and FileAccess.file_exists("user://gestures/%s.tres" % _selected.gesture_name):
+		ResourceSaver.save(_selected, "user://gestures/%s.tres" % _selected.gesture_name)
 
 
 ## ---- recording ---------------------------------------------------------------
@@ -116,8 +230,19 @@ func _on_record_pressed(hand: int) -> void:
 	while _has_gesture("custom_%d" % _custom_count):
 		_custom_count += 1
 	_ghost.start_live(hand)
+	_move_ghost_for_hand(hand)
 	_ghost_label.text = "LIVE: your %s hand" % ("LEFT" if hand == 0 else "RIGHT")
 	_recorder.start_recording("custom_%d" % _custom_count, hand)
+
+
+## During recording the ghost moves to the SAME side as the recording hand,
+## so the raised hand, the ghost, and the panel are all visible at once.
+func _move_ghost_for_hand(hand: int) -> void:
+	if _ghost_home == Vector3.ZERO:
+		_ghost_home = _ghost.position
+	var side := _ghost_home
+	side.x = -absf(_ghost_home.x) if hand == 0 else absf(_ghost_home.x)
+	_ghost.position = side
 
 
 func _on_recording_state(state: String, seconds_left: float) -> void:
@@ -133,6 +258,8 @@ func _on_recording_state(state: String, seconds_left: float) -> void:
 
 func _on_recording_finished(gesture: XRHandGesture, _save_path: String) -> void:
 	_ghost.stop_live()
+	if _ghost_home != Vector3.ZERO:
+		_ghost.position = _ghost_home
 	_refresh_library()
 	_on_library_selected(gesture)
 	_status_label.text = "Saved '%s' - now perform it: the ghost turns green on a match.\nIt stays saved for your next session." % gesture.gesture_name
