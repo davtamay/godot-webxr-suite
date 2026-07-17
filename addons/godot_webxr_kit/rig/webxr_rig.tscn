@@ -14,6 +14,7 @@
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_locomotion.gd" id="11_locomotion"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_interactor.gd" id="12_poke"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/xr_hands_mount.gd" id="13_hands"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_feedback.gd" id="14_feedback"]
 
 [node name="WebXRRig" type="Node3D"]
 script = ExtResource("0_rig")
@@ -48,6 +49,9 @@ xr_origin_path = NodePath("../XROrigin3D")
 camera_path = NodePath("../XROrigin3D/XRCamera3D")
 left_controller_path = NodePath("../XROrigin3D/LeftController")
 right_controller_path = NodePath("../XROrigin3D/RightController")
+
+[node name="InteractionFeedback" type="Node" parent="."]
+script = ExtResource("14_feedback")
 
 [node name="XRPokeInteractor" type="Node" parent="."]
 script = ExtResource("12_poke")

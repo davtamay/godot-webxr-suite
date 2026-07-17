@@ -8,6 +8,10 @@ extends Node
 
 const GROUP_NAME := &"xr_interaction_manager"
 
+## Fired as interactables register - the scene-wide feedback system (and any
+## other observer) hooks every interactable through this without polling.
+signal interactable_registered(interactable)
+
 static var _last_manager: Node
 
 var _collider_map := {} # collider instance_id (int) -> interactable
@@ -46,6 +50,14 @@ func register_interactable(interactable) -> void:
         return
     for collider in interactable.get_colliders():
         _collider_map[collider.get_instance_id()] = interactable
+    interactable_registered.emit(interactable)
+
+## Current registered interactables (deduped from the collider map).
+func get_interactables() -> Array:
+    var seen := {}
+    for interactable in _collider_map.values():
+        seen[interactable] = true
+    return seen.keys()
 
 func unregister_interactable(interactable) -> void:
     if interactable == null:
