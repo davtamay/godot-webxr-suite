@@ -189,7 +189,13 @@ static func build_starter_scene() -> Node3D:
 	var root := Node3D.new()
 	root.name = "XRPlayground"
 	if ResourceLoader.exists(KIT_PREFAB):
-		root.add_child((load(KIT_PREFAB) as PackedScene).instantiate())
+		var prefab := (load(KIT_PREFAB) as PackedScene).instantiate()
+		# Default to the realistic (registry-model) hands - they're bundled and
+		# work well in the toolkit sample, so the starter shows them off too.
+		# 1 = XRHandsMount.HandStyle.REALISTIC (avoid a hard class dep here).
+		if "hand_style" in prefab:
+			prefab.hand_style = 1
+		root.add_child(prefab)
 	if ResourceLoader.exists(TOOLKIT_FLOOR):
 		root.add_child((load(TOOLKIT_FLOOR) as PackedScene).instantiate())
 
