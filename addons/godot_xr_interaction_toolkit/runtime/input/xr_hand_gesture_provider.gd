@@ -58,15 +58,14 @@ static func get_hand_ray_pose(tracker: XRHandTracker) -> Dictionary:
         pitch = -pitch
     var direction := fwd.rotated(across, pitch).normalized()
 
-    # ORIGIN at the pinch point (between index + thumb tips), Meta/Unity-style, so
-    # the ray emerges from your fingers; falls back to the knuckle if not tracked.
+    # ORIGIN at a STABLE anchor (the index knuckle, else palm) - NOT the
+    # fingertips. The old fingertip/pinch-midpoint origin swung the whole ray
+    # as fingers curled or pinched (David saw the line offset per pose); Meta/
+    # Unity anchor the pointer near the knuckle so posing does not move it. A
+    # small forward offset lifts it clear of the hand.
     var origin_point := knuckle_pos
-    var index_tip := XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP
-    var thumb_tip := XRHandTracker.HAND_JOINT_THUMB_TIP
-    if joint_position_valid(tracker, index_tip):
-        origin_point = tracker.get_hand_joint_transform(index_tip).origin
-        if joint_position_valid(tracker, thumb_tip):
-            origin_point = (origin_point + tracker.get_hand_joint_transform(thumb_tip).origin) * 0.5
+    if joint_position_valid(tracker, palm):
+        origin_point = (knuckle_pos + tracker.get_hand_joint_transform(palm).origin) * 0.5
 
     return {
         "origin": origin_point + direction * RAY_ORIGIN_FORWARD_OFFSET,
