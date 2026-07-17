@@ -24,8 +24,15 @@ const _BACKDROP_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/r
 @export_range(3, 24, 1) var max_log_lines := 9
 ## Auto-connect to every suite signal source found in the scene at start.
 @export var follow_signals := true
-@export var panel_size := Vector2(0.55, 0.38)
+## Panel width; HEIGHT is automatic - compact when idle, grows downward from
+## the node origin (the anchored top edge) as log lines accumulate.
+@export var panel_width := 0.45
 
+const _LINE_HEIGHT := 0.0145
+const _TOP_PAD := 0.015
+const _STATUS_TO_LOG := 0.03
+
+var _backdrop: MeshInstance3D
 var _status_label: Label3D
 var _log_label: Label3D
 var _log_lines: PackedStringArray = []
@@ -47,6 +54,7 @@ func log_line(text: String) -> void:
 		_log_lines.remove_at(0)
 	if _log_label:
 		_log_label.text = "\n".join(_log_lines)
+		_update_layout()
 
 
 func _process(delta: float) -> void:
@@ -68,17 +76,23 @@ func _process(delta: float) -> void:
 
 
 func _build_panel() -> void:
-	var backdrop := MeshInstance3D.new()
-	var quad := QuadMesh.new()
-	quad.size = panel_size
-	backdrop.mesh = quad
-	backdrop.material_override = _BACKDROP_MATERIAL
-	add_child(backdrop)
+	_backdrop = MeshInstance3D.new()
+	_backdrop.mesh = QuadMesh.new()
+	_backdrop.material_override = _BACKDROP_MATERIAL
+	add_child(_backdrop)
 
-	_status_label = _make_label(Vector3(0.0, panel_size.y * 0.5 - 0.03, 0.002))
+	_status_label = _make_label(Vector3(0.0, -_TOP_PAD, 0.002))
 	_status_label.text = "XR Debug Panel"
-	_log_label = _make_label(Vector3(0.0, panel_size.y * 0.5 - 0.07, 0.002))
-	_log_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	_log_label = _make_label(Vector3(0.0, -_TOP_PAD - _STATUS_TO_LOG, 0.002))
+	_update_layout()
+
+
+## Height fits the content: the node origin is the panel's TOP edge and the
+## backdrop extends down as the log grows.
+func _update_layout() -> void:
+	var height := _TOP_PAD + _STATUS_TO_LOG + maxf(_log_lines.size(), 1) * _LINE_HEIGHT + _TOP_PAD
+	(_backdrop.mesh as QuadMesh).size = Vector2(panel_width, height)
+	_backdrop.position = Vector3(0.0, -height * 0.5, 0.0)
 
 
 func _make_label(at: Vector3) -> Label3D:
@@ -87,7 +101,8 @@ func _make_label(at: Vector3) -> Label3D:
 	label.font_size = 30
 	label.modulate = Color(0.85, 0.95, 1.0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	label.width = panel_size.x / 0.0004
+	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	label.width = (panel_width - 0.02) / 0.0004
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.position = at
 	add_child(label)
