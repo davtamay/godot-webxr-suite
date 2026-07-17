@@ -455,10 +455,7 @@ func _load_bind_skeletons() -> bool:
 		var target_frame := Basis(Vector3(-1, 0, 0), Vector3(0, -1, 0), Vector3(0, 0, 1))
 		# Recorded Gesture Studio snapshots use fingers +Y / palm +Z wrist-
 		# local; this maps them into the bind wrist frame.
-		# Rolled 180 vs the first guess: rec_convert was authored against the
-		# pre-calibration normal, so David's palm flip silently rolled every
-		# RECORDED pose (rock-test 'inverted') while FK poses stayed correct.
-		var rec_x := normal.cross(fingers_dir).normalized()
+		var rec_x := fingers_dir.cross(normal).normalized()
 		_bind[hand] = {
 			"rel": rel,
 			"curl_axes": curl_axes,
