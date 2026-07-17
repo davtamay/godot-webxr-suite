@@ -49,7 +49,10 @@ func _ready() -> void:
 
 
 func log_line(text: String) -> void:
-	_log_lines.append("%6.1f  %s" % [Time.get_ticks_msec() / 1000.0, text])
+	var line := "%6.1f  %s" % [Time.get_ticks_msec() / 1000.0, text]
+	if line.length() > 56:
+		line = line.substr(0, 55) + "…"
+	_log_lines.append(line)
 	while _log_lines.size() > max_log_lines:
 		_log_lines.remove_at(0)
 	if _log_label:
@@ -81,9 +84,12 @@ func _build_panel() -> void:
 	_backdrop.material_override = _BACKDROP_MATERIAL
 	add_child(_backdrop)
 
-	_status_label = _make_label(Vector3(0.0, -_TOP_PAD, 0.002))
+	# Left-aligned Label3D text anchors its LEFT edge at the node origin, so
+	# the labels sit at the panel's left margin, not its center.
+	var left := -panel_width * 0.5 + 0.015
+	_status_label = _make_label(Vector3(left, -_TOP_PAD, 0.002))
 	_status_label.text = "XR Debug Panel"
-	_log_label = _make_label(Vector3(0.0, -_TOP_PAD - _STATUS_TO_LOG, 0.002))
+	_log_label = _make_label(Vector3(left, -_TOP_PAD - _STATUS_TO_LOG, 0.002))
 	_update_layout()
 
 
@@ -102,7 +108,6 @@ func _make_label(at: Vector3) -> Label3D:
 	label.modulate = Color(0.85, 0.95, 1.0)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	label.width = (panel_width - 0.02) / 0.0004
 	label.autowrap_mode = TextServer.AUTOWRAP_OFF
 	label.position = at
 	add_child(label)
