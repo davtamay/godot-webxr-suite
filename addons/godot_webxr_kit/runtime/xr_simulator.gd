@@ -529,14 +529,48 @@ func _pose_from_preset(preset: Resource) -> Array:
 	return per_hand
 
 
+## Recorded snapshots are POSITIONS only, in the recorder's wrist frame; the
+## bind skeleton lives in its own wrist frame. Every failed attempt guessed a
+## fixed conversion (rec_convert) with a free chirality sign that kept
+## flipping. Deterministic fix: measure BOTH wrist frames the SAME way (same
+## thumb-side normal correction) and align them - identical measurement leaves
+## no sign to guess. The reframed positions then run through the exact FK
+## downstream (orientations derived in bind space), so recorded and synthesized
+## poses render in one consistent convention.
 func _rel_from_recorded(hand: int, positions: PackedVector3Array) -> Array:
-	var convert: Basis = _bind[hand]["rec_convert"]
-	var bases := _derive_joint_bases(positions, hand)
+	var bind_rel: Array = _bind[hand]["rel"]
+	var f_rec := _measure_wrist_frame(func(j): return positions[j])
+	var f_bind := _measure_wrist_frame(func(j): return (bind_rel[j] as Transform3D).origin)
+	var convert := f_bind * f_rec.inverse()
+	var wrist_pos := positions[XRHandTracker.HAND_JOINT_WRIST]
+	var reframed := PackedVector3Array()
+	reframed.resize(positions.size())
+	for joint in positions.size():
+		reframed[joint] = convert * (positions[joint] - wrist_pos)
+	# Bind space is right-hand canonical (both hands reframed into it), so no
+	# per-hand normal flip here - pass hand 1.
+	var bases := _derive_joint_bases(reframed, 1)
 	var rel := []
 	rel.resize(positions.size())
 	for joint in positions.size():
-		rel[joint] = Transform3D(convert * (bases[joint] as Basis), convert * positions[joint])
+		rel[joint] = Transform3D(bases[joint], reframed[joint])
 	return rel
+
+
+## Wrist frame from joint positions, measured identically for recorded and
+## bind data (fingers = middle-metacarpal dir, palm normal = index x pinky with
+## the thumb-side correction). The shared correction is what removes the free
+## chirality sign.
+func _measure_wrist_frame(get_pos: Callable) -> Basis:
+	var wrist: Vector3 = get_pos.call(XRHandTracker.HAND_JOINT_WRIST)
+	var index: Vector3 = get_pos.call(XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL)
+	var pinky: Vector3 = get_pos.call(XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL)
+	var thumb: Vector3 = get_pos.call(XRHandTracker.HAND_JOINT_THUMB_METACARPAL)
+	var normal := (index - wrist).cross(pinky - wrist).normalized()
+	if normal.dot(thumb - (index + pinky) * 0.5) > 0.0:
+		normal = -normal
+	var fingers: Vector3 = (get_pos.call(XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL) - wrist).normalized()
+	return _basis_from_bone(fingers, normal)
 
 
 ## The Unity-style editor gesture bench: number keys apply ANY authored
