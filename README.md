@@ -5,16 +5,23 @@ on a headset (Quest Link / SteamVR), drag-and-drop by design. Think Meta's
 Building Blocks or Unity's XRI + XR Hands, but easier: most blocks wire
 themselves the moment you drop them in.
 
-## Quick start: a working XR scene in two drops
+## Quick start: a working XR scene in three clicks
 
 1. Enable the `godot_xr_interaction_toolkit` plugin → the **XR Blocks** dock
    appears with the full catalog (double-click adds to the scene, undo-aware).
-2. Drop **WebXR Prefab** (rig + sessions + hands + auto VR/AR UI) and
-   **Floor (teleportable)**.
+2. Click **Set Up XR Project** in the dock — it writes the project settings
+   and Web export preset an XR project needs (OpenXR + the kit's action map +
+   renderer + WebXR-ready export) and reports every change. Restart the
+   editor if it switched the renderer.
+3. Drop **WebXR Prefab** (rig + sessions + hands + auto VR/AR UI) and
+   **Floor (teleportable)**. Add a light (or let the Scene Doctor do it) and
+   a **Grabbable** to have something to pick up.
 
-That's a complete scene: look around, teleport (thumbstick or thumb
-microgestures), grab, poke, pinch — in the browser via WebXR, or press Play
-straight to a headset over Quest Link (the same scene carries both).
+That's a working scene: look around, teleport, grab, poke, pinch — in the
+browser via WebXR, or press Play straight to a headset over Quest Link (the
+same scene carries both). When something doesn't behave on the headset, open
+the **Scene Doctor** (also in the dock): it checks the scene + project for
+everything that fails silently at runtime, with one-click fixes.
 
 ## Addons
 

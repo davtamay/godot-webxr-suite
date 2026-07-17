@@ -1,0 +1,193 @@
+@tool
+extends RefCounted
+
+## Project-level XR checks and fixes behind the dock's "Set Up XR Project"
+## button and the Scene Doctor. Encodes the settings a WORKING XR project
+## carries that a fresh Godot project lacks - every one of these fails
+## SILENTLY at runtime (actions read zero, sessions never start), which is
+## why they are enforced here instead of documented.
+##
+## Project-level functions use only ProjectSettings/ConfigFile (no
+## EditorInterface) so they are testable headless; scene-level checks take
+## the scene root as a parameter.
+
+const KIT_ACTION_MAP := "res://addons/godot_webxr_kit/openxr/default_action_map.tres"
+const KIT_SHELL := "res://addons/godot_webxr_kit/web/adaptable_shell.html"
+const KIT_PREFAB := "res://addons/godot_webxr_kit/webxr_prefab.tscn"
+const TOOLKIT_FLOOR := "res://addons/godot_xr_interaction_toolkit/xr_floor.tscn"
+const PRESETS_PATH := "res://export_presets.cfg"
+
+## Check ids (stable API for fix routing).
+const CHECK_OPENXR := "openxr_enabled"
+const CHECK_ACTION_MAP := "action_map"
+const CHECK_RENDERER := "renderer"
+const CHECK_WEB_PRESET := "web_preset"
+const CHECK_RIG := "scene_rig"
+const CHECK_LIGHT := "scene_light"
+const CHECK_FLOOR := "scene_floor"
+
+
+## Returns [{id, label, ok, detail, fix}] - fix = "" means not auto-fixable.
+static func run_project_checks() -> Array:
+	var checks := []
+
+	var openxr_on := bool(ProjectSettings.get_setting("xr/openxr/enabled", false))
+	checks.append({
+		"id": CHECK_OPENXR, "ok": openxr_on,
+		"label": "OpenXR enabled (headset Play via Link/SteamVR)",
+		"detail": "Without it, pressing Play renders flat on the monitor - the headset is never asked.",
+		"fix": "Enable OpenXR + hand tracking",
+	})
+
+	if ResourceLoader.exists(KIT_ACTION_MAP):
+		var map_ok: bool = str(ProjectSettings.get_setting("xr/openxr/default_action_map", "")) == KIT_ACTION_MAP
+		checks.append({
+			"id": CHECK_ACTION_MAP, "ok": map_ok,
+			"label": "Kit action map assigned",
+			"detail": "The suite reads actions named select/grab/thumbstick. Without the kit's map they silently return nothing on native - grab and teleport just never fire.",
+			"fix": "Assign the kit action map",
+		})
+
+	var method := str(ProjectSettings.get_setting("rendering/renderer/rendering_method", "forward_plus"))
+	var win_driver := str(ProjectSettings.get_setting("rendering/rendering_device/driver.windows",
+			ProjectSettings.get_setting("rendering/rendering_device/driver", "vulkan")))
+	var renderer_ok := method != "gl_compatibility" and win_driver == "vulkan"
+	checks.append({
+		"id": CHECK_RENDERER, "ok": renderer_ok,
+		"label": "Renderer can drive OpenXR (Mobile + Vulkan)",
+		"detail": "OpenXR runtimes reject GL and D3D12-defaulted editors reject Vulkan sessions - headset Play fails with GRAPHICS_DEVICE_INVALID. Web exports stay GL Compatibility via the .web override.",
+		"fix": "Set Mobile renderer + Vulkan on Windows",
+	})
+
+	var preset := _find_web_preset()
+	var preset_ok: bool = not preset.is_empty() \
+			and bool(preset["options"].get("webxr/uses_webxr", false)) \
+			and not str(preset["options"].get("html/custom_html_shell", "")).is_empty()
+	checks.append({
+		"id": CHECK_WEB_PRESET, "ok": preset_ok,
+		"label": "Web export preset is XR-ready",
+		"detail": "Needs webxr/uses_webxr ON (else no WebXR interface ships - Enter VR never appears) and an XR-aware HTML shell. The kit ships one.",
+		"fix": "Create/patch the Web preset",
+	})
+
+	return checks
+
+
+static func run_scene_checks(root: Node) -> Array:
+	var checks := []
+	if root == null:
+		return checks
+
+	var has_rig := not root.find_children("*", "XROrigin3D", true, false).is_empty()
+	checks.append({
+		"id": CHECK_RIG, "ok": has_rig,
+		"label": "XR rig in the scene",
+		"detail": "Drop WebXR Prefab (rig + sessions + hands + VR/AR entry UI) - the one required block.",
+		"fix": "Add WebXR Prefab" if ResourceLoader.exists(KIT_PREFAB) else "",
+	})
+
+	var has_light := not root.find_children("*", "DirectionalLight3D", true, false).is_empty() \
+			or not root.find_children("*", "WorldEnvironment", true, false).is_empty()
+	checks.append({
+		"id": CHECK_LIGHT, "ok": has_light,
+		"label": "Scene has lighting",
+		"detail": "A fresh scene has no light - default materials render nearly black in VR.",
+		"fix": "Add a sun (DirectionalLight3D)",
+	})
+
+	if has_rig:
+		var has_floor := false
+		for body in root.find_children("*", "CollisionObject3D", true, false):
+			if (body as CollisionObject3D).collision_layer & 1:
+				has_floor = true
+				break
+		checks.append({
+			"id": CHECK_FLOOR, "ok": has_floor,
+			"label": "Teleport has ground to land on",
+			"detail": "The teleport arc raycasts physics layer 1. No collision there = the arc never finds a valid target.",
+			"fix": "Add Floor (teleportable)" if ResourceLoader.exists(TOOLKIT_FLOOR) else "",
+		})
+
+	return checks
+
+
+## Applies one project-level fix. Returns a human-readable summary line.
+static func apply_project_fix(id: String) -> String:
+	match id:
+		CHECK_OPENXR:
+			ProjectSettings.set_setting("xr/openxr/enabled", true)
+			ProjectSettings.set_setting("xr/openxr/extensions/hand_tracking", true)
+			ProjectSettings.save()
+			return "xr/openxr/enabled = true, hand tracking on."
+		CHECK_ACTION_MAP:
+			ProjectSettings.set_setting("xr/openxr/default_action_map", KIT_ACTION_MAP)
+			ProjectSettings.save()
+			return "OpenXR action map -> the kit's (select/grab/thumbstick bindings)."
+		CHECK_RENDERER:
+			ProjectSettings.set_setting("rendering/renderer/rendering_method", "mobile")
+			ProjectSettings.set_setting("rendering/rendering_device/driver.windows", "vulkan")
+			ProjectSettings.set_setting("rendering/renderer/rendering_method.web", "gl_compatibility")
+			ProjectSettings.save()
+			return "Renderer -> Mobile (Vulkan on Windows); web exports stay GL Compatibility. RESTART the editor to apply."
+		CHECK_WEB_PRESET:
+			return _fix_web_preset()
+	return ""
+
+
+## Applies every failing project-level fix; returns the summary lines.
+static func setup_project() -> PackedStringArray:
+	var lines := PackedStringArray()
+	for check in run_project_checks():
+		if not check["ok"]:
+			var line := apply_project_fix(check["id"])
+			if not line.is_empty():
+				lines.append(line)
+	if lines.is_empty():
+		lines.append("Everything already configured - nothing to change.")
+	return lines
+
+
+static func _find_web_preset() -> Dictionary:
+	var config := ConfigFile.new()
+	if config.load(PRESETS_PATH) != OK:
+		return {}
+	for section in config.get_sections():
+		if section.begins_with("preset.") and not section.ends_with(".options") \
+				and str(config.get_value(section, "platform", "")) == "Web":
+			var options := {}
+			var options_section := section + ".options"
+			if config.has_section(options_section):
+				for key in config.get_section_keys(options_section):
+					options[key] = config.get_value(options_section, key)
+			return {"section": section, "name": config.get_value(section, "name", ""), "options": options}
+	return {}
+
+
+static func _fix_web_preset() -> String:
+	var config := ConfigFile.new()
+	config.load(PRESETS_PATH)  # missing file is fine - we create preset.0
+	var preset := _find_web_preset()
+	var section: String
+	if preset.is_empty():
+		var index := 0
+		while config.has_section("preset.%d" % index):
+			index += 1
+		section = "preset.%d" % index
+		config.set_value(section, "name", "Web (XR)")
+		config.set_value(section, "platform", "Web")
+		config.set_value(section, "runnable", true)
+		config.set_value(section, "export_filter", "all_resources")
+		config.set_value(section, "export_path", "build/web/index.html")
+		config.set_value(section + ".options", "variant/thread_support", false)
+	else:
+		section = preset["section"]
+	config.set_value(section + ".options", "webxr/uses_webxr", true)
+	var shell := str(config.get_value(section + ".options", "html/custom_html_shell", ""))
+	# FileAccess, not ResourceLoader - .html is not a Godot resource type.
+	if shell.is_empty() and FileAccess.file_exists(KIT_SHELL):
+		config.set_value(section + ".options", "html/custom_html_shell", KIT_SHELL)
+	var err := config.save(PRESETS_PATH)
+	if err != OK:
+		return "FAILED to write export_presets.cfg (error %d)." % err
+	return "Web preset %s: uses_webxr ON + XR shell. If the Export dialog was already open, close and reopen it." % \
+			("patched" if not preset.is_empty() else "created")

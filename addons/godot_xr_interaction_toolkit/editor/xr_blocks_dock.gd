@@ -39,14 +39,33 @@ const BLOCKS := [
 	{"name": "Font Bake Anchor", "desc": "Makes 3D text render on WebGPU exports (bakes the Label3D shader).", "kind": "node", "base": "Label3D", "path": "res://addons/godot_webgpu/font_bake_anchor.gd", "icon": "res://addons/godot_webgpu/icons/font_bake_anchor.svg"},
 ]
 
+const _Setup := preload("res://addons/godot_xr_interaction_toolkit/editor/xr_project_setup.gd")
+const _DoctorScript := preload("res://addons/godot_xr_interaction_toolkit/editor/xr_scene_doctor.gd")
+
 var _list: ItemList
 var _desc: Label
 var _add_button: Button
 var _visible_blocks := []
+var _doctor: AcceptDialog
 
 
 func _ready() -> void:
 	name = "XR Blocks"
+	var project_row := HBoxContainer.new()
+	add_child(project_row)
+	var setup_button := Button.new()
+	setup_button.text = "Set Up XR Project"
+	setup_button.tooltip_text = "Writes the project settings and Web export preset an XR project needs (OpenXR + action map + renderer + WebXR export). Reports every change."
+	setup_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	setup_button.pressed.connect(_on_setup_project)
+	project_row.add_child(setup_button)
+	var doctor_button := Button.new()
+	doctor_button.text = "Scene Doctor"
+	doctor_button.tooltip_text = "Checks the open scene + project for everything that fails silently on a headset, with one-click fixes."
+	doctor_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	doctor_button.pressed.connect(_on_open_doctor)
+	project_row.add_child(doctor_button)
+
 	var hint := Label.new()
 	hint.text = "Double-click a block to add it to the scene."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -66,6 +85,20 @@ func _ready() -> void:
 	_add_button.pressed.connect(_add_selected)
 	add_child(_add_button)
 	refresh()
+
+
+func _on_setup_project() -> void:
+	var lines := _Setup.setup_project()
+	for line in lines:
+		print("XR Setup: ", line)
+	_desc.text = "\n".join(lines)
+
+
+func _on_open_doctor() -> void:
+	if _doctor == null:
+		_doctor = _DoctorScript.new()
+		add_child(_doctor)
+	_doctor.popup_centered()
 
 
 func refresh() -> void:
