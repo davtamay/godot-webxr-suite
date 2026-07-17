@@ -27,6 +27,23 @@ const _RECOGNIZER_SCRIPT := "res://addons/godot_xr_hands/runtime/recognition/xr_
 ## Optional; empty resolves to the scene's XRLocomotion by group.
 @export var locomotion_path: NodePath
 
+@export_group("Detection")
+## The recognizer is built at runtime; these forward its most-tuned reliability
+## knobs so you can adjust feel without reaching an internal node. Contact =
+## how close the thumb must come to arm a swipe (lower = easier); release above
+## the second value.
+@export_range(0.05, 1.5, 0.01) var contact_threshold := 0.40
+@export_range(0.05, 2.0, 0.01) var release_threshold := 0.46
+## Fingers must be at least this curled (fist gate) to count as a microgesture.
+@export_range(0.0, 1.0, 0.01) var minimum_finger_curl := 0.28
+## Hand-tracking confidence floor; raise if false swipes fire on poor tracking.
+@export_range(0.0, 1.0, 0.01) var minimum_tracking_quality := 0.36
+## Seconds between recognized gestures.
+@export_range(0.0, 2.0, 0.01) var cooldown := 0.18
+
+const _FORWARDED := ["contact_threshold", "release_threshold", "minimum_finger_curl",
+	"minimum_tracking_quality", "cooldown"]
+
 var _locomotion: Node
 
 
@@ -42,6 +59,8 @@ func _ready() -> void:
 	recognizer.name = "ThumbRecognizer"
 	recognizer.set("hand", -1)
 	recognizer.set("gesture_runtime_path", NodePath("../GestureRuntime"))
+	for prop in _FORWARDED:
+		recognizer.set(prop, get(prop))
 	add_child(recognizer)
 	if recognizer.has_signal("gesture_performed"):
 		recognizer.connect("gesture_performed", _on_gesture)
