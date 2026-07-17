@@ -18,7 +18,17 @@ extends Node3D
 ## Virtual hand look: PROCEDURAL joints/bones, or the REALISTIC rigged hand
 ## mesh (godot_xr_hands' bundled WebXR Input Profiles asset). Forwarded to the
 ## hands mount. The XR Simulator's simulated hands render with the same choice.
+##
+## NOTE: the hands mount is BUILT AT RUNTIME (it is not a node in this scene),
+## so configure hands HERE on the prefab root - these exports are forwarded to
+## it. To wire a mount by hand instead, use the WebXR Rig block and add an
+## XRHandsMount node yourself.
 @export var hand_style := XRHandsMount.HandStyle.PROCEDURAL
+
+## Custom hand meshes for REALISTIC style: drop in your own rigged glb whose
+## bones use the standard WebXR joint names. Empty = the bundled generic hand.
+@export var left_hand_model: PackedScene
+@export var right_hand_model: PackedScene
 
 var _xr_cam: XRCamera3D
 var _flat_cam: Camera3D
@@ -35,6 +45,8 @@ func _ready() -> void:
 		hand_mount.name = "HandVisualizerMount"
 		hand_mount.virtual_hands_in_ar = virtual_hands_in_ar
 		hand_mount.hand_style = hand_style
+		hand_mount.left_hand_model = left_hand_model
+		hand_mount.right_hand_model = right_hand_model
 		var bootstrap := get_node_or_null("WebXRBootstrap")
 		if bootstrap and "ar_hide_group" in bootstrap:
 			hand_mount.ar_hide_group = str(bootstrap.ar_hide_group)
