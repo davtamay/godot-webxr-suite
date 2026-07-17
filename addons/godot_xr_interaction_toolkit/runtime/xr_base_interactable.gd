@@ -44,12 +44,18 @@ func _notification(what: int) -> void:
         _register_with_manager(true)
 
 func _enter_tree() -> void:
+    if Engine.is_editor_hint():
+        return  # @tool subclasses (keyboard preview) must not register in-editor.
     _register_with_manager()
 
 func _ready() -> void:
+    if Engine.is_editor_hint():
+        return
     _register_with_manager(true)
 
 func _exit_tree() -> void:
+    if Engine.is_editor_hint():
+        return
     _unregister_from_manager()
 
 func _unregister_from_manager() -> void:

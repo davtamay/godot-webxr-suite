@@ -33,9 +33,13 @@ func _notification(what: int) -> void:
         _resolve_manager()
 
 func _enter_tree() -> void:
+    if Engine.is_editor_hint():
+        return  # @tool subclasses (socket preview) must not resolve in-editor.
     _resolve_manager()
 
 func _resolve_manager() -> void:
+    if Engine.is_editor_hint():
+        return
     _manager = XRInteractionManager.find(self)
     if _manager == null:
         push_warning("%s: no XRInteractionManager in the scene tree." % name)
