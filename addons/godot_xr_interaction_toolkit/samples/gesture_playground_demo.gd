@@ -259,12 +259,14 @@ func _clear_selection() -> void:
 func _on_recording_state(state: String, seconds_left: float) -> void:
 	match state:
 		"countdown":
-			_status_label.text = "RECORDING in %d...\nget your pose ready - the ghost hand mirrors you!" % ceili(seconds_left)
+			_status_label.text = "RECORDING in %d...\nPUT THE CONTROLLERS DOWN - this records your BARE hand" % ceili(seconds_left)
+		"waiting":
+			_status_label.text = "Waiting for your bare hand (%d s)...\nput controllers down, show the hand to the headset" % ceili(seconds_left)
 		"capturing":
 			_status_label.text = "HOLD IT... %.1f" % seconds_left
 		"failed":
 			_ghost.stop_live()
-			_status_label.text = "Recording failed - the hand was not tracked.\nKeep it in view and try again."
+			_status_label.text = "No bare hand appeared - put the controllers down\nand keep the hand in front of you, then try again."
 
 
 func _on_recording_finished(gesture: XRHandGesture, _save_path: String) -> void:

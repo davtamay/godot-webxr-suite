@@ -22,8 +22,11 @@ extends Node
 ## Needs an XRGestureRecognizer in the scene (it supplies the live features -
 ## one extraction pass shared by recognition, debug HUD, and recording).
 
-## state: "countdown" | "capturing" | "done" | "failed"; seconds_left counts
-## the current stage down for UI display.
+## state: "countdown" | "waiting" | "capturing" | "done" | "failed";
+## seconds_left counts the current stage down for UI display. "waiting" =
+## the countdown finished but no hand is tracked yet - the recorder holds
+## until one appears (browsers hand over from controllers to hands with a
+## delay of seconds; a fixed window would expire before the hand exists).
 signal recording_state_changed(state: String, seconds_left: float)
 ## The derived gesture (already saved to save_path; "" if saving failed).
 signal recording_finished(gesture: XRHandGesture, save_path: String)
@@ -36,6 +39,10 @@ const _FeatureExtractor := preload("res://addons/godot_xr_interaction_toolkit/ru
 
 @export_range(1.0, 10.0, 0.5) var countdown_seconds := 3.0
 @export_range(0.5, 5.0, 0.5) var capture_seconds := 2.0
+
+## How long to WAIT for a tracked hand after the countdown before giving up
+## (put-the-controller-down handovers take a few seconds on browsers).
+@export_range(3.0, 30.0, 1.0) var wait_for_hand_seconds := 15.0
 
 ## Append the recorded gesture to the recognizer's library immediately - it
 ## is performable the moment recording ends.
@@ -115,31 +122,54 @@ func _process(delta: float) -> void:
 	if not is_recording():
 		set_process(false)
 		return
-	_time_left -= delta
-	if _state == "capturing":
-		var capture_hands := [0, 1] if _hand == 2 else [_hand]
-		for capture_hand in capture_hands:
-			var features: Dictionary = _recognizer.get_features(capture_hand)
-			if features.is_empty():
-				# Self-sufficient fallback: read the tracker directly, so
-				# recording never depends on the recognizer's process state.
-				var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if capture_hand == 0 else "right")) as XRHandTracker
-				features = _FeatureExtractor.extract(tracker, capture_hand)
-			for feature in features:
-				if not _samples.has(feature):
-					_samples[feature] = PackedFloat32Array()
-				(_samples[feature] as PackedFloat32Array).append(features[feature])
-			if not features.is_empty():
-				_capture_joint_frame(capture_hand)
-	if _time_left > 0.0:
-		recording_state_changed.emit(_state, _time_left)
-		return
 	if _state == "countdown":
-		_state = "capturing"
-		_time_left = capture_seconds
+		_time_left -= delta
+		if _time_left > 0.0:
+			recording_state_changed.emit(_state, _time_left)
+			return
+		_state = "waiting"
+		_time_left = wait_for_hand_seconds
 		recording_state_changed.emit(_state, _time_left)
 		return
-	_finish()
+
+	# waiting / capturing: sample whatever hand data exists this frame.
+	var sampled := false
+	var capture_hands := [0, 1] if _hand == 2 else [_hand]
+	for capture_hand in capture_hands:
+		var features: Dictionary = _recognizer.get_features(capture_hand)
+		if features.is_empty():
+			# Self-sufficient fallback: read the tracker directly, so
+			# recording never depends on the recognizer's process state.
+			var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if capture_hand == 0 else "right")) as XRHandTracker
+			features = _FeatureExtractor.extract(tracker, capture_hand)
+		for feature in features:
+			if not _samples.has(feature):
+				_samples[feature] = PackedFloat32Array()
+			(_samples[feature] as PackedFloat32Array).append(features[feature])
+		if not features.is_empty():
+			sampled = true
+			_capture_joint_frame(capture_hand)
+
+	if _state == "waiting":
+		if sampled:
+			# The hand arrived - NOW the capture window starts.
+			_state = "capturing"
+			_time_left = capture_seconds
+		else:
+			_time_left -= delta
+			if _time_left <= 0.0:
+				_state = "failed"
+				set_process(false)
+		recording_state_changed.emit(_state, maxf(_time_left, 0.0))
+		return
+
+	# capturing: the window only advances while data flows, so a tracking
+	# blink stretches the window instead of starving it.
+	if sampled:
+		_time_left -= delta
+	recording_state_changed.emit(_state, maxf(_time_left, 0.0))
+	if _time_left <= 0.0:
+		_finish()
 
 
 func _finish() -> void:
