@@ -32,12 +32,8 @@ const XRHandGestureProvider := preload("res://addons/godot_xr_interaction_toolki
 ## Group external drivers use to find the locomotion system.
 const GROUP := "xr_locomotion"
 
-const _ENGAGE := 0.65
-const _RELEASE := 0.3
 const _ARC_STEP_SECONDS := 0.05
 const _ARC_MAX_STEPS := 40
-const _VALID_COLOR := Color(0.25, 1.0, 0.5, 0.9)
-const _INVALID_COLOR := Color(1.0, 0.35, 0.3, 0.7)
 
 ## Master switch: off = no teleport, no snap turn, visuals hidden.
 @export var enabled := true
@@ -61,6 +57,20 @@ const _INVALID_COLOR := Color(1.0, 0.35, 0.3, 0.7)
 @export_group("Snap Turn")
 @export var snap_turn_enabled := true
 @export_range(15.0, 90.0, 15.0) var snap_turn_degrees := 45.0
+
+@export_group("Appearance")
+## Teleport marker colour on valid ground / invalid target.
+@export var valid_color := Color(0.25, 1.0, 0.5, 0.9)
+@export var invalid_color := Color(1.0, 0.35, 0.3, 0.7)
+## Teleport target ring inner/outer radius (metres).
+@export var marker_inner_radius := 0.16
+@export var marker_outer_radius := 0.22
+
+@export_group("Feel")
+## Thumbstick push to START aiming a teleport / snap turn, and to RELEASE it
+## (hysteresis so it does not chatter at the edge).
+@export_range(0.1, 1.0, 0.05) var stick_engage := 0.65
+@export_range(0.05, 1.0, 0.05) var stick_release := 0.3
 
 var _origin: Node3D
 var _camera: Node3D
@@ -191,12 +201,12 @@ func do_snap_turn(direction: float) -> void:
 func _update_teleport(hand: int, controller: XRController3D, stick: Vector2) -> void:
 	if not teleport_enabled:
 		return
-	if _teleport_hand == -1 and stick.y > _ENGAGE and absf(stick.x) < _ENGAGE:
+	if _teleport_hand == -1 and stick.y > stick_engage and absf(stick.x) < stick_engage:
 		_teleport_hand = hand
 	if _teleport_hand != hand:
 		return
 
-	if stick.y > _RELEASE:
+	if stick.y > stick_release:
 		_project_arc(controller)
 		return
 
@@ -277,11 +287,11 @@ func _cancel_teleport() -> void:
 func _update_snap_turn(hand: int, stick: Vector2) -> void:
 	if not snap_turn_enabled:
 		return
-	if absf(stick.x) < _RELEASE:
+	if absf(stick.x) < stick_release:
 		_snap_armed[hand] = true
 		return
 	# A hand mid-teleport-aim keeps its stick for the arc.
-	if _teleport_hand == hand or not _snap_armed[hand] or absf(stick.x) < _ENGAGE:
+	if _teleport_hand == hand or not _snap_armed[hand] or absf(stick.x) < stick_engage:
 		return
 	_snap_armed[hand] = false
 	_apply_snap_turn(-snap_turn_degrees * signf(stick.x))
@@ -314,8 +324,8 @@ func _build_visuals() -> void:
 	_target_visual.name = "TeleportTarget"
 	_target_visual.top_level = true
 	var disc := TorusMesh.new()
-	disc.inner_radius = 0.16
-	disc.outer_radius = 0.22
+	disc.inner_radius = marker_inner_radius
+	disc.outer_radius = marker_outer_radius
 	disc.rings = 24
 	disc.ring_segments = 8
 	_target_visual.mesh = disc
@@ -326,7 +336,7 @@ func _build_visuals() -> void:
 
 
 func _draw_arc(points: PackedVector3Array) -> void:
-	var color := _VALID_COLOR if _target_valid else _INVALID_COLOR
+	var color := valid_color if _target_valid else invalid_color
 	(_arc_visual.material_override as StandardMaterial3D).albedo_color = color
 	_arc_mesh.clear_surfaces()
 	if points.size() >= 2:

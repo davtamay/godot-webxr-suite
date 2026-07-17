@@ -30,6 +30,9 @@ const _CONTROLLER_TIP_FORWARD := 0.02
 
 ## Small dot on each active poke point - the aiming affordance.
 @export var show_markers := true
+## Fingertip dot radius (metres) and colour.
+@export var marker_radius := 0.005
+@export var marker_color := Color(0.5, 0.9, 1.0, 0.85)
 
 var _origin: Node3D
 var _controllers: Array = [null, null]
@@ -105,11 +108,11 @@ func _update_markers() -> void:
 			var marker := MeshInstance3D.new()
 			marker.top_level = true
 			var dot := SphereMesh.new()
-			dot.radius = 0.005
-			dot.height = 0.01
+			dot.radius = marker_radius
+			dot.height = marker_radius * 2.0
 			marker.mesh = dot
 			var material := _RETICLE_MATERIAL.duplicate() as StandardMaterial3D
-			material.albedo_color = Color(0.5, 0.9, 1.0, 0.85)
+			material.albedo_color = marker_color
 			marker.material_override = material
 			marker.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(marker)

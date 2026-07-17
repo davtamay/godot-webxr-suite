@@ -63,9 +63,13 @@ func _process(_delta: float) -> void:
 ## crossing the press plane presses at the projected pixel, staying pressed
 ## while touching (drag = sliders work by touch), retracting releases.
 
-const POKE_PRESS_Z := 0.012
-const POKE_RELEASE_Z := 0.04
-const POKE_RANGE_Z := 0.09
+@export_group("Poke Feel")
+## How deep (metres) a fingertip must push past the surface to register a
+## press, and how far it must retract to release (hysteresis stops flicker).
+@export var poke_press_depth := 0.012
+@export var poke_release_depth := 0.04
+## Max distance in front of the panel that still counts as poking it.
+@export var poke_range := 0.09
 
 var _poke_pressed := {}
 
@@ -75,16 +79,16 @@ func poke_update(source_id: int, world_point: Vector3) -> void:
         return
     var local := global_transform.affine_inverse() * world_point
     var inside := absf(local.x) <= panel_size.x * 0.5 and absf(local.y) <= panel_size.y * 0.5
-    if not inside or local.z > POKE_RANGE_Z or local.z < -0.06:
+    if not inside or local.z > poke_range or local.z < -0.06:
         poke_end(source_id)
         return
     var pixels := map_local_point_to_viewport(local)
     if _poke_pressed.get(source_id, false):
         _push_mouse_motion(pixels)
-        if local.z > POKE_RELEASE_Z:
+        if local.z > poke_release_depth:
             _poke_pressed[source_id] = false
             _push_mouse_button(pixels, false)
-    elif local.z <= POKE_PRESS_Z:
+    elif local.z <= poke_press_depth:
         _poke_pressed[source_id] = true
         _push_mouse_motion(pixels)
         _push_mouse_button(pixels, true)
