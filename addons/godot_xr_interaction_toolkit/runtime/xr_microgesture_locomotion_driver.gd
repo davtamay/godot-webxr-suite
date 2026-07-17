@@ -15,9 +15,12 @@ extends Node
 ## Rest your thumb on the side of your index finger and swipe - the Meta
 ## microgesture vocabulary, recognized from joints, working in the browser.
 
-const _RECOGNIZER_SCRIPT := "res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_recognizer.gd"
-const _PRESET_DIR := "res://addons/godot_xr_hands/runtime/gesture_studio/presets"
-const _SEQUENCES := ["thumb_swipe_left", "thumb_swipe_right", "thumb_swipe_forward", "thumb_swipe_backward", "thumb_tap"]
+## The PROVEN thumb recognizer (phase state machine with posture gating -
+## refined on-headset over many sessions) stays the microgesture engine;
+## the gesture_studio sequence framework serves authored motion gestures
+## and replaces this only when it matches this reliability on-device.
+const _RUNTIME_SCRIPT := "res://addons/godot_xr_hands/runtime/recognition/xr_gesture_runtime.gd"
+const _RECOGNIZER_SCRIPT := "res://addons/godot_xr_hands/runtime/recognition/xr_thumb_microgesture_recognizer.gd"
 
 @export var enabled := true
 
@@ -30,32 +33,35 @@ var _locomotion: Node
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
-	if not ResourceLoader.exists(_RECOGNIZER_SCRIPT):
+	if not ResourceLoader.exists(_RECOGNIZER_SCRIPT) or not ResourceLoader.exists(_RUNTIME_SCRIPT):
 		return  # Hands addon not installed; microgesture locomotion stays off.
+	var runtime: Node = (load(_RUNTIME_SCRIPT) as GDScript).new()
+	runtime.name = "GestureRuntime"
+	add_child(runtime)
 	var recognizer: Node = (load(_RECOGNIZER_SCRIPT) as GDScript).new()
-	recognizer.name = "MicrogestureRecognizer"
-	for sequence_name in _SEQUENCES:
-		var sequence := load("%s/%s.tres" % [_PRESET_DIR, sequence_name])
-		if sequence:
-			(recognizer.get("sequences") as Array).append(sequence)
+	recognizer.name = "ThumbRecognizer"
+	recognizer.set("hand", -1)
+	recognizer.set("gesture_runtime_path", NodePath("../GestureRuntime"))
 	add_child(recognizer)
-	if recognizer.has_signal("sequence_performed"):
-		recognizer.connect("sequence_performed", _on_sequence)
+	if recognizer.has_signal("gesture_performed"):
+		recognizer.connect("gesture_performed", _on_gesture)
 
 
-func _on_sequence(sequence_name: String, hand: int) -> void:
+func _on_gesture(gesture: int, hand: int, _confidence: float) -> void:
 	if not enabled or not _resolve_locomotion():
 		return
-	match sequence_name:
-		"thumb_swipe_left":
+	# Gesture order matches XRMicrogestureSource.Gesture:
+	# LEFT, RIGHT, FORWARD, BACKWARD, TAP.
+	match gesture:
+		0:
 			_locomotion.do_snap_turn(1.0)
-		"thumb_swipe_right":
+		1:
 			_locomotion.do_snap_turn(-1.0)
-		"thumb_swipe_forward":
+		2:
 			_locomotion.begin_teleport_aim(hand)
-		"thumb_swipe_backward":
+		3:
 			_locomotion.commit_teleport(hand)
-		"thumb_tap":
+		4:
 			if _locomotion.is_aiming(hand):
 				_locomotion.commit_teleport(hand)
 			else:

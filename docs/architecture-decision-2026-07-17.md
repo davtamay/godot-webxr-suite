@@ -43,3 +43,17 @@ godot_xr_hands is ours to rebuild.
 interaction - that is the toolkit; consumers depend softly downward,
 providers never know consumers exist. Rig-default is for PASSIVE
 capabilities only; continuous recognizers with side effects are opt-in.
+
+## Addendum (same day): the proven thumb recognizer is ADOPTED, not deleted
+
+On-device comparison (David): the sequence engine's v1 thumb thresholds are
+markedly less reliable than the existing thumb recognizer's phase state
+machine (posture gating, tracking-quality gates, start zones, release
+phases - refined over many headset sessions). Ruling: working code we now
+own is not discarded for architectural purity. The thumb recognizer (+ its
+gesture runtime) GRADUATES into the hands provider as the microgesture
+engine; the gesture_studio sequence framework serves AUTHORED motion
+gestures and replaces the thumb engine only when it demonstrably matches
+its reliability on-device. Migration step 3 narrows to: retire only what
+is genuinely superseded (old demos, unused recognition paths) after
+verification.
