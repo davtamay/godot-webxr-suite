@@ -120,8 +120,16 @@ func _update_hand(hand: int, delta: float) -> void:
 
 ## ---- sequences (motion gestures: swipes, taps) --------------------------------
 
+var _seqdbg := 0.0  # SEQDBG strip after threshold tuning
+
 func _update_sequences(hand: int, delta: float) -> void:
 	var features: Dictionary = _features[hand]
+	if not sequences.is_empty() and hand == 1:  # SEQDBG strip after threshold tuning
+		_seqdbg += delta
+		if _seqdbg >= 1.0:
+			_seqdbg = 0.0
+			if not features.is_empty():
+				print("SEQDBG R contact=%.2f along=%.2f across=%.2f" % [features.get("thumb_index_contact", -1.0), features.get("thumb_along_index", 0.0), features.get("thumb_across_index", 0.0)])
 	for sequence in sequences:
 		if sequence == null or sequence.sequence_name.is_empty() or sequence.stages.is_empty():
 			continue
@@ -137,8 +145,9 @@ func _update_sequences(hand: int, delta: float) -> void:
 		var stage: Dictionary = sequence.stages[stage_index]
 		if not sequence.stage_conditions_hold(stage_index, features):
 			# Stage 0 simply waits for its entry conditions; later stages fail.
-			if stage_index > 0:
-				_reset_sequence(state)
+			# Either way the timer resets, so the motion baseline is recaptured
+			# fresh when the entry conditions next hold.
+			_reset_sequence(state)
 			continue
 		var motion_feature: String = stage.get("motion_feature", "")
 		if state["time"] == 0.0 and not motion_feature.is_empty():
