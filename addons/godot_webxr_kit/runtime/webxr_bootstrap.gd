@@ -11,6 +11,10 @@ extends Node3D
 ## GROUP_SESSION_HIDDEN renders into both eyes).
 const GROUP_SESSION_HIDDEN := "xr_session_hidden"
 const GROUP_AR_PASSTHROUGH_HIDDEN := "ar_passthrough_hidden"
+## The inverse: nodes shown ONLY during AR passthrough (hidden everywhere
+## else) - e.g. a translucent grid marking teleportable ground where the
+## solid floor hides so the real floor shows through.
+const GROUP_AR_PASSTHROUGH_ONLY := "ar_passthrough_only"
 const GROUP_FEATURE_PROVIDER := "webxr_feature_provider"
 const GROUP_SESSION_UI := "xr_session_ui"
 
@@ -342,6 +346,11 @@ func _apply_ar_scene_mode(enabled: bool) -> void:
             node_3d.visible = false
         elif _ar_hidden_node_visibility.has(node_3d):
             node_3d.visible = bool(_ar_hidden_node_visibility[node_3d])
+
+    # The inverse group: visible ONLY while AR passthrough is active.
+    for node in get_tree().get_nodes_in_group(GROUP_AR_PASSTHROUGH_ONLY):
+        if node is Node3D:
+            (node as Node3D).visible = enabled
 
     if not enabled:
         _ar_hidden_node_visibility.clear()
