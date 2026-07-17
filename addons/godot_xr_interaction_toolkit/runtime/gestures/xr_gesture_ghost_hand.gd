@@ -19,7 +19,7 @@ const _FeatureExtractor := preload("res://addons/godot_xr_interaction_toolkit/ru
 const _GHOST_COLOR := Color(0.45, 0.85, 1.0, 0.9)
 const _MATCH_COLOR := Color(0.3, 1.0, 0.5, 0.95)
 const _LIVE_COLOR := Color(1.0, 0.85, 0.4, 0.95)
-const _BOTH_SPACING := 0.13
+const _BOTH_SPACING := 0.16
 
 ## Degrees per second of yaw spin while showing a static pose (0 = static).
 @export_range(0.0, 180.0, 5.0) var rotate_speed := 40.0
@@ -66,17 +66,23 @@ func _process(delta: float) -> void:
 			(rig["root"] as Node3D).rotate_y(deg_to_rad(rotate_speed) * delta)
 
 
-## Show a gesture's recorded snapshot per hand_mode (returns false and hides
-## when the gesture has none - recognition-only presets).
+## Show a gesture per hand_mode (returns false and hides only when gesture is
+## null). Gestures without a recorded snapshot get one SYNTHESIZED from their
+## curl conditions - an approximate but faithful preview, so every gesture in
+## a library is visualizable, hand-authored presets included.
 func show_gesture(gesture: XRHandGesture) -> bool:
 	_live_hand = -1
 	_gesture = gesture
-	if gesture == null or gesture.joint_snapshot.size() < XRHandTracker.HAND_JOINT_MAX:
+	if gesture == null:
 		visible = false
 		return false
-	# The snapshot's native chirality; mirror (wrist-local x-flip) for the
-	# other hand. Authored gestures without a recorded hand display as-is.
+	var source := gesture.joint_snapshot
 	var native_hand := gesture.recorded_hand if gesture.recorded_hand >= 0 else 1
+	if source.size() < XRHandTracker.HAND_JOINT_MAX:
+		source = _synthesize_snapshot(gesture)
+		native_hand = 1
+	# The snapshot's native chirality; mirror (wrist-local x-flip) for the
+	# other hand.
 	var shown := [hand_mode == HandMode.LEFT or hand_mode == HandMode.BOTH,
 			hand_mode == HandMode.RIGHT or hand_mode == HandMode.BOTH]
 	for hand in 2:
@@ -84,7 +90,7 @@ func show_gesture(gesture: XRHandGesture) -> bool:
 		rig_root.visible = shown[hand]
 		if not shown[hand]:
 			continue
-		var snapshot := gesture.joint_snapshot
+		var snapshot := source
 		if hand != native_hand:
 			snapshot = _mirrored(snapshot)
 		_apply_positions(hand, snapshot)
@@ -95,6 +101,40 @@ func show_gesture(gesture: XRHandGesture) -> bool:
 		(_rigs[1]["root"] as Node3D).position = Vector3(_BOTH_SPACING, 0.0, 0.0)
 	visible = true
 	return true
+
+
+## Approximate hand pose from curl conditions alone: a canonical right-hand
+## skeleton whose fingers bend by each condition's target curl (unlisted
+## fingers rest slightly relaxed). Bend distribution matches the extractor's
+## curl normalization, so the preview curls the way the recognizer measures.
+func _synthesize_snapshot(gesture: XRHandGesture) -> PackedVector3Array:
+	var snapshot := PackedVector3Array()
+	snapshot.resize(XRHandTracker.HAND_JOINT_MAX)
+	snapshot[XRHandTracker.HAND_JOINT_WRIST] = Vector3.ZERO
+	snapshot[XRHandTracker.HAND_JOINT_PALM] = Vector3(0.0, 0.0, 0.045)
+	var base_x := {"thumb": -0.032, "index": -0.024, "middle": -0.006, "ring": 0.012, "pinky": 0.028}
+	var segment_lengths := {"thumb": [0.04, 0.033, 0.028], "index": [0.062, 0.038, 0.024, 0.021],
+			"middle": [0.06, 0.042, 0.027, 0.022], "ring": [0.058, 0.038, 0.025, 0.021], "pinky": [0.056, 0.03, 0.02, 0.019]}
+	for finger in _FeatureExtractor.FINGERS:
+		var chain: Array = _FeatureExtractor.FINGERS[finger]
+		var curl: float = 0.25
+		if gesture.conditions.has("curl_%s" % finger):
+			curl = gesture.conditions["curl_%s" % finger].x
+		var is_thumb: bool = finger == "thumb"
+		var total_bend := curl * (1.7 if is_thumb else 3.6)
+		var per_joint := total_bend / maxf(chain.size() - 2, 1.0)
+		var bend_axis := Vector3(-0.2, -0.9, 0.0).normalized() if is_thumb else Vector3.LEFT
+		var point := Vector3(base_x[finger], 0.0, 0.02 if is_thumb else 0.0)
+		var direction := Vector3(-0.55, -0.1, 0.85).normalized() if is_thumb else Vector3.FORWARD * -1.0
+		direction = Vector3(direction.x, direction.y, absf(direction.z))
+		var lengths: Array = segment_lengths[finger]
+		snapshot[chain[0]] = point
+		for i in range(1, chain.size()):
+			point += direction * (lengths[i - 1] as float)
+			snapshot[chain[i]] = point
+			if i >= 1:
+				direction = direction.rotated(bend_axis, per_joint).normalized()
+	return snapshot
 
 
 ## Mirror the live tracked hand (0 = left, 1 = right) until stop_live().

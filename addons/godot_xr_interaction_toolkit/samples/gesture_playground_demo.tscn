@@ -54,7 +54,7 @@ script = ExtResource("9_recorder")
 recognizer_path = NodePath("../GestureRecognizer")
 
 [node name="StatusLabel" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.98, -1.7)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.22, -1.7)
 pixel_size = 0.0013
 billboard = 1
 modulate = Color(1, 0.85, 0.4, 1)
@@ -65,23 +65,24 @@ width = 1300.0
 autowrap_mode = 2
 
 [node name="GestureLibraryPanel" parent="." instance=ExtResource("10_panel")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.35, -1.6)
+transform = Transform3D(0.7, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.62, -1.6)
+viewport_pixel_size = Vector2i(720, 640)
 
 [node name="GhostHand" type="Node3D" parent="."]
-transform = Transform3D(0.94, 0, -0.34, 0, 1, 0, 0.34, 0, 0.94, 1.25, 1.4, -1.45)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.98, -1.55)
 script = ExtResource("11_ghost")
 
 [node name="GhostLabel" type="Label3D" parent="GhostHand"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.35, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.24, 0)
 pixel_size = 0.0013
 billboard = 1
-text = "GHOST HAND
-select a pose on the panel"
+text = "GHOST HANDS
+select a pose on the panel above"
 font_size = 24
 outline_size = 8
 
 [node name="InfoLabel" type="Label3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.35, -1.9)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, -1.9)
 pixel_size = 0.0012
 billboard = 1
 text = "GESTURE STUDIO - bare hands (put controllers down)
