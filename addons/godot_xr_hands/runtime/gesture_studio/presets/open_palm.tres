@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="XRHandGesture" load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_hand_gesture.gd" id="1_g"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gesture_studio/xr_hand_gesture.gd" id="1_g"]
 
 [resource]
 script = ExtResource("1_g")

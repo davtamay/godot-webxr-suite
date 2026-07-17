@@ -1,10 +1,10 @@
 @tool
-@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_gesture_recognizer.svg")
+@icon("res://addons/godot_xr_hands/icons/xr_gesture_recognizer.svg")
 class_name XRGestureRecognizer
 extends Node
 
-const XRHandFeatureExtractor := preload("res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_hand_feature_extractor.gd")
-const _DebugPanel := preload("res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_debug_panel.gd")
+const XRHandFeatureExtractor := preload("res://addons/godot_xr_hands/runtime/gesture_studio/xr_hand_feature_extractor.gd")
+const _DebugPanel := preload("res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_debug_panel.gd")
 
 ## Drop-in hand gesture recognition: assign XRHandGesture resources (or use
 ## the presets in runtime/gestures/presets/) and connect to the signals. Both
@@ -44,7 +44,6 @@ var _hold := [{}, {}]
 var _features := [{}, {}]
 var _nearest := [{}, {}]
 var _panels := [null, null]
-var _heartbeat := 0.0  # GESTDBG strip after the recording hunt
 
 
 func _ready() -> void:
@@ -57,10 +56,6 @@ func _process(delta: float) -> void:
 	if not enabled:
 		return
 	_resolve_scene_refs()
-	_heartbeat += delta  # GESTDBG strip after the recording hunt
-	if _heartbeat >= 2.0:
-		_heartbeat = 0.0
-		print("GESTDBG id=%d features L=%d R=%d origin=%s cam=%s" % [get_instance_id(), _features[0].size(), _features[1].size(), str(_origin != null), str(_camera != null)])
 	for hand in 2:
 		var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if hand == 0 else "right")) as XRHandTracker
 		var origin_xf := _origin.global_transform if _origin else Transform3D.IDENTITY

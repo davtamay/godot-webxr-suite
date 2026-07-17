@@ -1,4 +1,4 @@
-@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_gesture_recognizer.svg")
+@icon("res://addons/godot_xr_hands/icons/xr_gesture_recognizer.svg")
 class_name XRHandGesture
 extends Resource
 

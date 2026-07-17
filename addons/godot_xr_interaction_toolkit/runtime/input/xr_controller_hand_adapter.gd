@@ -85,10 +85,19 @@ func _resolve_rig() -> void:
 	_controllers[Hand.RIGHT] = get_node_or_null(right_controller_path) as XRController3D
 
 
+var _stuck_monitor := 0.0  # SELDBG2 strip after hunt
+
 func _process(_delta: float) -> void:
 	if synthesize_pinch_select:
 		_update_synthetic_pinch_select(Hand.LEFT)
 		_update_synthetic_pinch_select(Hand.RIGHT)
+	# SELDBG2 strip after hunt: while a select is held, report its world 1/s.
+	_stuck_monitor += _delta
+	if _stuck_monitor >= 1.0:
+		_stuck_monitor = 0.0
+		for hand_id in [Hand.LEFT, Hand.RIGHT]:
+			if _select_down.get(hand_id, false):
+				print("SELDBG2 held h=%d src=%s dist=%.3f armed=%s" % [hand_id, _select_source.get(hand_id, ""), _pinch_distance(hand_id), str(_synthetic_armed.get(hand_id, true))])
 
 
 func get_aim_pose(hand_id: int) -> Dictionary:
@@ -310,7 +319,10 @@ func _pinch_distance(hand_id: int) -> float:
 
 func _emit_select_started(hand_id: int, source: String) -> void:
 	if not _valid_hand(hand_id) or _select_down.get(hand_id, false):
+		if _valid_hand(hand_id):
+			print("SELDBG2 start-BLOCKED h=%d incoming=%s held=%s" % [hand_id, source, _select_source.get(hand_id, "")])  # SELDBG2 strip after hunt
 		return
+	print("SELDBG2 start h=%d src=%s dist=%.3f" % [hand_id, source, _pinch_distance(hand_id)])  # SELDBG2 strip after hunt
 	_begin_select_stabilization(hand_id)
 	_select_down[hand_id] = true
 	_select_source[hand_id] = source
@@ -329,7 +341,10 @@ func _emit_select_ended(hand_id: int, source: String) -> void:
 	# select mid-pinch - the synthetic detector then instantly re-pressed, giving
 	# TWO full clicks per pinch (tap-proven: every pinch double-toggled UI).
 	if source != _select_source.get(hand_id, ""):
+		var tracker := XRHandTrackerResolver.get_tracker(hand_id)
+		print("SELDBG2 end-REJECTED h=%d incoming=%s held=%s dist=%.3f trackerSrc=%d" % [hand_id, source, _select_source.get(hand_id, ""), _pinch_distance(hand_id), tracker.hand_tracking_source if tracker else -1])  # SELDBG2 strip after hunt
 		return
+	print("SELDBG2 end h=%d src=%s" % [hand_id, source])  # SELDBG2 strip after hunt
 	_select_down[hand_id] = false
 	_select_source[hand_id] = ""
 	_end_select_stabilization(hand_id)

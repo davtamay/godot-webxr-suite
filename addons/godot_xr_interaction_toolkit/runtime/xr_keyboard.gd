@@ -34,7 +34,6 @@ func open(initial_text := "", prompt_text := "") -> void:
 		_prompt_label.text = prompt_text if not prompt_text.is_empty() else "Enter text"
 	_refresh_text()
 	_set_active(true)
-	print("XRKeyboard: opened ('%s') at %v" % [initial_text, global_position])
 
 
 func close() -> void:

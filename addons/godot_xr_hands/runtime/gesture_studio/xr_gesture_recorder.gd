@@ -1,5 +1,5 @@
 @tool
-@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_gesture_recognizer.svg")
+@icon("res://addons/godot_xr_hands/icons/xr_gesture_recognizer.svg")
 class_name XRGestureRecorder
 extends Node
 
@@ -31,7 +31,7 @@ signal recording_state_changed(state: String, seconds_left: float)
 ## The derived gesture (already saved to save_path; "" if saving failed).
 signal recording_finished(gesture: XRHandGesture, save_path: String)
 
-const _FeatureExtractor := preload("res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_hand_feature_extractor.gd")
+const _FeatureExtractor := preload("res://addons/godot_xr_hands/runtime/gesture_studio/xr_hand_feature_extractor.gd")
 
 ## The recognizer supplying live features (found by class in the scene when
 ## left empty).
@@ -68,7 +68,6 @@ var _hand := 0
 var _time_left := 0.0
 var _samples := {}
 var _joint_frames: Array[PackedVector3Array] = []
-var _wait_debug := 0.0  # GESTDBG strip after the recording hunt
 
 
 ## Wrist-local joint positions this frame - the gesture's visual snapshot
@@ -115,7 +114,6 @@ func start_recording(gesture_name: String, hand: int) -> void:
 	_state = "countdown"
 	_time_left = countdown_seconds
 	set_process(true)
-	print("XRGestureRecorder: recording '%s' (hand %d)" % [gesture_name, _hand])
 	recording_state_changed.emit(_state, _time_left)
 
 
@@ -160,13 +158,6 @@ func _process(delta: float) -> void:
 			_state = "capturing"
 			_time_left = capture_seconds
 		else:
-			_wait_debug += delta  # GESTDBG strip after the recording hunt
-			if _wait_debug >= 1.0:
-				_wait_debug = 0.0
-				var tracker_r := XRServer.get_tracker("/user/hand_tracker/right") as XRHandTracker
-				print("GESTDBG recorder waiting: rec_id=%d Lfeat=%d Rfeat=%d trackerR=%s dataR=%s" % [
-					_recognizer.get_instance_id(), _recognizer.get_features(0).size(), _recognizer.get_features(1).size(),
-					str(tracker_r != null), str(tracker_r.has_tracking_data if tracker_r else false)])
 			_time_left -= delta
 			if _time_left <= 0.0:
 				_state = "failed"
@@ -186,7 +177,6 @@ func _process(delta: float) -> void:
 func _finish() -> void:
 	set_process(false)
 	var sample_count: int = (_samples.get("curl_index", []) as Array).size()
-	print("XRGestureRecorder: capture ended - %d samples" % sample_count)
 	if sample_count < 10:
 		_state = "failed"
 		recording_state_changed.emit(_state, 0.0)

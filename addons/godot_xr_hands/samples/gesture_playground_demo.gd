@@ -29,7 +29,7 @@ func _ready() -> void:
 	# Presets loaded here (not stored in the .tscn): script-class typed arrays
 	# in hand-written scenes are serialization-fragile.
 	for preset in ["point", "fist", "open_palm", "thumbs_up"]:
-		var gesture := load("res://addons/godot_xr_interaction_toolkit/runtime/gestures/presets/%s.tres" % preset) as XRHandGesture
+		var gesture := load("res://addons/godot_xr_hands/runtime/gesture_studio/presets/%s.tres" % preset) as XRHandGesture
 		if gesture:
 			_recognizer.gestures.append(gesture)
 	_recognizer.gesture_started.connect(_on_gesture_started)

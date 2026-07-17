@@ -1,11 +1,11 @@
 [gd_scene load_steps=9 format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/gesture_playground_demo.gd" id="2_demo"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_recognizer.gd" id="3_recognizer"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_recorder.gd" id="9_recorder"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/samples/gesture_playground_demo.gd" id="2_demo"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_recognizer.gd" id="3_recognizer"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_recorder.gd" id="9_recorder"]
 [ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/xr_ui_panel.tscn" id="10_panel"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_ghost_hand.gd" id="11_ghost"]
+[ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_ghost_hand.gd" id="11_ghost"]
 [ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/xr_keyboard.tscn" id="12_keyboard"]
 [ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="8_fontbake"]
 

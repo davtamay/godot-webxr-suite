@@ -4,7 +4,7 @@ extends Node3D
 # camera-facing. Bars turn GREEN when inside the nearest gesture's condition
 # band and RED when they are what blocks it - tuning by color, not numbers.
 
-const _LINE_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_line_material.tres")
+const _LINE_MATERIAL := preload("res://addons/godot_xr_hands/runtime/gesture_studio/gesture_ghost_material.tres")
 
 const _FINGERS := ["thumb", "index", "middle", "ring", "pinky"]
 const _BAR_HEIGHT := 0.05

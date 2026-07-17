@@ -1,4 +1,4 @@
-@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_gesture_recognizer.svg")
+@icon("res://addons/godot_xr_hands/icons/xr_gesture_recognizer.svg")
 class_name XRGestureGhostHand
 extends Node3D
 
@@ -13,8 +13,8 @@ extends Node3D
 
 enum HandMode { LEFT, RIGHT, BOTH }
 
-const _LINE_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_line_material.tres")
-const _FeatureExtractor := preload("res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_hand_feature_extractor.gd")
+const _LINE_MATERIAL := preload("res://addons/godot_xr_hands/runtime/gesture_studio/gesture_ghost_material.tres")
+const _FeatureExtractor := preload("res://addons/godot_xr_hands/runtime/gesture_studio/xr_hand_feature_extractor.gd")
 
 const _GHOST_COLOR := Color(0.45, 0.85, 1.0, 0.9)
 const _MATCH_COLOR := Color(0.3, 1.0, 0.5, 0.95)
