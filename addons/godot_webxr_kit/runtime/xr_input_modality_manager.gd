@@ -72,9 +72,12 @@ const _DEBOUNCE_SECONDS := 0.25
 @export var model_repository_url := "https://cdn.jsdelivr.net/npm/@webxr-input-profiles/assets/dist/profiles"
 
 ## The rig's XRController3D nodes (aim pose), used for the primitive fallback
-## models and to locate the XROrigin3D for grip attachment.
+## models and to locate the XROrigin3D for grip attachment. OPTIONAL: empty
+## paths self-resolve - drop the node anywhere in a scene with an XR rig.
 @export var left_controller_path: NodePath
 @export var right_controller_path: NodePath
+
+const _RigResolver := preload("res://addons/godot_xr_interaction_toolkit/runtime/input/xr_rig_resolver.gd")
 
 var _modality := [Modality.NONE, Modality.NONE]
 var _pending := [Modality.NONE, Modality.NONE]
@@ -100,6 +103,9 @@ func _ready() -> void:
 		set_process(false)
 		return
 	var controllers := [get_node_or_null(left_controller_path), get_node_or_null(right_controller_path)]
+	for hand in 2:
+		if controllers[hand] == null:
+			controllers[hand] = _RigResolver.find_controller(self, hand)
 	if show_controller_models:
 		for hand in 2:
 			_fallback_models[hand] = _build_fallback_model(controllers[hand])

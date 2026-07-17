@@ -22,6 +22,8 @@ const _CONTROLLER_TIP_FORWARD := 0.02
 @export var enabled := true
 
 @export_group("Rig")
+## All optional: empty paths self-resolve (drop the node anywhere - under the
+## rig, under a hands mount, or at the scene root - and it finds the rig).
 @export var xr_origin_path: NodePath
 @export var left_controller_path: NodePath
 @export var right_controller_path: NodePath
@@ -41,8 +43,13 @@ func _ready() -> void:
 		return
 	add_to_group(GROUP)
 	_origin = get_node_or_null(xr_origin_path) as Node3D
+	if _origin == null:
+		_origin = XRRigResolver.find_origin(self)
 	_controllers[0] = get_node_or_null(left_controller_path) as XRController3D
 	_controllers[1] = get_node_or_null(right_controller_path) as XRController3D
+	for hand in 2:
+		if _controllers[hand] == null:
+			_controllers[hand] = XRRigResolver.find_controller(self, hand)
 
 
 ## World-space poke point for a hand; Vector3.INF when none is tracked.

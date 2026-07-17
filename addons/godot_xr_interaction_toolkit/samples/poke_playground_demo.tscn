@@ -88,7 +88,7 @@ font_size = 22
 outline_size = 8
 
 [node name="TouchPanel" parent="." instance=ExtResource("4_panel")]
-transform = Transform3D(0.55, 0, 0, 0, 0.55, 0, 0, 0, 0.55, 0, 1.55, -0.72)
+transform = Transform3D(0.55, 0, 0, 0, 0.517, 0.187, 0, -0.187, 0.517, 0, 1.34, -0.7)
 viewport_pixel_size = Vector2i(900, 560)
 
 [node name="Orb" type="MeshInstance3D" parent="."]

@@ -34,6 +34,8 @@ const _INVALID_COLOR := Color(1.0, 0.35, 0.3, 0.7)
 @export var enabled := true
 
 @export_group("Rig")
+## All optional: empty paths self-resolve (drop the node anywhere in a scene
+## with an XR rig and it wires itself).
 @export var xr_origin_path: NodePath
 @export var camera_path: NodePath
 @export var left_controller_path: NodePath
@@ -68,17 +70,21 @@ func _ready() -> void:
 		set_physics_process(false)
 		return
 	_origin = get_node_or_null(xr_origin_path) as Node3D
+	if _origin == null:
+		_origin = XRRigResolver.find_origin(self)
 	_camera = get_node_or_null(camera_path) as Node3D
+	if _camera == null:
+		_camera = XRRigResolver.find_camera(self)
 	_controllers[0] = get_node_or_null(left_controller_path) as XRController3D
 	_controllers[1] = get_node_or_null(right_controller_path) as XRController3D
+	for hand in 2:
+		if _controllers[hand] == null:
+			_controllers[hand] = XRRigResolver.find_controller(self, hand)
 	_build_visuals()
 
 
 func _get_configuration_warnings() -> PackedStringArray:
-	var warnings := PackedStringArray()
-	if xr_origin_path.is_empty() or camera_path.is_empty():
-		warnings.append("Set xr_origin_path and camera_path (the rig wires these for you).")
-	return warnings
+	return PackedStringArray()  # Paths self-resolve; nothing to warn about.
 
 
 func _physics_process(_delta: float) -> void:
