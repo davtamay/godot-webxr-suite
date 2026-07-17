@@ -47,16 +47,19 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	if _live_hand >= 0:
-		var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if _live_hand == 0 else "right")) as XRHandTracker
-		if tracker and tracker.has_tracking_data:
+		var live_hands := [0, 1] if _live_hand == 2 else [_live_hand]
+		for hand in 2:
+			(_rigs[hand]["root"] as Node3D).visible = hand in live_hands
+		for hand in live_hands:
+			var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if hand == 0 else "right")) as XRHandTracker
+			if tracker == null or not tracker.has_tracking_data:
+				continue
 			var wrist_inverse := tracker.get_hand_joint_transform(XRHandTracker.HAND_JOINT_WRIST).affine_inverse()
 			var frame := PackedVector3Array()
 			frame.resize(XRHandTracker.HAND_JOINT_MAX)
 			for joint in XRHandTracker.HAND_JOINT_MAX:
 				frame[joint] = wrist_inverse * tracker.get_hand_joint_transform(joint).origin
-			_apply_positions(0, frame)
-			(_rigs[0]["root"] as Node3D).visible = true
-			(_rigs[1]["root"] as Node3D).visible = false
+			_apply_positions(hand, frame)
 			visible = true
 	elif visible:
 		for rig in _rigs:
@@ -73,14 +76,15 @@ func show_gesture(gesture: XRHandGesture) -> bool:
 	if gesture == null:
 		visible = false
 		return false
+	# Recorded snapshots display RAW wrist-local, exactly like the live mimic
+	# (the wrist frame is hand-relative - fingers present upward already; a
+	# derived "correction" only fought it). Synthesized poses are built in
+	# that same convention.
 	var source := gesture.joint_snapshot
 	var native_hand := gesture.recorded_hand if gesture.recorded_hand >= 0 else 1
 	if source.size() < XRHandTracker.HAND_JOINT_MAX:
 		source = _synthesize_snapshot(gesture)
 		native_hand = 1
-	# Present upright: fingers up, palm toward the viewer - derived from the
-	# snapshot itself, so recordings and synthesized poses agree.
-	source = _oriented_upright(source, native_hand)
 	# The snapshot's native chirality; mirror (wrist-local x-flip) for the
 	# other hand.
 	var shown := [hand_mode == HandMode.LEFT or hand_mode == HandMode.BOTH,
@@ -134,16 +138,26 @@ func _synthesize_snapshot(gesture: XRHandGesture) -> PackedVector3Array:
 			snapshot[chain[i]] = point
 			if i >= 1:
 				direction = direction.rotated(bend_axis, per_joint).normalized()
+	# Built with fingers +Z / palm -Y; recorded wrist-local presents fingers
+	# +Y - remap (x, y, z) -> (x, z, -y) so both conventions display alike.
+	for i in snapshot.size():
+		var point_out := snapshot[i]
+		snapshot[i] = Vector3(point_out.x, point_out.z, -point_out.y)
 	return snapshot
 
 
-## Mirror the live tracked hand (0 = left, 1 = right) until stop_live().
+## Mirror the live tracked hand(s) until stop_live(). 0 = left, 1 = right,
+## 2 = both (each rig follows its own tracker).
 func start_live(hand: int) -> void:
-	_live_hand = clampi(hand, 0, 1)
-	var rig_root := _rigs[0]["root"] as Node3D
-	rig_root.rotation = Vector3.ZERO
-	rig_root.position = Vector3.ZERO
-	_set_rig_color(0, _LIVE_COLOR)
+	_live_hand = clampi(hand, 0, 2)
+	for rig_hand in 2:
+		var rig_root := _rigs[rig_hand]["root"] as Node3D
+		rig_root.rotation = Vector3.ZERO
+		rig_root.position = Vector3.ZERO
+		_set_rig_color(rig_hand, _LIVE_COLOR)
+	if _live_hand == 2:
+		(_rigs[0]["root"] as Node3D).position = Vector3(-_BOTH_SPACING, 0.0, 0.0)
+		(_rigs[1]["root"] as Node3D).position = Vector3(_BOTH_SPACING, 0.0, 0.0)
 
 
 func stop_live() -> void:
@@ -219,33 +233,6 @@ func _apply_positions(rig_index: int, snapshot: PackedVector3Array) -> void:
 			bone_mesh.surface_add_vertex((snapshot[chain[i]] - center) * display_scale)
 			bone_mesh.surface_add_vertex((snapshot[chain[i + 1]] - center) * display_scale)
 	bone_mesh.surface_end()
-
-
-## Rotate a snapshot so fingers point UP and the palm faces the viewer
-## (+Z of this node). Frame derived from the data (wrist->middle knuckle +
-## chirality-corrected palm normal), so any source convention presents the
-## same way.
-func _oriented_upright(snapshot: PackedVector3Array, native_hand: int) -> PackedVector3Array:
-	var wrist := snapshot[XRHandTracker.HAND_JOINT_WRIST]
-	var fingers_dir := (snapshot[XRHandTracker.HAND_JOINT_MIDDLE_FINGER_PHALANX_PROXIMAL] - wrist).normalized()
-	var to_index := snapshot[XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL] - snapshot[XRHandTracker.HAND_JOINT_PALM]
-	var to_ring := snapshot[XRHandTracker.HAND_JOINT_RING_FINGER_PHALANX_PROXIMAL] - snapshot[XRHandTracker.HAND_JOINT_PALM]
-	var palm_normal := to_index.cross(to_ring)
-	if native_hand == 1:
-		palm_normal = -palm_normal
-	if fingers_dir.length_squared() < 0.000001 or palm_normal.length_squared() < 0.000001:
-		return snapshot
-	palm_normal = palm_normal.normalized()
-	# Source frame: y = fingers, z = palm normal (orthogonalized), x = y cross z.
-	var source_z := (palm_normal - fingers_dir * palm_normal.dot(fingers_dir)).normalized()
-	var source_basis := Basis(fingers_dir.cross(source_z), fingers_dir, source_z).orthonormalized()
-	# Map that frame to identity (fingers +Y, palm +Z toward the viewer).
-	var correction := source_basis.inverse()
-	var rotated := PackedVector3Array()
-	rotated.resize(snapshot.size())
-	for i in snapshot.size():
-		rotated[i] = correction * snapshot[i]
-	return rotated
 
 
 func _mirrored(snapshot: PackedVector3Array) -> PackedVector3Array:

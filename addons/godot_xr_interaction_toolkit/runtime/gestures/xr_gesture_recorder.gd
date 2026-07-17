@@ -54,8 +54,11 @@ var _joint_frames: Array[PackedVector3Array] = []
 
 ## Wrist-local joint positions this frame - the gesture's visual snapshot
 ## (the median frame is kept, so a blink of bad tracking cannot poison it).
-func _capture_joint_frame() -> void:
-	var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if _hand == 0 else "right")) as XRHandTracker
+## In BOTH mode only the right hand feeds the snapshot (one chirality).
+func _capture_joint_frame(capture_hand: int) -> void:
+	if _hand == 2 and capture_hand != 1:
+		return
+	var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if capture_hand == 0 else "right")) as XRHandTracker
 	if tracker == null or not tracker.has_tracking_data:
 		return
 	var wrist_inverse := tracker.get_hand_joint_transform(XRHandTracker.HAND_JOINT_WRIST).affine_inverse()
@@ -79,12 +82,15 @@ func is_recording() -> bool:
 	return _state == "countdown" or _state == "capturing"
 
 
-## Begin the countdown-then-capture flow for one hand (0 = left, 1 = right).
+## Begin the countdown-then-capture flow. hand: 0 = left, 1 = right,
+## 2 = BOTH - a symmetric pose sampled from both hands at once feeds one
+## gesture with twice the data (features are chirality-agnostic), and the
+## derived tolerances cover the natural left/right variation.
 func start_recording(gesture_name: String, hand: int) -> void:
 	if is_recording() or not _resolve_recognizer():
 		return
 	_gesture_name = gesture_name
-	_hand = clampi(hand, 0, 1)
+	_hand = clampi(hand, 0, 2)
 	_samples = {}
 	_joint_frames = []
 	_state = "countdown"
@@ -99,13 +105,15 @@ func _process(delta: float) -> void:
 		return
 	_time_left -= delta
 	if _state == "capturing":
-		var features: Dictionary = _recognizer.get_features(_hand)
-		for feature in features:
-			if not _samples.has(feature):
-				_samples[feature] = PackedFloat32Array()
-			(_samples[feature] as PackedFloat32Array).append(features[feature])
-		if not features.is_empty():
-			_capture_joint_frame()
+		var capture_hands := [0, 1] if _hand == 2 else [_hand]
+		for capture_hand in capture_hands:
+			var features: Dictionary = _recognizer.get_features(capture_hand)
+			for feature in features:
+				if not _samples.has(feature):
+					_samples[feature] = PackedFloat32Array()
+				(_samples[feature] as PackedFloat32Array).append(features[feature])
+			if not features.is_empty():
+				_capture_joint_frame(capture_hand)
 	if _time_left > 0.0:
 		recording_state_changed.emit(_state, _time_left)
 		return
@@ -127,6 +135,7 @@ func _finish() -> void:
 
 	var gesture := XRHandGesture.new()
 	gesture.gesture_name = _gesture_name
+	gesture.recorded_hand = 1 if _hand == 2 else _hand
 	var conditions: Dictionary[String, Vector2] = {}
 	for feature in _samples:
 		var values: PackedFloat32Array = _samples[feature]
@@ -149,7 +158,6 @@ func _finish() -> void:
 		var tolerance := maxf(min_tolerance, (high - low) * 0.5 + 0.08)
 		conditions[feature] = Vector2(snappedf(mean, 0.01), snappedf(tolerance, 0.01))
 	gesture.conditions = conditions
-	gesture.recorded_hand = _hand
 	if not _joint_frames.is_empty():
 		gesture.joint_snapshot = _joint_frames[_joint_frames.size() / 2]
 

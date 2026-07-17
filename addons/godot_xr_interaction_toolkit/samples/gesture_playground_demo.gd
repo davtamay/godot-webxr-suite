@@ -52,21 +52,10 @@ func _build_library_panel() -> void:
 	column.add_theme_constant_override("separation", 10)
 	margin.add_child(column)
 
-	var record_row := HBoxContainer.new()
-	record_row.add_theme_constant_override("separation", 12)
-	column.add_child(record_row)
 	var title := Label.new()
 	title.text = "GESTURES"
-	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	title.add_theme_font_size_override("font_size", 40)
-	record_row.add_child(title)
-	for hand in 2:
-		var record := Button.new()
-		record.text = "REC %s" % ("LEFT" if hand == 0 else "RIGHT")
-		record.custom_minimum_size = Vector2(200, 72)
-		record.add_theme_font_size_override("font_size", 28)
-		record.pressed.connect(_on_record_pressed.bind(hand))
-		record_row.add_child(record)
+	title.add_theme_font_size_override("font_size", 38)
+	column.add_child(title)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -124,6 +113,19 @@ func _build_library_panel() -> void:
 	delete.add_theme_font_size_override("font_size", 24)
 	delete.pressed.connect(_on_delete_pressed)
 	actions_row.add_child(delete)
+
+	# All recording together at the BOTTOM: left / both / right.
+	var record_row := HBoxContainer.new()
+	record_row.add_theme_constant_override("separation", 10)
+	column.add_child(record_row)
+	for entry in [["REC LEFT", 0], ["REC BOTH", 2], ["REC RIGHT", 1]]:
+		var record := Button.new()
+		record.text = entry[0]
+		record.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		record.custom_minimum_size = Vector2(0, 72)
+		record.add_theme_font_size_override("font_size", 26)
+		record.pressed.connect(_on_record_pressed.bind(entry[1]))
+		record_row.add_child(record)
 
 	_refresh_library()
 
@@ -210,7 +212,7 @@ func _on_record_pressed(hand: int) -> void:
 	while _has_gesture("custom_%d" % _custom_count):
 		_custom_count += 1
 	_ghost.start_live(hand)
-	_ghost_label.text = "LIVE: your %s hand" % ("LEFT" if hand == 0 else "RIGHT")
+	_ghost_label.text = "LIVE: your %s" % ("LEFT hand" if hand == 0 else ("RIGHT hand" if hand == 1 else "BOTH hands"))
 	_recorder.start_recording("custom_%d" % _custom_count, hand)
 
 
