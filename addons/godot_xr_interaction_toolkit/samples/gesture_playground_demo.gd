@@ -1,21 +1,19 @@
 extends Node3D
 
-## Gesture playground: preset + recorded gestures as cards that light up when
-## performed; a library PANEL to record new gestures (explicit buttons) and
-## browse every saved pose; selecting one shows it on a rotating GHOST HAND.
-## Gestures persist on-device as .tres under user://gestures - the modular
-## representation: features for recognition + a joint snapshot for display.
-
-const _CARD_IDLE := Color(0.75, 0.8, 0.9, 1.0)
-const _CARD_ACTIVE := Color(0.3, 1.0, 0.55, 1.0)
+## Gesture Studio: record poses with explicit buttons, browse every saved
+## gesture on the center panel, and validate against a REFERENCE - selecting
+## a gesture shows it on the ghost hand (right) and points the wrist bars at
+## it; performing it turns the ghost green. While recording, the ghost
+## mirrors your live hand so you see exactly what is being captured.
+## Gestures persist on-device as .tres under user://gestures.
 
 @onready var _recognizer: XRGestureRecognizer = $GestureRecognizer
 @onready var _recorder: XRGestureRecorder = $GestureRecorder
-@onready var _record_label: Label3D = $RecordLabel
+@onready var _status_label: Label3D = $StatusLabel
 @onready var _ghost: XRGestureGhostHand = $GhostHand
+@onready var _ghost_label: Label3D = $GhostHand/GhostLabel
 
-var _cards := {}
-var _active_hands := {}
+var _selected: XRHandGesture
 var _custom_count := 0
 var _library_box: VBoxContainer
 
@@ -35,7 +33,7 @@ func _ready() -> void:
 	_recorder.recording_state_changed.connect(_on_recording_state)
 	_recorder.recording_finished.connect(_on_recording_finished)
 	_build_library_panel()
-	_record_label.text = "Use the panel: RECORD, hold your pose through the countdown.\nSelect any saved pose to inspect it on the ghost hand."
+	_status_label.text = "RECORD a pose, or select one below to practice it:\nthe ghost hand shows the target, your wrist bars show what blocks it."
 
 
 ## ---- library panel -----------------------------------------------------------
@@ -45,24 +43,25 @@ func _build_library_panel() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "top", "right", "bottom"]:
-		margin.add_theme_constant_override("margin_%s" % side, 24)
+		margin.add_theme_constant_override("margin_%s" % side, 20)
 	root.add_child(margin)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 10)
 	margin.add_child(column)
 
-	var title := Label.new()
-	title.text = "GESTURE LIBRARY"
-	title.add_theme_font_size_override("font_size", 34)
-	column.add_child(title)
-
 	var record_row := HBoxContainer.new()
-	record_row.add_theme_constant_override("separation", 10)
+	record_row.add_theme_constant_override("separation", 12)
 	column.add_child(record_row)
+	var title := Label.new()
+	title.text = "GESTURES"
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.add_theme_font_size_override("font_size", 40)
+	record_row.add_child(title)
 	for hand in 2:
 		var record := Button.new()
-		record.text = "RECORD %s" % ("LEFT" if hand == 0 else "RIGHT")
-		record.custom_minimum_size = Vector2(220, 64)
+		record.text = "REC %s" % ("LEFT" if hand == 0 else "RIGHT")
+		record.custom_minimum_size = Vector2(200, 72)
+		record.add_theme_font_size_override("font_size", 28)
 		record.pressed.connect(_on_record_pressed.bind(hand))
 		record_row.add_child(record)
 
@@ -71,7 +70,7 @@ func _build_library_panel() -> void:
 	column.add_child(scroll)
 	_library_box = VBoxContainer.new()
 	_library_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_library_box.add_theme_constant_override("separation", 6)
+	_library_box.add_theme_constant_override("separation", 8)
 	scroll.add_child(_library_box)
 	_refresh_library()
 
@@ -84,18 +83,28 @@ func _refresh_library() -> void:
 			continue
 		var entry := Button.new()
 		var has_snapshot: bool = gesture.joint_snapshot.size() > 0
-		entry.text = "%s%s" % [gesture.gesture_name.replace("_", " ").to_upper(), "" if has_snapshot else "  (no snapshot)"]
-		entry.custom_minimum_size = Vector2(0, 52)
+		entry.text = "  %s%s" % [gesture.gesture_name.replace("_", " ").to_upper(), "" if has_snapshot else "   (recognition only)"]
+		entry.custom_minimum_size = Vector2(0, 64)
+		entry.add_theme_font_size_override("font_size", 30)
 		entry.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		entry.toggle_mode = true
+		entry.button_pressed = _selected != null and _selected.gesture_name == gesture.gesture_name
 		entry.pressed.connect(_on_library_selected.bind(gesture))
 		_library_box.add_child(entry)
 
 
 func _on_library_selected(gesture: XRHandGesture) -> void:
-	if _ghost.show_gesture(gesture):
-		_record_label.text = "'%s' on the ghost hand - walk around it, or watch it spin." % gesture.gesture_name
+	_selected = gesture
+	_recognizer.focus_gesture_name = gesture.gesture_name
+	_refresh_library()
+	var shown := _ghost.show_gesture(gesture)
+	_ghost.set_highlight(false)
+	if shown:
+		_ghost_label.text = "TARGET: %s\nmatch it with your hand" % gesture.gesture_name.replace("_", " ").to_upper()
+		_status_label.text = "Practice '%s': red wrist bars show which finger blocks it." % gesture.gesture_name
 	else:
-		_record_label.text = "'%s' has no recorded snapshot (hand-authored preset).\nRe-record it under a new name to get one." % gesture.gesture_name
+		_ghost_label.text = "%s\n(recognition-only preset - no snapshot)" % gesture.gesture_name.replace("_", " ").to_upper()
+		_status_label.text = "'%s' has no recorded snapshot. Re-record it to get one." % gesture.gesture_name
 
 
 ## ---- recording ---------------------------------------------------------------
@@ -104,60 +113,47 @@ func _on_record_pressed(hand: int) -> void:
 	if _recorder.is_recording():
 		return
 	_custom_count += 1
-	while _cards.has("custom_%d" % _custom_count):
+	while _has_gesture("custom_%d" % _custom_count):
 		_custom_count += 1
+	_ghost.start_live(hand)
+	_ghost_label.text = "LIVE: your %s hand" % ("LEFT" if hand == 0 else "RIGHT")
 	_recorder.start_recording("custom_%d" % _custom_count, hand)
 
 
 func _on_recording_state(state: String, seconds_left: float) -> void:
 	match state:
 		"countdown":
-			_record_label.text = "RECORDING in %d...\nget your pose ready!" % ceili(seconds_left)
+			_status_label.text = "RECORDING in %d...\nget your pose ready - the ghost hand mirrors you!" % ceili(seconds_left)
 		"capturing":
-			_record_label.text = "HOLD IT... %.1f" % seconds_left
+			_status_label.text = "HOLD IT... %.1f" % seconds_left
 		"failed":
-			_record_label.text = "Recording failed - the hand was not tracked.\nKeep it in view and try again."
-		"done":
-			pass  # recording_finished handles the reveal.
+			_ghost.stop_live()
+			_status_label.text = "Recording failed - the hand was not tracked.\nKeep it in view and try again."
 
 
 func _on_recording_finished(gesture: XRHandGesture, _save_path: String) -> void:
-	_add_card(gesture)
+	_ghost.stop_live()
 	_refresh_library()
-	_ghost.show_gesture(gesture)
-	_record_label.text = "Saved '%s' - perform it! Its card lights up.\nIt is on the ghost hand now, and saved for next session." % gesture.gesture_name
+	_on_library_selected(gesture)
+	_status_label.text = "Saved '%s' - now perform it: the ghost turns green on a match.\nIt stays saved for your next session." % gesture.gesture_name
 
 
-func _add_card(gesture: XRHandGesture) -> void:
-	if _cards.has(gesture.gesture_name):
-		return
-	var card := ($Cards/fist as Label3D).duplicate() as Label3D
-	card.name = gesture.gesture_name
-	card.text = gesture.gesture_name.replace("_", " ").to_upper()
-	card.modulate = _CARD_IDLE
-	card.position = Vector3(-0.8 + 0.8 * ((_cards.size() - 4) % 3), 1.15, -1.9)
-	$Cards.add_child(card)
-	_cards[gesture.gesture_name] = card
-
-
-## ---- cards -------------------------------------------------------------------
+## ---- reference validation ------------------------------------------------------
 
 func _on_gesture_started(gesture_name: String, hand: int) -> void:
-	var card: Label3D = _cards.get(gesture_name)
-	if card == null:
-		return
-	_active_hands[gesture_name] = _active_hands.get(gesture_name, {})
-	_active_hands[gesture_name][hand] = true
-	card.modulate = _CARD_ACTIVE
-	card.text = "%s\n< %s >" % [gesture_name.replace("_", " ").to_upper(), "LEFT" if hand == 0 else "RIGHT"]
+	if _selected and gesture_name == _selected.gesture_name:
+		_ghost.set_highlight(true)
+		_ghost_label.text = "MATCHED: %s (%s hand)" % [gesture_name.replace("_", " ").to_upper(), "left" if hand == 0 else "right"]
 
 
-func _on_gesture_ended(gesture_name: String, hand: int) -> void:
-	var card: Label3D = _cards.get(gesture_name)
-	if card == null:
-		return
-	var hands: Dictionary = _active_hands.get(gesture_name, {})
-	hands.erase(hand)
-	if hands.is_empty():
-		card.modulate = _CARD_IDLE
-		card.text = gesture_name.replace("_", " ").to_upper()
+func _on_gesture_ended(gesture_name: String, _hand: int) -> void:
+	if _selected and gesture_name == _selected.gesture_name:
+		_ghost.set_highlight(false)
+		_ghost_label.text = "TARGET: %s\nmatch it with your hand" % gesture_name.replace("_", " ").to_upper()
+
+
+func _has_gesture(gesture_name: String) -> bool:
+	for gesture in _recognizer.gestures:
+		if gesture and gesture.gesture_name == gesture_name:
+			return true
+	return false

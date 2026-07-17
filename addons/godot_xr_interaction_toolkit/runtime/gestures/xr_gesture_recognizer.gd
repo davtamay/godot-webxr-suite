@@ -32,6 +32,11 @@ signal gesture_ended(gesture_name: String, hand: int)
 ## Live per-feature readout on a head-anchored label - the tuning tool.
 @export var show_debug := false
 
+## When set, the debug bars validate against THIS gesture (by name) instead
+## of the nearest miss - select-a-reference workflows point it at the pose
+## the user is trying to match.
+@export var focus_gesture_name := ""
+
 var _camera: Camera3D
 var _origin: Node3D
 var _active := [{}, {}]
@@ -83,9 +88,11 @@ func _update_hand(hand: int, delta: float) -> void:
 		var name := gesture.gesture_name
 		var is_active: bool = _active[hand].has(name)
 		var failing := gesture.failing_features(features, is_active)
-		# Track the closest non-matching gesture for the debug HUD's
-		# "this is what blocks it" coloring.
-		if not failing.is_empty() and not features.is_empty():
+		# Debug HUD reference: the focused gesture when one is set, else the
+		# closest non-matching gesture ("this is what blocks it" coloring).
+		if name == focus_gesture_name and not features.is_empty():
+			nearest = {"name": name, "failing": failing, "conditions": gesture.conditions, "focused": true}
+		elif focus_gesture_name.is_empty() and not failing.is_empty() and not features.is_empty():
 			if nearest.is_empty() or failing.size() < (nearest["failing"] as PackedStringArray).size():
 				nearest = {"name": name, "failing": failing, "conditions": gesture.conditions}
 		if failing.is_empty() and not gesture.conditions.is_empty():
