@@ -24,6 +24,19 @@ same scene carries both). When something doesn't behave on the headset, open
 the **Scene Doctor** (also in the dock): it checks the scene + project for
 everything that fails silently at runtime, with one-click fixes.
 
+## Test without a headset
+
+The playground includes the **XR Simulator**: press Play flat and drive the
+whole scene from your desk — WASD + drag to move, the mouse aims the ray,
+right-click grabs, T teleports, Z/C snap-turn. Press **X** for simulated
+HANDS: the realistic hand mesh renders live, right-click pinches through the
+*real* pinch-select path, and number keys apply authored gesture poses (the
+shipped presets plus your own Gesture Studio recordings) so real recognizers
+fire against your scene logic. **H** shows the bindings on screen. The
+simulator goes inert the moment a real XR session starts — safe to ship.
+The **Debug Panel** block stays visible *inside* sessions and narrates every
+interaction (grabs, teleports, sockets, gestures) for on-device debugging.
+
 ## Addons
 
 | Addon | Layer | Purpose |
@@ -52,8 +65,11 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 | **WebXR Rig** | The rig alone (origin, camera, controllers, interactors, modality, locomotion, poke) — for scenes with their own HUD. |
 | **Session UI** | Enter VR/AR buttons + status HUD; the WebXR bootstrap adopts it automatically. |
 | **WebXR / OpenXR Bootstrap** | Session lifecycle per platform; each is inert on the other's platform, so ship both. |
-| **Hands Mount** | Procedural tracked hands; virtual meshes hide per hand while it drives a controller. |
+| **Hands Mount** | Procedural or realistic tracked hands (`hand_style`); virtual meshes hide per hand while it drives a controller. |
+| **Realistic Hands** | Rigged hand meshes (WebXR Input Profiles, MIT, bundled) skinned live to the tracked joints. |
 | **Input Modality** (self-wiring, rig-default) | Per-hand controller↔hands switching + profile-matched controller models (bundled generic, device models fetched + cached at runtime). |
+| **XR Simulator (desktop)** | Flat-test everything: simulated controllers *and* hands, gesture pose bench, on-screen hotkey help. Auto-inert in real sessions. |
+| **Debug Panel (XR)** | The HUD that survives into the session: FPS, modality, and a live event log auto-wired to the suite's signals. |
 
 ### Interaction (`godot_xr_interaction_toolkit`)
 | Block | What you get |

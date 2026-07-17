@@ -16,7 +16,10 @@ extends Node3D
 ## exports needs a FontBakeAnchor (godot_webgpu addon); WebGL needs nothing.
 
 const GROUP := "xr_debug_panel"
-const _BACKDROP_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_line_material.tres")
+## OPAQUE on purpose: a transparent backdrop sorts against the (transparent)
+## Label3D text at near-identical depth and can draw over it - the panel
+## then reads as a solid black quad. Opaque writes depth; text always wins.
+const _BACKDROP_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_debug_panel_material.tres")
 
 @export_range(3, 24, 1) var max_log_lines := 9
 ## Auto-connect to every suite signal source found in the scene at start.
@@ -69,14 +72,12 @@ func _build_panel() -> void:
 	var quad := QuadMesh.new()
 	quad.size = panel_size
 	backdrop.mesh = quad
-	var material := _BACKDROP_MATERIAL.duplicate() as StandardMaterial3D
-	material.albedo_color = Color(0.05, 0.07, 0.1)
-	backdrop.material_override = material
+	backdrop.material_override = _BACKDROP_MATERIAL
 	add_child(backdrop)
 
-	_status_label = _make_label(Vector3(0.0, panel_size.y * 0.5 - 0.03, 0.001))
+	_status_label = _make_label(Vector3(0.0, panel_size.y * 0.5 - 0.03, 0.002))
 	_status_label.text = "XR Debug Panel"
-	_log_label = _make_label(Vector3(0.0, panel_size.y * 0.5 - 0.07, 0.001))
+	_log_label = _make_label(Vector3(0.0, panel_size.y * 0.5 - 0.07, 0.002))
 	_log_label.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 
 

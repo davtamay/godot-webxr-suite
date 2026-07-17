@@ -109,6 +109,39 @@ static func run_scene_checks(root: Node) -> Array:
 			"fix": "Add Floor (teleportable)" if ResourceLoader.exists(TOOLKIT_FLOOR) else "",
 		})
 
+	# Grab interactables with no collider are silently un-grabbable (nothing
+	# for the ray/direct queries to hit). Row appears only when grabbables
+	# exist. Non-@tool scripts have placeholder instances in the editor:
+	# identify by script class-name chain, read exports via get().
+	var grabbables_missing := PackedStringArray()
+	var grabbables_found := false
+	for node in root.find_children("*", "Node3D", true, false):
+		var script: Script = node.get_script()
+		var is_grab := false
+		while script:
+			if script.get_global_name() == &"XRGrabInteractable":
+				is_grab = true
+				break
+			script = script.get_base_script()
+		if not is_grab:
+			continue
+		grabbables_found = true
+		var target: Node = node
+		var target_path: Variant = node.get("target_path")
+		if target_path is NodePath and not (target_path as NodePath).is_empty():
+			target = node.get_node_or_null(target_path)
+		var has_collider: bool = target != null and (target is CollisionObject3D
+				or not target.find_children("*", "CollisionObject3D", true, false).is_empty())
+		if not has_collider:
+			grabbables_missing.append(node.name)
+	if grabbables_found:
+		checks.append({
+			"id": "scene_grab_colliders", "ok": grabbables_missing.is_empty(),
+			"label": "Grabbables have colliders",
+			"detail": "No CollisionObject3D under: %s - the interactor queries never hit them, so they cannot be hovered or grabbed." % ", ".join(grabbables_missing),
+			"fix": "",
+		})
+
 	return checks
 
 

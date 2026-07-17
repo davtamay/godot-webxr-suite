@@ -15,6 +15,13 @@ const PANEL_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runti
 @export var panel_size := Vector2(1.6, 0.9)
 @export var viewport_pixel_size := Vector2i(1024, 640)
 
+## EXPERIMENTAL A/B (headset-gated optimization): render the SubViewport only
+## while its texture is on screen, skipping renders when the panel mesh is
+## frustum-culled. Zero visual change is expected but 3D-mesh visibility
+## detection is unverified on-device - flip ON during a headset pass to A/B.
+## Default OFF ships today's always-render behavior.
+@export var render_only_when_visible := false
+
 @export_group("Screen Pointer")
 @export var screen_pointer_enabled := true
 @export var consume_screen_pointer_events := true
@@ -37,6 +44,8 @@ func _ready() -> void:
     _panel_mesh = get_node_or_null(panel_mesh_path) as MeshInstance3D
     if _viewport:
         _viewport.size = viewport_pixel_size
+        if render_only_when_visible:
+            _viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
     _apply_viewport_material()
 
     hover_entered.connect(_on_hover_entered)
