@@ -433,12 +433,19 @@ func _load_bind_skeletons() -> bool:
 			normal = -normal
 		# Curl hinge sign is independent of the resting-roll sign (David
 		# calibrated both separately: bone x normal curled fingers BACKWARD
-		# once the roll was fixed - the hinge is normal x bone).
+		# once the roll was fixed - the hinge is normal x bone). The THUMB is
+		# different: it curls ACROSS the palm (opposition), so its hinge tilts
+		# the bone toward the pinky base instead of folding with the fingers.
 		var curl_axes := []
-		for chain in _FINGER_CHAINS:
+		for f in _FINGER_CHAINS.size():
+			var chain: Array = _FINGER_CHAINS[f]
 			var mc: Vector3 = (rel[chain[0]] as Transform3D).origin
 			var proximal: Vector3 = (rel[chain[1]] as Transform3D).origin
-			curl_axes.append(normal.cross((proximal - mc).normalized()).normalized())
+			var bone := (proximal - mc).normalized()
+			if f == 0:
+				curl_axes.append(bone.cross((pinky_origin - mc).normalized()).normalized())
+			else:
+				curl_axes.append(normal.cross(bone).normalized())
 
 		# View alignment measured from the same axes: fingers -> view forward
 		# (-Z), palm -> view down (-Y).
