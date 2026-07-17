@@ -32,8 +32,12 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd
 @export var suppress_interactor_path: NodePath
 @export var suppress_on_linked_hover := true
 @export var suppress_on_linked_select := true
+## Also hide the ray while THIS hand's fingertip is within poke reach of a
+## panel or pokeable (Meta/Unity near-far switch: no far ray up close).
+@export var suppress_on_poke := true
 
 var _ray_state := {"valid": false}
+var _poke_interactor: Node
 var _grab_distance := 0.0
 var _hover_distance := 0.0
 var _pending_distance_delta := 0.0
@@ -177,6 +181,11 @@ func _resolve_suppression_interactor() -> void:
     _suppress_interactor = get_node_or_null(suppress_interactor_path)
 
 func _is_suppressed_by_linked_interactor() -> bool:
+    # Near a pokeable/panel: hide the far ray (near-far switch). Independent of
+    # the linked-direct path, so it works even without a direct interactor.
+    if suppress_on_poke and _is_poking():
+        return true
+
     if suppress_interactor_path.is_empty():
         return false
     if _suppress_interactor == null or not is_instance_valid(_suppress_interactor):
@@ -189,3 +198,9 @@ func _is_suppressed_by_linked_interactor() -> bool:
     if suppress_on_linked_hover and _suppress_interactor.has_method("get_hovered") and _suppress_interactor.get_hovered() != null:
         return true
     return false
+
+func _is_poking() -> bool:
+    if _poke_interactor == null or not is_instance_valid(_poke_interactor):
+        _poke_interactor = get_tree().get_first_node_in_group("xr_poke_interactor")
+    return _poke_interactor != null and _poke_interactor.has_method("is_poking") \
+        and _poke_interactor.is_poking(hand)

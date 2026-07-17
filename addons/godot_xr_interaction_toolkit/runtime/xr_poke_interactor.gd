@@ -73,6 +73,12 @@ func get_poke_point(hand: int) -> Vector3:
 	return _points[hand] if hand >= 0 and hand < 2 else Vector3.INF
 
 
+## True while this hand's fingertip is within reach of a poke target - the far
+## ray suppresses on this so near and far interaction never show at once.
+func is_poking(hand: int) -> bool:
+	return hand >= 0 and hand < 2 and not _active[hand].is_empty()
+
+
 func _physics_process(_delta: float) -> void:
 	if not enabled:
 		_points = [Vector3.INF, Vector3.INF]
