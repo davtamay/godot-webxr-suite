@@ -66,6 +66,13 @@ const _UNADJUST := Basis(Vector3(-1, 0, 0), Vector3(0, 0, -1), Vector3(0, -1, 0)
 ## neutral gray (imported at editor time, so it bakes for WebGPU exports too).
 @export var hand_material: Material
 
+## Swap in your own hand meshes. ANY rigged glb whose bones use the standard
+## WebXR joint names (wrist, index-finger-phalanx-proximal, ...) drives with
+## zero code changes - that name map is the whole contract. Leave empty to use
+## the bundled generic-hand asset. Set both, or just one per hand.
+@export var left_model: PackedScene
+@export var right_model: PackedScene
+
 var _roots: Array = [null, null]
 var _skeletons: Array = [null, null]
 var _bone_joints: Array = [[], []]  # per hand: [[bone_idx, joint], ...]
@@ -77,7 +84,8 @@ func _ready() -> void:
 
 
 func _setup_hand(hand: int) -> void:
-	var scene := load(_MODEL_PATHS[hand]) as PackedScene
+	var override: PackedScene = left_model if hand == 0 else right_model
+	var scene := override if override else load(_MODEL_PATHS[hand]) as PackedScene
 	if scene == null:
 		push_warning("XRHandMeshVisualizer: hand model missing at '%s'." % _MODEL_PATHS[hand])
 		return

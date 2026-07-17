@@ -23,6 +23,12 @@ enum HandStyle { PROCEDURAL, REALISTIC }
 ## tracked joints. Realistic falls back to procedural if unavailable.
 @export var hand_style := HandStyle.PROCEDURAL
 
+## Custom hand meshes for REALISTIC style (drop in your own rigged glb; any
+## mesh using the standard WebXR joint bone names works with no code). Empty =
+## the bundled generic-hand asset. Forwarded to the mesh visualizer.
+@export var left_hand_model: PackedScene
+@export var right_hand_model: PackedScene
+
 ## Show the virtual hand meshes during AR passthrough too. Default ON: without
 ## real-hand depth occlusion, virtual objects draw OVER your passthrough hands,
 ## so hiding the virtual meshes leaves you handless exactly while interacting.
@@ -56,6 +62,9 @@ func _ready() -> void:
 	_hands = load(script_path).new()
 	if "prefer_browser_hand_bridge" in _hands:
 		_hands.prefer_browser_hand_bridge = prefer_browser_hand_bridge
+	if "left_model" in _hands:
+		_hands.left_model = left_hand_model
+		_hands.right_model = right_hand_model
 	# The visualizer manages its own visibility (tracking watchdog), so the AR
 	# hide targets THIS mount - the two never fight.
 	add_child(_hands)
