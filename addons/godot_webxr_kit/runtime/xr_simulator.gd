@@ -10,16 +10,34 @@ extends Node
 ## adapters, locomotion's thumbstick read, poke's controller tip, modality.
 ## The rig's FlatscreenCamera keeps head movement (WASD + drag-look).
 ##
-## Bindings while flat:
+## Bindings while flat (H shows them on screen):
 ##   Right Mouse (hold) . trigger/select on the RIGHT hand (grab, click UI)
 ##   F (hold) ........... grab/activate button on the RIGHT hand
 ##   T (hold, release) .. push right thumbstick forward = teleport aim; release commits
 ##   Z / C .............. snap turn left / right
 ##   Mouse cursor ....... aims the right controller ray
+##   X .................. switch to SIMULATED HANDS (Unity XR Device
+##                        Simulator-style): fake XRHandTracker joints from the
+##                        gesture presets (soft-loaded from godot_xr_hands).
+##                        RMB then morphs a real PINCH (thumb+index together),
+##                        driving the adapter's actual synthetic pinch select -
+##                        authors see exactly how hand grabs behave. F = fist.
 ##
 ## Auto-inert the moment a real XR session starts (and restores everything),
 ## so it is SAFE TO LEAVE IN SHIPPED SCENES - on a headset it does nothing.
 ## Drop anywhere; it finds the rig itself.
+
+enum SimMode { CONTROLLER, HAND }
+
+const _HAND_TRACKER_NAMES := [&"/user/hand_tracker/left", &"/user/hand_tracker/right"]
+const _POSE_PATHS := {
+	"open": "res://addons/godot_xr_hands/runtime/gesture_studio/presets/open_palm.tres",
+	"fist": "res://addons/godot_xr_hands/runtime/gesture_studio/presets/fist.tres",
+}
+const _JOINT_FLAGS: int = XRHandTracker.HAND_JOINT_FLAG_POSITION_VALID \
+		| XRHandTracker.HAND_JOINT_FLAG_POSITION_TRACKED \
+		| XRHandTracker.HAND_JOINT_FLAG_ORIENTATION_VALID \
+		| XRHandTracker.HAND_JOINT_FLAG_ORIENTATION_TRACKED
 
 ## Master switch (runtime): off = never activates.
 @export var enabled := true
@@ -43,7 +61,14 @@ var _grab_down := false
 var _snap_pulse := 0.0
 var _snap_direction := 0.0
 var _help_layer: CanvasLayer
+var _help_body: Label
 var _help_key_down := false
+var _mode := SimMode.CONTROLLER
+var _mode_key_down := false
+var _hand_trackers := {}      # hand -> XRHandTracker WE registered
+var _poses := {}              # "open"/"fist" -> [left PackedVector3Array, right ...]
+var _current_pose: Array = [PackedVector3Array(), PackedVector3Array()]
+var _openxr_was_processing := true
 
 
 func _ready() -> void:
@@ -81,29 +106,32 @@ func _process(delta: float) -> void:
 	if not _active:
 		return
 
-	_update_poses()
-	_update_inputs(delta)
+	if _mode == SimMode.CONTROLLER:
+		_update_poses()
+		_update_inputs(delta)
+	else:
+		_update_hand_poses(delta)
+	_update_common_keys()
 
 
 ## ---- activation ---------------------------------------------------------------
 
 func _activate() -> void:
-	# Never clobber real trackers (native editor Play with Link running).
-	for hand in 2:
-		var tracker_name := &"left_hand" if hand == 0 else &"right_hand"
-		if XRServer.get_tracker(tracker_name) != null:
-			continue
-		var tracker := XRControllerTracker.new()
-		tracker.name = tracker_name
-		XRServer.add_tracker(tracker)
-		_trackers[hand] = tracker
+	_add_controller_trackers()
 	if _trackers.is_empty():
 		return  # a real platform owns the controllers - stay passive
+	_mode = SimMode.CONTROLLER
+	_load_hand_poses()
 
 	# On the web flat page the interactors point at the WebXR adapter, which
 	# only emits selects inside a browser session - route them to the OpenXR
-	# adapter, which listens to controller button signals (our fake inputs).
+	# adapter, which listens to controller button signals (our fake inputs)
+	# and runs the shared synthetic-pinch detector for simulated hands. The
+	# adapter may have disabled its processing off-platform - re-enable it
+	# for the simulation and restore on deactivate.
 	if _openxr_adapter:
+		_openxr_was_processing = _openxr_adapter.is_processing()
+		_openxr_adapter.set_process(true)
 		for interactor in _find_adapter_interactors(_origin.get_parent()):
 			interactor.set_input_adapter(_openxr_adapter)
 			_repointed.append(interactor)
@@ -121,9 +149,11 @@ func _activate() -> void:
 
 
 func _deactivate() -> void:
-	for hand in _trackers:
-		XRServer.remove_tracker(_trackers[hand])
-	_trackers.clear()
+	_remove_controller_trackers()
+	_remove_hand_trackers()
+	_mode = SimMode.CONTROLLER
+	if _openxr_adapter:
+		_openxr_adapter.set_process(_openxr_was_processing)
 	if _webxr_adapter:
 		for interactor in _repointed:
 			if is_instance_valid(interactor):
@@ -241,12 +271,173 @@ func _update_inputs(delta: float) -> void:
 		_snap_direction = 1.0
 	right.set_input(&"thumbstick", stick)
 
+
+func _update_common_keys() -> void:
 	var help_key := Input.is_physical_key_pressed(KEY_H)
 	if help_key and not _help_key_down:
 		show_help = not show_help
 		if _help_layer:
 			_help_layer.visible = show_help
 	_help_key_down = help_key
+
+	var mode_key := Input.is_physical_key_pressed(KEY_X)
+	if mode_key and not _mode_key_down and _hands_available():
+		_set_mode(SimMode.HAND if _mode == SimMode.CONTROLLER else SimMode.CONTROLLER)
+	_mode_key_down = mode_key
+
+
+## ---- simulated hands -----------------------------------------------------------
+
+func _hands_available() -> bool:
+	return _poses.has("open") and _poses.has("fist")
+
+
+## Gesture presets carry a wrist-local joint SNAPSHOT (PackedVector3Array
+## indexed by XRHandTracker joint, recorded_hand = native chirality; the other
+## hand is a wrist-local x-flip - same convention as the gesture ghost hand).
+## Soft-loaded so the kit never hard-depends on godot_xr_hands.
+const _GHOST_HAND_PATH := "res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_ghost_hand.gd"
+
+func _load_hand_poses() -> void:
+	if not _poses.is_empty():
+		return
+	# Shipped presets are condition-only (no recorded snapshot) - synthesize
+	# the joint positions from their curl conditions exactly like the gesture
+	# ghost hand's preview does (canonical right-hand skeleton, pure math).
+	var synthesizer: Node = null
+	for key in _POSE_PATHS:
+		var path: String = _POSE_PATHS[key]
+		if not ResourceLoader.exists(path):
+			break  # hands addon absent - controller mode only
+		var preset: Resource = load(path)
+		var snapshot: PackedVector3Array = preset.get("joint_snapshot") if preset.get("joint_snapshot") is PackedVector3Array else PackedVector3Array()
+		var native_hand: int = 1
+		if snapshot.size() >= XRHandTracker.HAND_JOINT_MAX:
+			var recorded: Variant = preset.get("recorded_hand")
+			native_hand = recorded if recorded is int and recorded >= 0 else 1
+		else:
+			if synthesizer == null and ResourceLoader.exists(_GHOST_HAND_PATH):
+				synthesizer = (load(_GHOST_HAND_PATH) as GDScript).new()
+			if synthesizer == null:
+				break
+			snapshot = synthesizer._synthesize_snapshot(preset)
+			native_hand = 1  # the synthesized skeleton is canonically right
+		if snapshot.size() < XRHandTracker.HAND_JOINT_MAX:
+			break
+		var per_hand := [null, null]
+		for hand in 2:
+			per_hand[hand] = snapshot if hand == native_hand else _mirrored(snapshot)
+		_poses[key] = per_hand
+	if synthesizer:
+		synthesizer.free()
+	if not _hands_available():
+		_poses.clear()
+
+
+func _mirrored(snapshot: PackedVector3Array) -> PackedVector3Array:
+	var flipped := PackedVector3Array()
+	flipped.resize(snapshot.size())
+	for i in snapshot.size():
+		var p := snapshot[i]
+		flipped[i] = Vector3(-p.x, p.y, p.z)
+	return flipped
+
+
+func _set_mode(mode: SimMode) -> void:
+	if mode == _mode:
+		return
+	if mode == SimMode.HAND and not _hands_available():
+		return  # godot_xr_hands absent - controller simulation only
+	_mode = mode
+	if _mode == SimMode.HAND:
+		_remove_controller_trackers()
+		_add_hand_trackers()
+	else:
+		_remove_hand_trackers()
+		_add_controller_trackers()
+	_update_help_text()
+	print("XRSimulator: %s mode." % ("simulated HANDS (RMB=pinch, F=fist)" if _mode == SimMode.HAND else "simulated CONTROLLERS"))
+
+
+func _add_controller_trackers() -> void:
+	# Never clobber real trackers (native editor Play with Link running).
+	for hand in 2:
+		var tracker_name := &"left_hand" if hand == 0 else &"right_hand"
+		if XRServer.get_tracker(tracker_name) != null:
+			continue
+		var tracker := XRControllerTracker.new()
+		tracker.name = tracker_name
+		XRServer.add_tracker(tracker)
+		_trackers[hand] = tracker
+
+
+func _remove_controller_trackers() -> void:
+	for hand in _trackers:
+		XRServer.remove_tracker(_trackers[hand])
+	_trackers.clear()
+	_select_down = false
+	_grab_down = false
+
+
+func _add_hand_trackers() -> void:
+	for hand in 2:
+		if XRServer.get_tracker(_HAND_TRACKER_NAMES[hand]) != null:
+			continue
+		var tracker := XRHandTracker.new()
+		tracker.name = _HAND_TRACKER_NAMES[hand]
+		tracker.hand = XRPositionalTracker.TRACKER_HAND_LEFT if hand == 0 else XRPositionalTracker.TRACKER_HAND_RIGHT
+		# UNOBSTRUCTED = real hand tracking: keeps the adapter's synthetic
+		# pinch select armed (it ignores controller-emulated joints).
+		tracker.hand_tracking_source = XRHandTracker.HAND_TRACKING_SOURCE_UNOBSTRUCTED
+		XRServer.add_tracker(tracker)
+		_hand_trackers[hand] = tracker
+		_current_pose[hand] = (_poses["open"][hand] as PackedVector3Array).duplicate()
+
+
+func _remove_hand_trackers() -> void:
+	for hand in _hand_trackers:
+		XRServer.remove_tracker(_hand_trackers[hand])
+	_hand_trackers.clear()
+
+
+func _update_hand_poses(delta: float) -> void:
+	if _camera == null:
+		return
+	var to_origin := _origin.global_transform.affine_inverse()
+	var cam := _camera.global_transform
+	var blend := clampf(delta * 12.0, 0.0, 1.0)
+	for hand in 2:
+		var tracker: XRHandTracker = _hand_trackers.get(hand)
+		if tracker == null:
+			continue
+		# Pose target: open palm; F makes the RIGHT hand a fist (gesture tests).
+		var target_key := "fist" if hand == 1 and Input.is_physical_key_pressed(KEY_F) else "open"
+		var target: PackedVector3Array = _poses[target_key][hand]
+		var current: PackedVector3Array = _current_pose[hand]
+		for i in current.size():
+			current[i] = current[i].lerp(target[i], blend)
+		_current_pose[hand] = current  # write back: packed arrays are CoW
+
+		var applied := current
+		if hand == 1 and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+			# Pinch morph: thumb+index tips meet -> the ADAPTER's real
+			# synthetic-pinch detector fires select, exactly like on-device.
+			applied = current.duplicate()
+			var thumb := applied[XRHandTracker.HAND_JOINT_THUMB_TIP]
+			var index := applied[XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP]
+			var mid := (thumb + index) * 0.5
+			applied[XRHandTracker.HAND_JOINT_THUMB_TIP] = mid + (thumb - mid).normalized() * 0.008
+			applied[XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP] = mid + (index - mid).normalized() * 0.008
+
+		# Wrist anchor mirrors the controller placement; the right hand aims
+		# at the mouse cursor so the hand ray is mouse-driven.
+		var anchor_pos := cam * Vector3(0.25 if hand == 1 else -0.25, -0.2, -controller_distance)
+		var anchor_basis := _basis_looking(anchor_pos, _mouse_target(anchor_pos)) if hand == 1 else cam.basis
+		var anchor := to_origin * Transform3D(anchor_basis, anchor_pos)
+		for joint in applied.size():
+			tracker.set_hand_joint_transform(joint, Transform3D(anchor.basis, anchor * applied[joint]))
+			tracker.set_hand_joint_flags(joint, _JOINT_FLAGS)
+		tracker.has_tracking_data = true
 
 
 ## Unity XR Device Simulator-style on-screen bindings help, so nobody has to
@@ -277,20 +468,39 @@ func _build_help_overlay() -> void:
 	title.add_theme_font_size_override("font_size", 13)
 	column.add_child(title)
 
-	var body := Label.new()
-	body.text = "\n".join([
+	_help_body = Label.new()
+	_help_body.add_theme_font_size_override("font_size", 12)
+	_help_body.self_modulate = Color(0.85, 0.9, 1.0)
+	column.add_child(_help_body)
+	_update_help_text()
+
+
+func _update_help_text() -> void:
+	if _help_body == null:
+		return
+	var lines := [
 		"Move  W A S D  +  Q / E up-down",
 		"Look  hold Left Mouse + drag",
-		"Aim ray  move the mouse cursor",
-		"Trigger / select  hold Right Mouse",
-		"Grab button  hold F",
-		"Teleport  hold T, release to go",
-		"Snap turn  Z / C",
-		"H  hide this help",
-	])
-	body.add_theme_font_size_override("font_size", 12)
-	body.self_modulate = Color(0.85, 0.9, 1.0)
-	column.add_child(body)
+	]
+	if _mode == SimMode.CONTROLLER:
+		lines += [
+			"Aim ray  move the mouse cursor",
+			"Trigger / select  hold Right Mouse",
+			"Grab button  hold F",
+			"Teleport  hold T, release to go",
+			"Snap turn  Z / C",
+		]
+		if _hands_available():
+			lines.append("X  switch to simulated HANDS")
+	else:
+		lines += [
+			"Aim hand ray  move the mouse cursor",
+			"Pinch (select/grab)  hold Right Mouse",
+			"Fist pose  hold F",
+			"X  switch to controllers",
+		]
+	lines.append("H  hide this help")
+	_help_body.text = "\n".join(lines)
 
 
 func _exit_tree() -> void:
