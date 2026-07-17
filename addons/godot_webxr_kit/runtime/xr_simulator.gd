@@ -425,8 +425,11 @@ func _load_bind_skeletons() -> bool:
 		var index_origin: Vector3 = (rel[XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL] as Transform3D).origin
 		var pinky_origin: Vector3 = (rel[XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL] as Transform3D).origin
 		var thumb_origin: Vector3 = (rel[XRHandTracker.HAND_JOINT_THUMB_METACARPAL] as Transform3D).origin
+		# Sign: the thumb metacarpal sits toward the BACK-of-hand side of the
+		# finger plane in this asset's bind (David-calibrated: the first guess
+		# put palms up and curls backward - both symptoms of this one sign).
 		var normal := index_origin.cross(pinky_origin).normalized()
-		if normal.dot(thumb_origin - (index_origin + pinky_origin) * 0.5) < 0.0:
+		if normal.dot(thumb_origin - (index_origin + pinky_origin) * 0.5) > 0.0:
 			normal = -normal
 		var curl_axes := []
 		for chain in _FINGER_CHAINS:
