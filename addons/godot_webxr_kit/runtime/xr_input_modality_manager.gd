@@ -126,8 +126,12 @@ func get_resolved_profile(hand: int) -> String:
 func _process(delta: float) -> void:
 	if not enabled:
 		return
+	# Outside an XR session (flat page after exit) trackers can keep serving
+	# stale "live" poses - force NONE so controller models never linger frozen
+	# in the scene.
+	var in_xr := get_viewport().use_xr
 	for hand in 2:
-		var detected := _detect(hand)
+		var detected := _detect(hand) if in_xr else Modality.NONE
 		if detected == _modality[hand]:
 			_pending[hand] = detected
 			_pending_time[hand] = 0.0
@@ -333,7 +337,16 @@ func _candidate_profiles(hand: int) -> PackedStringArray:
 		var parsed = JSON.parse_string(raw)
 		if parsed is Array:
 			for entry in parsed:
-				candidates.append(str(entry))
+				var id := str(entry)
+				# The registry also ships HAND meshes (generic-hand). Models here
+				# represent physical controllers only - during the browser's
+				# controller->hands handover the profiles store can already hold
+				# the hand list while the controller pose is still "live", and
+				# without this filter that race fetches a hand mesh as a
+				# "controller model".
+				if id.contains("hand"):
+					continue
+				candidates.append(id)
 	# OpenXR: the tracker carries the bound interaction profile path.
 	var tracker := XRServer.get_tracker(&"left_hand" if hand == 0 else &"right_hand") as XRPositionalTracker
 	if tracker and not tracker.profile.is_empty():

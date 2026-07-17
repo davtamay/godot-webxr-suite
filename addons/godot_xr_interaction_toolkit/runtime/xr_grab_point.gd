@@ -10,8 +10,10 @@ extends Node3D
 ## object hanging wherever the ray touched it.
 ##
 ## Multiple grab points per object are fine - the nearest matching one wins
-## at grab time. Orientation convention: -Z points the way the object faces
-## OUT of the fist (align it with the aim direction you want when held).
+## at grab time. Orientation convention: the point's axes ARE the hand's axes
+## when held - -Z = forward (aim direction), +Y = up out of the top of the
+## clenched fist. A wand/torch whose long axis is its own +Y needs NO point
+## rotation; rotate the point only to change how the object sits in the fist.
 ##
 ## In the editor the point draws a small palm bar + forward arrow so grips
 ## are authorable visually.
