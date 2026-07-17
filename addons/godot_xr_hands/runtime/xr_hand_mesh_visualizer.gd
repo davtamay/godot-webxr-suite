@@ -52,6 +52,16 @@ const _JOINT_BY_BONE := {
 	"pinky-finger-tip": XRHandTracker.HAND_JOINT_PINKY_FINGER_TIP,
 }
 
+## Godot rebases XRHandTracker joint ORIENTATIONS into its Humanoid-skeleton
+## convention (Y back along the bone, Z out the back of the hand) by right-
+## multiplying every joint basis with a constant adjustment - identically on
+## WebXR (webxr_interface_js.cpp) and OpenXR (openxr_hand_tracking_extension
+## .cpp). This asset is skinned against RAW WebXR joint orientations (what
+## three.js feeds it), so undo the rebase per joint; without this the skin
+## crumples (joint positions right, every segment rotated wrong). The
+## adjustment is a 180-degree rotation, so it is its own inverse.
+const _UNADJUST := Basis(Vector3(-1, 0, 0), Vector3(0, 0, -1), Vector3(0, -1, 0))
+
 ## Optional material for every hand surface. Leave empty to keep the asset's
 ## neutral gray (imported at editor time, so it bakes for WebGPU exports too).
 @export var hand_material: Material
@@ -119,4 +129,4 @@ func _process(_delta: float) -> void:
 		for pair in _bone_joints[hand]:
 			var joint_transform: Transform3D = tracker.get_hand_joint_transform(pair[1])
 			skeleton.set_bone_pose_position(pair[0], joint_transform.origin)
-			skeleton.set_bone_pose_rotation(pair[0], joint_transform.basis.get_rotation_quaternion())
+			skeleton.set_bone_pose_rotation(pair[0], (joint_transform.basis * _UNADJUST).get_rotation_quaternion())
