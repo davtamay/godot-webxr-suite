@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/rig/flatscreen_camera_controller.gd" id="8_flatcam"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_input_adapter.gd" id="9_openxr"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/xr_input_modality_manager.gd" id="10_modality"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_locomotion.gd" id="11_locomotion"]
 
 [node name="WebXRRig" type="Node3D"]
 script = ExtResource("0_rig")
@@ -36,6 +37,13 @@ right_controller_path = NodePath("../XROrigin3D/RightController")
 
 [node name="XRInputModalityManager" type="Node" parent="."]
 script = ExtResource("10_modality")
+left_controller_path = NodePath("../XROrigin3D/LeftController")
+right_controller_path = NodePath("../XROrigin3D/RightController")
+
+[node name="XRLocomotion" type="Node" parent="."]
+script = ExtResource("11_locomotion")
+xr_origin_path = NodePath("../XROrigin3D")
+camera_path = NodePath("../XROrigin3D/XRCamera3D")
 left_controller_path = NodePath("../XROrigin3D/LeftController")
 right_controller_path = NodePath("../XROrigin3D/RightController")
 

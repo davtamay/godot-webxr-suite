@@ -1,0 +1,226 @@
+@tool
+@icon("res://addons/godot_xr_interaction_toolkit/icons/xr_locomotion.svg")
+class_name XRLocomotion
+extends Node
+
+## Drop-in teleport + snap-turn locomotion (Unity XRI's locomotion system as
+## one block). Push a thumbstick FORWARD to aim a teleport arc - release to
+## teleport where the marker lands (upward-facing physics surfaces only).
+## Flick a thumbstick LEFT/RIGHT to snap-turn.
+##
+## Works with controllers on both WebXR and OpenXR (the kit's action map binds
+## "thumbstick"; the browser maps it natively). Bare-hand teleport gestures are
+## a future upgrade - hands keep pinch/grab interaction unaffected.
+##
+## Built into WebXRRig, so every rig/prefab scene can teleport BY DEFAULT -
+## scenes without physics floors simply never produce a valid arc target.
+
+## Fired after a successful teleport (positions are global).
+signal teleported(from: Vector3, to: Vector3)
+## Fired after a snap turn (positive = counter-clockwise).
+signal snap_turned(degrees: float)
+
+const _LINE_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_line_material.tres")
+const _RETICLE_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_material.tres")
+
+const _ENGAGE := 0.65
+const _RELEASE := 0.3
+const _ARC_STEP_SECONDS := 0.05
+const _ARC_MAX_STEPS := 40
+const _VALID_COLOR := Color(0.25, 1.0, 0.5, 0.9)
+const _INVALID_COLOR := Color(1.0, 0.35, 0.3, 0.7)
+
+## Master switch: off = no teleport, no snap turn, visuals hidden.
+@export var enabled := true
+
+@export_group("Rig")
+@export var xr_origin_path: NodePath
+@export var camera_path: NodePath
+@export var left_controller_path: NodePath
+@export var right_controller_path: NodePath
+
+@export_group("Teleport")
+@export var teleport_enabled := true
+## Initial arc speed; higher = flatter, longer reach (~6 m/s reaches ~4 m).
+@export_range(2.0, 15.0, 0.5) var arc_velocity := 7.0
+## Surfaces steeper than this (1 = flat floor) are not teleport targets.
+@export_range(0.0, 1.0, 0.05) var min_ground_normal_y := 0.7
+@export_flags_3d_physics var collision_mask := 1
+
+@export_group("Snap Turn")
+@export var snap_turn_enabled := true
+@export_range(15.0, 90.0, 15.0) var snap_turn_degrees := 45.0
+
+var _origin: Node3D
+var _camera: Node3D
+var _controllers: Array[XRController3D] = [null, null]
+var _teleport_hand := -1
+var _target_valid := false
+var _target_point := Vector3.ZERO
+var _snap_armed := [true, true]
+var _arc_visual: MeshInstance3D
+var _arc_mesh := ImmediateMesh.new()
+var _target_visual: MeshInstance3D
+
+
+func _ready() -> void:
+	if Engine.is_editor_hint():
+		set_physics_process(false)
+		return
+	_origin = get_node_or_null(xr_origin_path) as Node3D
+	_camera = get_node_or_null(camera_path) as Node3D
+	_controllers[0] = get_node_or_null(left_controller_path) as XRController3D
+	_controllers[1] = get_node_or_null(right_controller_path) as XRController3D
+	_build_visuals()
+
+
+func _get_configuration_warnings() -> PackedStringArray:
+	var warnings := PackedStringArray()
+	if xr_origin_path.is_empty() or camera_path.is_empty():
+		warnings.append("Set xr_origin_path and camera_path (the rig wires these for you).")
+	return warnings
+
+
+func _physics_process(_delta: float) -> void:
+	if not enabled or _origin == null or _camera == null:
+		_hide_visuals()
+		return
+	for hand in 2:
+		var controller := _controllers[hand]
+		if controller == null or not controller.get_is_active():
+			if _teleport_hand == hand:
+				_cancel_teleport()
+			continue
+		var stick := controller.get_vector2(&"thumbstick")
+		_update_teleport(hand, controller, stick)
+		_update_snap_turn(hand, stick)
+
+
+## ---- teleport ---------------------------------------------------------------
+
+func _update_teleport(hand: int, controller: XRController3D, stick: Vector2) -> void:
+	if not teleport_enabled:
+		return
+	if _teleport_hand == -1 and stick.y > _ENGAGE and absf(stick.x) < _ENGAGE:
+		_teleport_hand = hand
+	if _teleport_hand != hand:
+		return
+
+	if stick.y > _RELEASE:
+		_project_arc(controller)
+		return
+
+	# Stick released: commit if the marker was on valid ground.
+	var commit := _target_valid
+	var target := _target_point
+	_cancel_teleport()
+	if commit:
+		var from := _camera.global_position
+		# Move the origin so the CAMERA lands on the target horizontally and
+		# the play space floor lands at the target height - the user's offset
+		# inside the play space is preserved.
+		var camera_floor := Vector3(_camera.global_position.x, _origin.global_position.y, _camera.global_position.z)
+		_origin.global_position += target - camera_floor
+		teleported.emit(from, _camera.global_position)
+
+
+func _project_arc(controller: XRController3D) -> void:
+	var space := _origin.get_world_3d().direct_space_state
+	var point := controller.global_transform.origin
+	var velocity := -controller.global_transform.basis.z * arc_velocity
+	var points := PackedVector3Array([point])
+	_target_valid = false
+
+	for step in _ARC_MAX_STEPS:
+		var next := point + velocity * _ARC_STEP_SECONDS
+		velocity += Vector3(0.0, -9.8, 0.0) * _ARC_STEP_SECONDS
+		var query := PhysicsRayQueryParameters3D.create(point, next, collision_mask)
+		var hit := space.intersect_ray(query)
+		if not hit.is_empty():
+			points.append(hit["position"])
+			_target_valid = (hit["normal"] as Vector3).y >= min_ground_normal_y
+			_target_point = hit["position"]
+			break
+		points.append(next)
+		point = next
+
+	_draw_arc(points)
+
+
+func _cancel_teleport() -> void:
+	_teleport_hand = -1
+	_target_valid = false
+	_hide_visuals()
+
+
+## ---- snap turn --------------------------------------------------------------
+
+func _update_snap_turn(hand: int, stick: Vector2) -> void:
+	if not snap_turn_enabled:
+		return
+	if absf(stick.x) < _RELEASE:
+		_snap_armed[hand] = true
+		return
+	# A hand mid-teleport-aim keeps its stick for the arc.
+	if _teleport_hand == hand or not _snap_armed[hand] or absf(stick.x) < _ENGAGE:
+		return
+	_snap_armed[hand] = false
+	var degrees := -snap_turn_degrees * signf(stick.x)
+	# Rotate the origin around the CAMERA so the user pivots in place.
+	var pivot := _camera.global_position
+	var rotation_basis := Basis(Vector3.UP, deg_to_rad(degrees))
+	var xf := _origin.global_transform
+	xf.origin = pivot + rotation_basis * (xf.origin - pivot)
+	xf.basis = rotation_basis * xf.basis
+	_origin.global_transform = xf
+	snap_turned.emit(degrees)
+
+
+## ---- visuals ----------------------------------------------------------------
+
+func _build_visuals() -> void:
+	# top_level children drawn in GLOBAL coordinates (arc points are global).
+	_arc_visual = MeshInstance3D.new()
+	_arc_visual.name = "TeleportArc"
+	_arc_visual.top_level = true
+	_arc_visual.mesh = _arc_mesh
+	_arc_visual.material_override = _LINE_MATERIAL.duplicate()
+	_arc_visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_arc_visual)
+
+	_target_visual = MeshInstance3D.new()
+	_target_visual.name = "TeleportTarget"
+	_target_visual.top_level = true
+	var disc := TorusMesh.new()
+	disc.inner_radius = 0.16
+	disc.outer_radius = 0.22
+	disc.rings = 24
+	disc.ring_segments = 8
+	_target_visual.mesh = disc
+	_target_visual.material_override = _RETICLE_MATERIAL.duplicate()
+	_target_visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(_target_visual)
+	_hide_visuals()
+
+
+func _draw_arc(points: PackedVector3Array) -> void:
+	var color := _VALID_COLOR if _target_valid else _INVALID_COLOR
+	(_arc_visual.material_override as StandardMaterial3D).albedo_color = color
+	_arc_mesh.clear_surfaces()
+	if points.size() >= 2:
+		_arc_mesh.surface_begin(Mesh.PRIMITIVE_LINE_STRIP)
+		for p in points:
+			_arc_mesh.surface_add_vertex(p)
+		_arc_mesh.surface_end()
+	_arc_visual.visible = true
+	_target_visual.visible = _target_valid
+	if _target_valid:
+		(_target_visual.material_override as StandardMaterial3D).albedo_color = color
+		_target_visual.global_position = _target_point + Vector3(0.0, 0.01, 0.0)
+
+
+func _hide_visuals() -> void:
+	if _arc_visual:
+		_arc_visual.visible = false
+	if _target_visual:
+		_target_visual.visible = false

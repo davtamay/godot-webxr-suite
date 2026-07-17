@@ -91,10 +91,10 @@ static func switch_to(mode: String) -> void:
 static func coverage_note(renderer: String) -> String:
     if renderer == "webgl":
         return "Recommended. Full features (depth scan, occlusion, room mesh, hands), smooth XR."
-    var note := "EXPERIMENTAL. Expect lower XR framerate: the browser's WebXR-WebGPU bridge copies every frame to the compositor (WebGL hands frames over directly). Exiting and re-entering a session may need a page reload."
+    var note := "EXPERIMENTAL - Godot's modern Mobile renderer (PBR, compute, MSAA) running on WebGPU in XR, likely a web first. Held back by today's browsers, not the engine: the WebXR-WebGPU bridge copies every frame to the compositor (WebGL hands frames over directly), so XR framerate is lower, and re-entering a session may need a page reload."
     if not webgpu_depth_available():
         note += " No depth sensing (depth scan, occlusion) on this browser yet."
-    return note + " Improves as browsers optimize the bridge - switch to WebGL any time."
+    return note + " It all lights up as browsers optimize - until then, WebGL is the smooth choice."
 
 static func _js():
     if OS.has_feature("web") and Engine.has_singleton("JavaScriptBridge"):
