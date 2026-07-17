@@ -547,14 +547,44 @@ func _rel_from_recorded(hand: int, positions: PackedVector3Array) -> Array:
 	reframed.resize(positions.size())
 	for joint in positions.size():
 		reframed[joint] = convert * (positions[joint] - wrist_pos)
-	# Bind space is right-hand canonical (both hands reframed into it), so no
-	# per-hand normal flip here - pass hand 1.
-	var bases := _derive_joint_bases(reframed, 1)
+	# Orientations must live in the ASSET'S AUTHORED frame (the one the Link
+	# _UNADJUST fix respects and FK already uses) - deriving fresh frames put
+	# recorded poses in a foreign convention (correct shape, twisted skin,
+	# David's Link-crumple tell). Instead RETARGET each authored bind frame by
+	# the rotation that carries its bone direction onto the recorded bone, so
+	# recorded and FK poses share one verified convention.
 	var rel := []
 	rel.resize(positions.size())
 	for joint in positions.size():
-		rel[joint] = Transform3D(bases[joint], reframed[joint])
+		rel[joint] = Transform3D((bind_rel[joint] as Transform3D).basis, reframed[joint])
+	for chain in _FINGER_CHAINS:
+		for i in range(chain.size() - 1):
+			var joint: int = chain[i]
+			var bind_bone: Vector3 = ((bind_rel[chain[i + 1]] as Transform3D).origin - (bind_rel[joint] as Transform3D).origin)
+			var rec_bone: Vector3 = reframed[chain[i + 1]] - reframed[joint]
+			var retarget := _rotation_between(bind_bone, rec_bone)
+			rel[joint] = Transform3D(retarget * (bind_rel[joint] as Transform3D).basis, reframed[joint])
+		# Tip keeps its parent's retarget (no successor bone).
+		var tip: int = chain[chain.size() - 1]
+		var parent: int = chain[chain.size() - 2]
+		rel[tip] = Transform3D((rel[parent] as Transform3D).basis, reframed[tip])
 	return rel
+
+
+func _rotation_between(from_dir: Vector3, to_dir: Vector3) -> Basis:
+	var a := from_dir.normalized()
+	var b := to_dir.normalized()
+	if a.length_squared() < 0.000001 or b.length_squared() < 0.000001:
+		return Basis.IDENTITY
+	var dot := clampf(a.dot(b), -1.0, 1.0)
+	if dot > 0.9999:
+		return Basis.IDENTITY
+	var axis := a.cross(b)
+	if axis.length_squared() < 0.000001:
+		axis = a.cross(Vector3.UP)
+		if axis.length_squared() < 0.000001:
+			axis = a.cross(Vector3.RIGHT)
+	return Basis(axis.normalized(), acos(dot))
 
 
 ## Wrist frame from joint positions, measured identically for recorded and
