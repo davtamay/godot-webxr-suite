@@ -189,6 +189,15 @@ static func build_starter_scene() -> Node3D:
 		simulator.name = "XRSimulator"
 		simulator.set_script(load(SIMULATOR))
 		root.add_child(simulator)
+
+	const DEBUG_PANEL := "res://addons/godot_xr_interaction_toolkit/runtime/xr_debug_panel.gd"
+	if ResourceLoader.exists(DEBUG_PANEL):
+		var debug_panel := Node3D.new()
+		debug_panel.name = "XRDebugPanel"
+		debug_panel.set_script(load(DEBUG_PANEL))
+		debug_panel.position = Vector3(0.9, 1.5, -1.2)
+		debug_panel.rotation_degrees = Vector3(0.0, -25.0, 0.0)
+		root.add_child(debug_panel)
 	return root
 
 

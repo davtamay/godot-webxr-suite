@@ -16,7 +16,8 @@ const CATEGORIES := [
 		{"name": "Session UI", "desc": "Enter VR/AR buttons + status HUD; the WebXR bootstrap adopts it automatically.", "kind": "scene", "path": "res://addons/godot_webxr_kit/xr_session_ui.tscn", "icon": "res://addons/godot_webxr_kit/icons/xr_session_ui.svg"},
 		{"name": "WebXR Bootstrap", "desc": "Browser session lifecycle (VR/AR entry, passthrough, feature requests).", "kind": "node", "base": "Node3D", "path": "res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd", "icon": "res://addons/godot_webxr_kit/icons/webxr_bootstrap.svg"},
 		{"name": "OpenXR Bootstrap", "desc": "Play straight to a headset from the editor (Quest Link / SteamVR). Inert on web.", "kind": "node", "base": "Node", "path": "res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd", "icon": "res://addons/godot_webxr_kit/icons/openxr_bootstrap.svg"},
-		{"name": "XR Simulator (desktop)", "desc": "Test flat, no headset: fakes the controllers. RMB=trigger, F=grab, T hold/release=teleport, Z/C=snap turn, mouse aims the ray. Auto-inert in a real XR session - safe to leave in.", "kind": "node", "base": "Node", "path": "res://addons/godot_webxr_kit/runtime/xr_simulator.gd", "icon": "res://addons/godot_webxr_kit/icons/openxr_input_adapter.svg"},
+		{"name": "XR Simulator (desktop)", "desc": "Test flat, no headset: fakes controllers AND hands (X switches; RMB pinches through the real select path). On-screen hotkey help (H). Auto-inert in a real XR session - safe to leave in.", "kind": "node", "base": "Node", "path": "res://addons/godot_webxr_kit/runtime/xr_simulator.gd", "icon": "res://addons/godot_webxr_kit/icons/openxr_input_adapter.svg"},
+		{"name": "Debug Panel (XR)", "desc": "The panel that stays visible INSIDE a session: FPS, session state, per-hand modality, and a live event log auto-wired to the suite's signals (grabs, teleports, sockets, gestures).", "kind": "node", "base": "Node3D", "path": "res://addons/godot_xr_interaction_toolkit/runtime/xr_debug_panel.gd", "icon": "res://addons/godot_xr_interaction_toolkit/icons/xr_ui_canvas_interactable.svg"},
 	]},
 	{"name": "Hands & Input", "blocks": [
 		{"name": "Hands Mount", "desc": "Procedural tracked hands; virtual meshes hide in AR so you see your real hands. Parent under XROrigin3D.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_webxr_kit/runtime/xr_hands_mount.gd", "icon": "res://addons/godot_webxr_kit/icons/xr_hands_mount.svg"},
@@ -64,6 +65,7 @@ var _add_button: Button
 var _visible_blocks := []  # parallel to list rows; null = category header row
 var _doctor: AcceptDialog
 var _new_scene_dialog: EditorFileDialog
+var _search: LineEdit
 
 
 func _ready() -> void:
@@ -95,6 +97,11 @@ func _ready() -> void:
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 12)
 	add_child(hint)
+	_search = LineEdit.new()
+	_search.placeholder_text = "Search blocks..."
+	_search.clear_button_enabled = true
+	_search.text_changed.connect(func(_text): refresh())
+	add_child(_search)
 	_list = ItemList.new()
 	_list.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_list.item_selected.connect(_on_selected)
@@ -149,11 +156,17 @@ func _on_open_doctor() -> void:
 func refresh() -> void:
 	_list.clear()
 	_visible_blocks.clear()
+	var query := _search.text.strip_edges().to_lower() if _search else ""
 	for category in CATEGORIES:
 		var installed := []
 		for block in category["blocks"]:
-			if ResourceLoader.exists(block["path"]):
-				installed.append(block)
+			if not ResourceLoader.exists(block["path"]):
+				continue
+			if not query.is_empty() \
+					and not str(block["name"]).to_lower().contains(query) \
+					and not str(block["desc"]).to_lower().contains(query):
+				continue
+			installed.append(block)
 		if installed.is_empty():
 			continue  # whole addon not installed - drop the header too
 		var header := _list.add_item(str(category["name"]).to_upper())
