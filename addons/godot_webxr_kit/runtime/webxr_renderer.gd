@@ -90,10 +90,11 @@ static func switch_to(mode: String) -> void:
 ## "webgl" or "webgpu"; the WebGPU note reflects THIS browser's depth support.
 static func coverage_note(renderer: String) -> String:
     if renderer == "webgl":
-        return "Full features (depth scan, occlusion, room mesh, hands)."
-    if webgpu_depth_available():
-        return "Full features."
-    return "Rendering backend. Depth sensing (depth scan, occlusion) is not available on this browser yet - switch to WebGL for it."
+        return "Recommended. Full features (depth scan, occlusion, room mesh, hands), smooth XR."
+    var note := "EXPERIMENTAL. Expect lower XR framerate: the browser's WebXR-WebGPU bridge copies every frame to the compositor (WebGL hands frames over directly). Exiting and re-entering a session may need a page reload."
+    if not webgpu_depth_available():
+        note += " No depth sensing (depth scan, occlusion) on this browser yet."
+    return note + " Improves as browsers optimize the bridge - switch to WebGL any time."
 
 static func _js():
     if OS.has_feature("web") and Engine.has_singleton("JavaScriptBridge"):
