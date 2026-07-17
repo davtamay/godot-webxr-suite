@@ -4,6 +4,7 @@ class_name XRGestureRecognizer
 extends Node
 
 const XRHandFeatureExtractor := preload("res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_hand_feature_extractor.gd")
+const _DebugPanel := preload("res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_debug_panel.gd")
 
 ## Drop-in hand gesture recognition: assign XRHandGesture resources (or use
 ## the presets in runtime/gestures/presets/) and connect to the signals. Both
@@ -36,8 +37,8 @@ var _origin: Node3D
 var _active := [{}, {}]
 var _hold := [{}, {}]
 var _features := [{}, {}]
-var _debug_label: Label3D
-var _debug_accum := 0.0
+var _nearest := [{}, {}]
+var _panels := [null, null]
 
 
 func _ready() -> void:
@@ -56,10 +57,10 @@ func _process(delta: float) -> void:
 		var head: Variant = _camera.global_transform if _camera else null
 		_features[hand] = XRHandFeatureExtractor.extract(tracker, hand, origin_xf, head)
 		_update_hand(hand, delta)
-	if show_debug:
-		_update_debug(delta)
-	elif _debug_label:
-		_debug_label.visible = false
+		if show_debug:
+			_update_debug_panel(hand, tracker, origin_xf)
+		elif _panels[hand]:
+			(_panels[hand] as Node3D).visible = false
 
 
 ## The live feature dictionary for a hand ({} while untracked) - the recorder
@@ -75,12 +76,19 @@ func get_active_gestures(hand: int) -> Array:
 
 func _update_hand(hand: int, delta: float) -> void:
 	var features: Dictionary = _features[hand]
+	var nearest := {}
 	for gesture in gestures:
 		if gesture == null or gesture.gesture_name.is_empty():
 			continue
 		var name := gesture.gesture_name
 		var is_active: bool = _active[hand].has(name)
-		if gesture.matches(features, is_active):
+		var failing := gesture.failing_features(features, is_active)
+		# Track the closest non-matching gesture for the debug HUD's
+		# "this is what blocks it" coloring.
+		if not failing.is_empty() and not features.is_empty():
+			if nearest.is_empty() or failing.size() < (nearest["failing"] as PackedStringArray).size():
+				nearest = {"name": name, "failing": failing, "conditions": gesture.conditions}
+		if failing.is_empty() and not gesture.conditions.is_empty():
 			if is_active:
 				continue
 			var held: float = _hold[hand].get(name, 0.0) + delta
@@ -93,6 +101,7 @@ func _update_hand(hand: int, delta: float) -> void:
 			if is_active:
 				_active[hand].erase(name)
 				gesture_ended.emit(name, hand)
+	_nearest[hand] = nearest
 
 
 func _resolve_scene_refs() -> void:
@@ -109,37 +118,15 @@ func _resolve_scene_refs() -> void:
 
 ## ---- debug HUD ----------------------------------------------------------------
 
-func _update_debug(delta: float) -> void:
-	if _camera == null:
+## Per-hand bar panel above the wrist: five curl bars + pinch dot. Bars are
+## green inside the nearest gesture's band, red when they block it.
+func _update_debug_panel(hand: int, tracker: XRHandTracker, origin_xf: Transform3D) -> void:
+	if _panels[hand] == null:
+		_panels[hand] = _DebugPanel.new()
+		add_child(_panels[hand])
+	var panel: Node3D = _panels[hand]
+	if tracker == null or not tracker.has_tracking_data:
+		panel.visible = false
 		return
-	if _debug_label == null:
-		_debug_label = Label3D.new()
-		_debug_label.top_level = true
-		_debug_label.pixel_size = 0.0006
-		_debug_label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-		_debug_label.no_depth_test = true
-		_debug_label.render_priority = 100
-		_debug_label.font_size = 22
-		_debug_label.outline_size = 6
-		add_child(_debug_label)
-	_debug_label.visible = true
-	_debug_label.global_position = _camera.global_transform * Vector3(0.0, -0.12, -0.6)
-	_debug_accum += delta
-	if _debug_accum < 0.15:
-		return
-	_debug_accum = 0.0
-	var lines := PackedStringArray()
-	for hand in 2:
-		var features: Dictionary = _features[hand]
-		var side := "L" if hand == 0 else "R"
-		if features.is_empty():
-			lines.append("%s: no hand" % side)
-			continue
-		lines.append("%s active: %s" % [side, ", ".join(PackedStringArray(get_active_gestures(hand)))])
-		var curls := PackedStringArray()
-		for finger in ["thumb", "index", "middle", "ring", "pinky"]:
-			curls.append("%s %.2f" % [finger.substr(0, 2), features.get("curl_%s" % finger, -1.0)])
-		lines.append("%s curl: %s" % [side, " ".join(curls)])
-		lines.append("%s pinch i %.2f | palm_up %.2f head %.2f" % [
-			side, features.get("pinch_index", -1.0), features.get("palm_up", 0.0), features.get("palm_toward_head", 0.0)])
-	_debug_label.text = "\n".join(lines)
+	var anchor := origin_xf * tracker.get_hand_joint_transform(XRHandTracker.HAND_JOINT_WRIST)
+	panel.update_panel(anchor, _camera, _features[hand], get_active_gestures(hand), _nearest[hand])

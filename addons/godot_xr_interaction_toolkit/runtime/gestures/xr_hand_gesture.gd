@@ -30,13 +30,23 @@ extends Resource
 
 
 func matches(features: Dictionary, active: bool) -> bool:
+	return failing_features(features, active).is_empty() and not conditions.is_empty()
+
+
+## The condition features currently OUT of band (empty = the gesture matches).
+## Drives recognition AND the debug HUD's "this is what blocks it" coloring.
+func failing_features(features: Dictionary, active: bool) -> PackedStringArray:
+	var failing := PackedStringArray()
 	if conditions.is_empty() or features.is_empty():
-		return false
+		for feature in conditions:
+			failing.append(feature)
+		return failing
 	for feature in conditions:
 		if not features.has(feature):
-			return false
+			failing.append(feature)
+			continue
 		var target_tolerance := conditions[feature]
 		var tolerance := target_tolerance.y + (release_tolerance_bonus if active else 0.0)
 		if absf((features[feature] as float) - target_tolerance.x) > tolerance:
-			return false
-	return true
+			failing.append(feature)
+	return failing
