@@ -236,14 +236,14 @@ func _on_recording_finished(gesture: XRHandGesture, _save_path: String) -> void:
 
 func _on_gesture_started(gesture_name: String, hand: int) -> void:
 	if _selected and gesture_name == _selected.gesture_name:
-		_ghost.set_highlight(true)
+		_ghost.set_hand_highlight(hand, true)
 		_ghost_label.text = "MATCHED: %s (%s hand)" % [gesture_name.replace("_", " ").to_upper(), "left" if hand == 0 else "right"]
 
 
-func _on_gesture_ended(gesture_name: String, _hand: int) -> void:
+func _on_gesture_ended(gesture_name: String, hand: int) -> void:
 	if _selected and gesture_name == _selected.gesture_name:
-		_ghost.set_highlight(false)
-		_ghost_label.text = "TARGET: %s\nmatch it with your hand" % gesture_name.replace("_", " ").to_upper()
+		_ghost.set_hand_highlight(hand, false)
+		_ghost_label.text = "TARGET: %s\nmatch it with your hands" % gesture_name.replace("_", " ").to_upper()
 
 
 func _has_gesture(gesture_name: String) -> bool:

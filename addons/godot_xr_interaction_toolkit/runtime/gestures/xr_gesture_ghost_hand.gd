@@ -35,15 +35,12 @@ const _BOTH_SPACING := 0.16
 			show_gesture(_gesture)
 
 var _rigs: Array = []
-var _material: StandardMaterial3D
 var _gesture: XRHandGesture
 var _live_hand := -1
-var _highlight := false
+var _highlight := [false, false]
 
 
 func _ready() -> void:
-	_material = _LINE_MATERIAL.duplicate() as StandardMaterial3D
-	_material.albedo_color = _GHOST_COLOR
 	_rigs = [_build_skeleton(), _build_skeleton()]
 	visible = false
 
@@ -81,6 +78,9 @@ func show_gesture(gesture: XRHandGesture) -> bool:
 	if source.size() < XRHandTracker.HAND_JOINT_MAX:
 		source = _synthesize_snapshot(gesture)
 		native_hand = 1
+	# Present upright: fingers up, palm toward the viewer - derived from the
+	# snapshot itself, so recordings and synthesized poses agree.
+	source = _oriented_upright(source, native_hand)
 	# The snapshot's native chirality; mirror (wrist-local x-flip) for the
 	# other hand.
 	var shown := [hand_mode == HandMode.LEFT or hand_mode == HandMode.BOTH,
@@ -143,26 +143,42 @@ func start_live(hand: int) -> void:
 	var rig_root := _rigs[0]["root"] as Node3D
 	rig_root.rotation = Vector3.ZERO
 	rig_root.position = Vector3.ZERO
-	_material.albedo_color = _LIVE_COLOR
+	_set_rig_color(0, _LIVE_COLOR)
 
 
 func stop_live() -> void:
 	_live_hand = -1
-	_material.albedo_color = _MATCH_COLOR if _highlight else _GHOST_COLOR
+	for hand in 2:
+		_set_rig_color(hand, _MATCH_COLOR if _highlight[hand] else _GHOST_COLOR)
 	if _gesture:
 		show_gesture(_gesture)
 
 
-## Green tint while the user's hand matches the displayed pose.
-func set_highlight(on: bool) -> void:
-	_highlight = on
+## Green tint PER HAND while that hand matches the displayed pose - either
+## hand indicates independently.
+func set_hand_highlight(hand: int, on: bool) -> void:
+	if hand < 0 or hand > 1:
+		return
+	_highlight[hand] = on
 	if _live_hand < 0:
-		_material.albedo_color = _MATCH_COLOR if on else _GHOST_COLOR
+		_set_rig_color(hand, _MATCH_COLOR if on else _GHOST_COLOR)
+
+
+## Convenience: tint/untint both hands (e.g. clearing on selection change).
+func set_highlight(on: bool) -> void:
+	set_hand_highlight(0, on)
+	set_hand_highlight(1, on)
+
+
+func _set_rig_color(hand: int, color: Color) -> void:
+	((_rigs[hand]["material"]) as StandardMaterial3D).albedo_color = color
 
 
 func _build_skeleton() -> Dictionary:
 	var root := Node3D.new()
 	add_child(root)
+	var material := _LINE_MATERIAL.duplicate() as StandardMaterial3D
+	material.albedo_color = _GHOST_COLOR
 	var joint_mesh := SphereMesh.new()
 	joint_mesh.radius = 0.007
 	joint_mesh.height = 0.014
@@ -170,17 +186,17 @@ func _build_skeleton() -> Dictionary:
 	for joint in XRHandTracker.HAND_JOINT_MAX:
 		var sphere := MeshInstance3D.new()
 		sphere.mesh = joint_mesh
-		sphere.material_override = _material
+		sphere.material_override = material
 		sphere.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(sphere)
 		spheres.append(sphere)
 	var bone_mesh := ImmediateMesh.new()
 	var bones := MeshInstance3D.new()
 	bones.mesh = bone_mesh
-	bones.material_override = _material
+	bones.material_override = material
 	bones.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	root.add_child(bones)
-	return {"root": root, "spheres": spheres, "bone_mesh": bone_mesh}
+	return {"root": root, "spheres": spheres, "bone_mesh": bone_mesh, "material": material}
 
 
 func _apply_positions(rig_index: int, snapshot: PackedVector3Array) -> void:
@@ -203,6 +219,33 @@ func _apply_positions(rig_index: int, snapshot: PackedVector3Array) -> void:
 			bone_mesh.surface_add_vertex((snapshot[chain[i]] - center) * display_scale)
 			bone_mesh.surface_add_vertex((snapshot[chain[i + 1]] - center) * display_scale)
 	bone_mesh.surface_end()
+
+
+## Rotate a snapshot so fingers point UP and the palm faces the viewer
+## (+Z of this node). Frame derived from the data (wrist->middle knuckle +
+## chirality-corrected palm normal), so any source convention presents the
+## same way.
+func _oriented_upright(snapshot: PackedVector3Array, native_hand: int) -> PackedVector3Array:
+	var wrist := snapshot[XRHandTracker.HAND_JOINT_WRIST]
+	var fingers_dir := (snapshot[XRHandTracker.HAND_JOINT_MIDDLE_FINGER_PHALANX_PROXIMAL] - wrist).normalized()
+	var to_index := snapshot[XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL] - snapshot[XRHandTracker.HAND_JOINT_PALM]
+	var to_ring := snapshot[XRHandTracker.HAND_JOINT_RING_FINGER_PHALANX_PROXIMAL] - snapshot[XRHandTracker.HAND_JOINT_PALM]
+	var palm_normal := to_index.cross(to_ring)
+	if native_hand == 1:
+		palm_normal = -palm_normal
+	if fingers_dir.length_squared() < 0.000001 or palm_normal.length_squared() < 0.000001:
+		return snapshot
+	palm_normal = palm_normal.normalized()
+	# Source frame: y = fingers, z = palm normal (orthogonalized), x = y cross z.
+	var source_z := (palm_normal - fingers_dir * palm_normal.dot(fingers_dir)).normalized()
+	var source_basis := Basis(fingers_dir.cross(source_z), fingers_dir, source_z).orthonormalized()
+	# Map that frame to identity (fingers +Y, palm +Z toward the viewer).
+	var correction := source_basis.inverse()
+	var rotated := PackedVector3Array()
+	rotated.resize(snapshot.size())
+	for i in snapshot.size():
+		rotated[i] = correction * snapshot[i]
+	return rotated
 
 
 func _mirrored(snapshot: PackedVector3Array) -> PackedVector3Array:
