@@ -21,7 +21,7 @@ const _MODEL_PATHS := [
 	"res://addons/godot_xr_hands/models/generic_hand/left.glb",
 	"res://addons/godot_xr_hands/models/generic_hand/right.glb",
 ]
-const _TRACKER_NAMES := ["/user/hand_tracker/left", "/user/hand_tracker/right"]
+const _TRACKER_NAMES := [&"/user/hand_tracker/left", &"/user/hand_tracker/right"]
 
 ## Asset bone names (WebXR standard joint names) -> XRHandTracker joints.
 const _JOINT_BY_BONE := {

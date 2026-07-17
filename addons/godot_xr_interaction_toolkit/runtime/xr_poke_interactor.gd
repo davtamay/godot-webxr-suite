@@ -69,9 +69,11 @@ func _physics_process(_delta: float) -> void:
 	_feed_panels()
 
 
+const _HAND_TRACKER_NAMES := [&"/user/hand_tracker/left", &"/user/hand_tracker/right"]
+
 func _resolve_point(hand: int) -> Vector3:
 	# Bare hand: the index fingertip.
-	var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if hand == 0 else "right")) as XRHandTracker
+	var tracker := XRServer.get_tracker(_HAND_TRACKER_NAMES[hand]) as XRHandTracker
 	if tracker and tracker.has_tracking_data and _origin:
 		var tip := XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP
 		if XRHandGestureProvider.joint_position_valid(tracker, tip):

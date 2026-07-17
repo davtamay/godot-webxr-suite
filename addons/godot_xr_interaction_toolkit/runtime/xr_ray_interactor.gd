@@ -76,7 +76,10 @@ func _update_ray(delta := 0.0) -> void:
     var origin: Vector3 = pose["origin"]
     var direction: Vector3 = (pose["direction"] as Vector3).normalized()
     var pose_basis: Basis = pose.get("basis", Basis.IDENTITY)
-    var hit := _intersect(origin, direction)
+    # While far-grabbing, the selected branch below overrides every raycast
+    # output (end/hit/hovered) and _hover_distance is only read at select
+    # START - the query result is provably discarded, so skip it.
+    var hit := {} if _selected != null else _intersect(origin, direction)
     var hit_anything := not hit.is_empty()
     var end := origin + direction * max_distance
     if hit_anything:

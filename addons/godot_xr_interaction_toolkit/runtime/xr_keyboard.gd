@@ -42,11 +42,16 @@ func close() -> void:
 
 ## Visibility AND collision together: a hidden keyboard must not keep its
 ## collider parked in front of other panels, silently eating their rays.
+## The SubViewport also stops rendering while closed - it was a full 840x480
+## off-screen render every frame for an idle feature.
 func _set_active(on: bool) -> void:
 	visible = on
 	var shape := get_node_or_null("InteractableBody/CollisionShape3D") as CollisionShape3D
 	if shape:
 		shape.disabled = not on
+	var viewport := get_node_or_null("Viewport") as SubViewport
+	if viewport:
+		viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if on else SubViewport.UPDATE_DISABLED
 
 
 func _build_keys() -> void:

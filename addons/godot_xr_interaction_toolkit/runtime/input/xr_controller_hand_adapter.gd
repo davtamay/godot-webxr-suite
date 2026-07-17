@@ -186,7 +186,8 @@ func _hand_grip_pose(hand_id: int) -> Dictionary:
 
 func _stabilized_hand_pose(hand_id: int, raw_pose: Dictionary) -> Dictionary:
 	if not stabilize_hand_select:
-		_remember_free_hand_pose(hand_id, raw_pose)
+		# The remembered pose/anchor are only ever read when stabilization is
+		# on - skip the per-frame dict duplicate + extra tracker resolve.
 		return raw_pose
 
 	if not _select_down.get(hand_id, false):

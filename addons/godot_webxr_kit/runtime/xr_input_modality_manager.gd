@@ -150,9 +150,10 @@ func _process(delta: float) -> void:
 		modality_changed.emit(hand, detected)
 
 
+const _HAND_TRACKER_NAMES := [&"/user/hand_tracker/left", &"/user/hand_tracker/right"]
+
 func _detect(hand: int) -> Modality:
-	var side := "left" if hand == 0 else "right"
-	var hand_tracker := XRServer.get_tracker("/user/hand_tracker/%s" % side) as XRHandTracker
+	var hand_tracker := XRServer.get_tracker(_HAND_TRACKER_NAMES[hand]) as XRHandTracker
 	var hand_live := hand_tracker != null and hand_tracker.has_tracking_data
 	# Controller-driven "hands" (emulated joints from a held controller) count
 	# as CONTROLLER modality, matching Unity's rule.

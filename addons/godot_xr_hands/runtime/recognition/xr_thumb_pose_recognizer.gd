@@ -37,8 +37,9 @@ func _ready() -> void:
 func process_features(p_hand: int, features: XRHandFeatures) -> void:
     if hand >= 0 and p_hand != hand:
         return
-    var state: Dictionary = _hands.get(p_hand, _new_state())
-    _hands[p_hand] = state
+    if not _hands.has(p_hand):
+        _hands[p_hand] = _new_state()  # lazy: .get()'s default arg allocated every call
+    var state: Dictionary = _hands[p_hand]
     if features == null or not features.valid or features.tracking_quality < minimum_tracking_quality:
         _end_active_pose(state, p_hand)
         _reset_state(state)

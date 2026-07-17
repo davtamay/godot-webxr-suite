@@ -24,10 +24,32 @@ const JOINTS_TO_SCORE := [
     XRHandTracker.HAND_JOINT_PINKY_FINGER_TIP,
 ]
 
+# Frame-stamped cache: every consumer (adapter aim/grip/pinch, visualizers,
+# gestures) resolves the same two trackers - without this the full
+# get_trackers scan + string scoring ran 8-12x per frame. Within one frame
+# the XR tracker set is constant (XRServer updates pre-render), so caching
+# per frame is behavior-identical; a mid-frame hot-plug is picked up next
+# frame by the same scoring.
+static var _cache := {}
+static var _cache_frame := -1
+
+
 static func get_tracker(hand_id: int) -> XRHandTracker:
     if not _valid_hand(hand_id):
         return null
 
+    var frame := Engine.get_process_frames()
+    if _cache_frame != frame:
+        _cache_frame = frame
+        _cache.clear()
+    if _cache.has(hand_id):
+        return _cache[hand_id]
+    var tracker := _resolve_tracker(hand_id)
+    _cache[hand_id] = tracker
+    return tracker
+
+
+static func _resolve_tracker(hand_id: int) -> XRHandTracker:
     var expected_hand := _expected_tracker_hand(hand_id)
     var side_text := _side_text(hand_id)
     var best_tracker := XRServer.get_tracker(TRACKER_PATHS[hand_id]) as XRHandTracker

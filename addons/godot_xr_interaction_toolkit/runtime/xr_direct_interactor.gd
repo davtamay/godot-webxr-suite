@@ -37,7 +37,10 @@ func _update_direct() -> void:
     var basis: Basis = pose.get("basis", Basis.IDENTITY)
     _attach_pose = Transform3D(basis, origin)
 
-    var hovered = _closest_interactable(origin)
+    # While holding a selection the overlap query's result was discarded
+    # (hover only updates when unselected) - skip it; the held object IS the
+    # hovered one. Mirrors the guard the socket interactor already has.
+    var hovered = _selected if _selected != null else _closest_interactable(origin)
     if _selected == null:
         _set_hovered(hovered)
 
