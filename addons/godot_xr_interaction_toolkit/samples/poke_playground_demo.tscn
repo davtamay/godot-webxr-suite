@@ -1,0 +1,119 @@
+[gd_scene load_steps=11 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/poke_playground_demo.gd" id="2_demo"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_button.gd" id="3_button"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/xr_ui_panel.tscn" id="4_panel"]
+[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="5_fontbake"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.09, 0.11, 0.14, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.7, 0.75, 0.82, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="PlaneMesh" id="FloorMesh"]
+size = Vector2(8, 8)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.24, 0.3, 1)
+roughness = 0.9
+
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(8, 0.08, 8)
+
+[sub_resource type="BoxMesh" id="StandMesh"]
+size = Vector3(0.6, 0.06, 0.25)
+
+[sub_resource type="SphereMesh" id="OrbMesh"]
+radius = 0.1
+height = 0.2
+
+[node name="PokePlaygroundDemo" type="Node3D"]
+script = ExtResource("2_demo")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+mesh = SubResource("FloorMesh")
+surface_material_override/0 = SubResource("FloorMat")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("FloorShape")
+
+[node name="Stand" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.94, -0.34, 0, 0.34, 0.94, 0, 1.0, -0.55)
+
+[node name="StandMesh" type="MeshInstance3D" parent="Stand"]
+mesh = SubResource("StandMesh")
+surface_material_override/0 = SubResource("FloorMat")
+
+[node name="CounterButton" type="Node3D" parent="Stand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 0.03, 0)
+script = ExtResource("3_button")
+
+[node name="LightButton" type="Node3D" parent="Stand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.03, 0)
+script = ExtResource("3_button")
+cap_color = Color(1, 0.85, 0.3, 1)
+
+[node name="ColorButton" type="Node3D" parent="Stand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.18, 0.03, 0)
+script = ExtResource("3_button")
+cap_color = Color(1, 0.45, 0.75, 1)
+
+[node name="CounterLabel" type="Label3D" parent="Stand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 0.13, 0)
+pixel_size = 0.0012
+billboard = 1
+text = "POKES: 0"
+font_size = 30
+outline_size = 8
+
+[node name="StandInfo" type="Label3D" parent="Stand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.09, 0.16, 0)
+pixel_size = 0.001
+billboard = 1
+text = "hold = light      tap = color"
+font_size = 22
+outline_size = 8
+
+[node name="TouchPanel" parent="." instance=ExtResource("4_panel")]
+transform = Transform3D(0.55, 0, 0, 0, 0.55, 0, 0, 0, 0.55, 0, 1.55, -0.72)
+viewport_pixel_size = Vector2i(900, 560)
+
+[node name="Orb" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.75, 1.6, -1.2)
+mesh = SubResource("OrbMesh")
+
+[node name="OrbLight" type="OmniLight3D" parent="Orb"]
+visible = false
+light_color = Color(0.3, 0.8, 1, 1)
+light_energy = 2.5
+omni_range = 3.0
+
+[node name="InfoLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.1, -1.8)
+pixel_size = 0.0013
+billboard = 1
+text = "POKE - touch things directly with your fingertip (or controller tip)
+3D buttons on the stand - press them like real buttons
+The panel's buttons AND slider work by touch - rays still work too"
+font_size = 26
+outline_size = 8
+width = 1500.0
+autowrap_mode = 2
+
+[node name="FontBakeAnchor" type="Label3D" parent="."]
+script = ExtResource("5_fontbake")
+
+[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
