@@ -56,6 +56,7 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 | **Poke Button (3D)** | A physical push-button that visibly depresses and fires with hysteresis. |
 | **Floor (teleportable)** | Ground in one drop: visible floor + teleport collision; in AR passthrough the solid floor hides and a translucent grid marks the teleportable area. |
 | **Grabbable** | Ready grabbable: swap the mesh, collision auto-fits, highlight included. |
+| **Grab Point** | Authored grip: parent INSIDE a grabbable where the hand should hold it — grabbing anywhere snaps the object into the palm, position *and* orientation (Unity attach transforms / Meta grab poses). Per-hand filter + priority; multiple points, nearest wins. |
 | **Highlight / Socket Affordance** | Self-wiring child components: parent INSIDE the object, they find their interactable and mesh. |
 | **Socket Interactor** | Snap-zone that grabs and holds interactables. |
 | **UI Panel (3D)** | In-world panel: ordinary Godot Controls, usable by ray *and* by touch. |

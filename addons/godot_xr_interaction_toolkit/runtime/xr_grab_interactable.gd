@@ -53,6 +53,8 @@ enum MovementType { INSTANT, KINEMATIC_SMOOTH, VELOCITY_TRACKED }
 @export_range(0.01, 10.0, 0.01, "or_greater") var two_hand_max_scale_multiplier := 4.0
 
 var _grab_offset := Transform3D.IDENTITY
+var _grab_points: Array = []
+var _point_grab := false
 var _grabbing: Node
 var _grabbers: Array[Node] = []
 var _two_hand_active := false
@@ -102,6 +104,7 @@ func _notify_select_exited(interactor) -> void:
         _grabbing = null
         _two_hand_active = false
         _has_throw_sample = false
+        _point_grab = false
         return
 
     _grabbing = _grabbers[0]
@@ -131,21 +134,62 @@ func _physics_process(delta: float) -> void:
 
     var attach_pose := _attach_pose_for(_grabbing)
     var desired: Transform3D = attach_pose * _grab_offset
-    _apply_movement(target, desired, delta, track_rotation, track_position)
-    if not track_rotation:
+    var follow_rotation := track_rotation or _point_grab
+    _apply_movement(target, desired, delta, follow_rotation, track_position or _point_grab)
+    if not follow_rotation:
         attach_pose.basis = _last_throw_pose.basis
     _sample_throw_velocity(attach_pose, delta)
 
 func _compute_grab_offset(interactor) -> Transform3D:
     var target := get_target()
+    _point_grab = false
     if target == null:
         return Transform3D.IDENTITY
+    var point := _best_grab_point(interactor)
+    if point != null:
+        # Point grabs are authored grips: the object snaps so the point lands
+        # in the hand, position AND rotation, regardless of the free-grab
+        # track_* defaults.
+        _point_grab = true
+        return point.global_transform.affine_inverse() * target.global_transform
     if snap_to_attach:
         var attach_node := get_node_or_null(attach_transform_path) as Node3D
         if attach_node:
             return attach_node.global_transform.affine_inverse() * target.global_transform
         return Transform3D.IDENTITY
     return interactor.get_attach_pose().affine_inverse() * target.global_transform
+
+## Grab points self-register from _enter_tree (see XRGrabPoint).
+func register_grab_point(point: Node3D) -> void:
+    if not _grab_points.has(point):
+        _grab_points.append(point)
+
+func unregister_grab_point(point: Node3D) -> void:
+    _grab_points.erase(point)
+
+func _best_grab_point(interactor) -> Node3D:
+    if _grab_points.is_empty():
+        return null
+    var interactor_hand := -1
+    if interactor != null and "hand" in interactor:
+        interactor_hand = interactor.hand
+    var attach_origin := _attach_pose_for(interactor).origin
+    var best: Node3D = null
+    var best_priority := -2147483648
+    var best_distance := INF
+    for point_entry in _grab_points:
+        var point := point_entry as Node3D
+        if point == null or not is_instance_valid(point) or not point.is_inside_tree():
+            continue
+        if point.has_method("matches_hand") and not point.matches_hand(interactor_hand):
+            continue
+        var point_priority := int(point.get("priority")) if point.get("priority") != null else 0
+        var distance := attach_origin.distance_squared_to(point.global_transform.origin)
+        if point_priority > best_priority or (point_priority == best_priority and distance < best_distance):
+            best = point
+            best_priority = point_priority
+            best_distance = distance
+    return best
 
 func _begin_two_hand_grab() -> void:
     var target := get_target()
