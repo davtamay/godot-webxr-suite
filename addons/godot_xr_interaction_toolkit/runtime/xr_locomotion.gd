@@ -17,6 +17,11 @@ extends Node
 
 ## Fired after a successful teleport (positions are global).
 signal teleported(from: Vector3, to: Vector3)
+## Aiming lifecycle (both the thumbstick and the intent-API paths):
+## teleport_cancelled = the aim ended WITHOUT a teleport (teleported covers
+## the success case).
+signal teleport_aim_started(hand: int)
+signal teleport_cancelled(hand: int)
 ## Fired after a snap turn (positive = counter-clockwise).
 signal snap_turned(degrees: float)
 
@@ -64,6 +69,8 @@ var _teleport_hand := -1
 var _intent_aim := false
 var _intent_time := 0.0
 var _target_valid := false
+var _last_aim_hand := -1
+var _committed_teleport := false
 var _target_point := Vector3.ZERO
 var _snap_armed := [true, true]
 var _arc_visual: MeshInstance3D
@@ -123,6 +130,17 @@ func _physics_process(delta: float) -> void:
 		if not _intent_aim:
 			_update_teleport(hand, controller, stick)
 		_update_snap_turn(hand, stick)
+	# Observability latch: both the stick and intent paths set/clear
+	# _teleport_hand, so aim start/cancel signals come from watching the
+	# transition - no flow changes. teleported (in _teleport_to) marks the
+	# commit case so a successful teleport doesn't also read as cancelled.
+	if _teleport_hand != _last_aim_hand:
+		if _teleport_hand >= 0:
+			teleport_aim_started.emit(_teleport_hand)
+		elif not _committed_teleport:
+			teleport_cancelled.emit(_last_aim_hand)
+		_last_aim_hand = _teleport_hand
+	_committed_teleport = false
 
 
 ## ---- intent API (external drivers: microgestures, gestures, UI) --------------
@@ -197,6 +215,7 @@ func _teleport_to(target: Vector3) -> void:
 	# the play space is preserved.
 	var camera_floor := Vector3(_camera.global_position.x, _origin.global_position.y, _camera.global_position.z)
 	_origin.global_position += target - camera_floor
+	_committed_teleport = true
 	teleported.emit(from, _camera.global_position)
 
 

@@ -1,3 +1,4 @@
+@tool
 @icon("res://addons/godot_xr_interaction_toolkit/icons/xr_ui_canvas_interactable.svg")
 class_name XRKeyboard
 extends XRUICanvasInteractable
@@ -21,6 +22,11 @@ var _text_label: Label
 
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		# Editor preview: build the key layout so authors place the keyboard
+		# seeing the real thing (it used to be a blank quad until runtime).
+		_build_keys()
+		return
 	super()
 	_build_keys()
 	_set_active(false)

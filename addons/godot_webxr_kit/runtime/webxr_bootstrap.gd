@@ -6,6 +6,12 @@ extends Node3D
 ## Attach to a Node3D in the demo scene and wire VR/AR Buttons plus optional status Label.
 ## This intentionally uses Godot's WebXRInterface, not custom WebGPU rendering.
 
+## Session lifecycle for game logic - connect instead of polling use_xr.
+## mode is "immersive-vr" or "immersive-ar".
+signal session_started(mode: String)
+signal session_ended
+signal session_failed(message: String)
+
 ## The groups this bootstrap acts on, as constants so consumers never typo the
 ## magic strings (a misspelled group fails SILENTLY - e.g. a HUD outside
 ## GROUP_SESSION_HIDDEN renders into both eyes).
@@ -193,6 +199,7 @@ func _on_session_started() -> void:
     _apply_session_hidden(true)
     get_viewport().use_xr = true
     _set_status("%s session started. Reference space: %s. Enabled features: %s." % [_session_label(_active_session_mode), _webxr.reference_space_type, _webxr.enabled_features])
+    session_started.emit(_active_session_mode)
 
 func _on_session_ended() -> void:
     get_viewport().use_xr = false
@@ -219,6 +226,7 @@ func _on_session_ended() -> void:
     _apply_session_hidden(false)
     _requested_session_mode = ""
     _active_session_mode = ""
+    session_ended.emit()
     if _last_session_failed:
         return
     _set_status("WebXR session ended.")
@@ -233,6 +241,7 @@ func _on_session_failed(message: String) -> void:
     _active_session_mode = ""
     _set_status("WEBXR FAILED: " + message)
     _show_browser_failure("WEBXR FAILED: " + message)
+    session_failed.emit(message)
 
 func _connect_webxr_input_signal(signal_name: StringName, callback: Callable) -> void:
     if not _webxr.has_signal(signal_name):

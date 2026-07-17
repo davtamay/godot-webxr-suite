@@ -9,6 +9,13 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactable.
 
 enum MovementType { INSTANT, KINEMATIC_SMOOTH, VELOCITY_TRACKED }
 
+## Grab-specific lifecycle on top of the base select_entered/select_exited
+## (which fire per interactor): grabbed = the object went free -> held,
+## released = held -> free, thrown = release applied throw velocities.
+signal grabbed(interactor)
+signal released(interactor)
+signal thrown(linear_velocity: Vector3, angular_velocity: Vector3)
+
 @export_group("Target")
 ## Node3D to move. Empty = this node.
 @export var target_path: NodePath
@@ -91,6 +98,7 @@ func _notify_select_entered(interactor) -> void:
         _grab_offset = _compute_grab_offset(interactor)
         _two_hand_active = false
         _reset_throw_sample(_attach_pose_for(interactor))
+        grabbed.emit(interactor)
     elif _grabbers.size() == 2:
         _begin_two_hand_grab()
 
@@ -105,6 +113,7 @@ func _notify_select_exited(interactor) -> void:
         _two_hand_active = false
         _has_throw_sample = false
         _point_grab = false
+        released.emit(interactor)
         return
 
     _grabbing = _grabbers[0]
@@ -324,6 +333,7 @@ func _apply_throw_on_release() -> void:
     body.sleeping = false
     body.linear_velocity = (_throw_linear_velocity * throw_velocity_scale).limit_length(max_throw_speed)
     body.angular_velocity = (_throw_angular_velocity * throw_angular_velocity_scale).limit_length(max_throw_angular_speed)
+    thrown.emit(body.linear_velocity, body.angular_velocity)
 
 func _push_throw_sample(samples: Array[Vector3], velocity: Vector3) -> void:
     samples.append(velocity)

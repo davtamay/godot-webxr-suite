@@ -1,14 +1,24 @@
+@tool
 @icon("res://addons/godot_xr_interaction_toolkit/icons/xr_socket_interactor.svg")
 class_name XRSocketInteractor
 extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd"
 
 ## Socket/snap-zone interactor. It watches a local sphere, hovers the closest
 ## compatible interactable, and can automatically select it so grab objects snap
-## to the socket attach pose.
+## to the socket attach pose. In the editor the snap radius draws as a
+## translucent sphere so zones are placed by eye, not by number.
+
+## Socket lifecycle for game logic (on top of the per-interactor base
+## select_entered/select_exited this aliases).
+signal object_socketed(interactable)
+signal object_released(interactable)
 
 @export_group("Socket")
 @export var socket_active := true
-@export_range(0.01, 5.0, 0.01, "or_greater") var socket_radius := 0.35
+@export_range(0.01, 5.0, 0.01, "or_greater") var socket_radius := 0.35:
+	set(value):
+		socket_radius = value
+		_update_editor_preview()
 @export_range(1, 128, 1, "or_greater") var max_results := 24
 @export_flags_3d_physics var collision_mask := 1
 @export var collide_with_areas := true
@@ -33,6 +43,38 @@ var _socket_state := {"valid": false}
 var _hover_candidate: Node
 var _hover_time := 0.0
 var _reselect_delay_remaining := 0.0
+
+var _editor_preview: MeshInstance3D
+
+
+func _ready() -> void:
+	if Engine.is_editor_hint():
+		set_physics_process(false)
+		_update_editor_preview()
+		return
+	super._ready()
+	select_entered.connect(func(interactable): object_socketed.emit(interactable))
+	select_exited.connect(func(interactable): object_released.emit(interactable))
+
+
+## Editor-only translucent sphere showing the snap radius. Not saved into the
+## scene (no owner), zero runtime cost.
+func _update_editor_preview() -> void:
+	if not Engine.is_editor_hint() or not is_inside_tree():
+		return
+	if _editor_preview == null:
+		var material := StandardMaterial3D.new()
+		material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		material.albedo_color = Color(0.14, 0.82, 0.95, 0.16)
+		_editor_preview = MeshInstance3D.new()
+		_editor_preview.mesh = SphereMesh.new()
+		_editor_preview.material_override = material
+		add_child(_editor_preview)
+	var sphere := _editor_preview.mesh as SphereMesh
+	sphere.radius = socket_radius
+	sphere.height = socket_radius * 2.0
+
 
 func _physics_process(delta: float) -> void:
 	_update_socket(delta)
