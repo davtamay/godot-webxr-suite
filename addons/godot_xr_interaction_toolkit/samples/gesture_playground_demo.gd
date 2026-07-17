@@ -6,11 +6,17 @@ extends Node3D
 
 const _CARD_IDLE := Color(0.75, 0.8, 0.9, 1.0)
 const _CARD_ACTIVE := Color(0.3, 1.0, 0.55, 1.0)
+## Hold THUMBS UP this long to arm the recorder for that hand.
+const _RECORD_ARM_SECONDS := 2.0
 
 @onready var _recognizer: XRGestureRecognizer = $GestureRecognizer
+@onready var _recorder: XRGestureRecorder = $GestureRecorder
+@onready var _record_label: Label3D = $RecordLabel
 
 var _cards := {}
 var _active_hands := {}
+var _arm_time := [0.0, 0.0]
+var _custom_count := 0
 
 
 func _ready() -> void:
@@ -29,6 +35,51 @@ func _ready() -> void:
 			card.modulate = _CARD_IDLE
 	_recognizer.gesture_started.connect(_on_gesture_started)
 	_recognizer.gesture_ended.connect(_on_gesture_ended)
+	_recorder.recording_state_changed.connect(_on_recording_state)
+	_recorder.recording_finished.connect(_on_recording_finished)
+	_record_label.text = "Record your own: hold THUMBS UP for 2s,\nthen hold your NEW pose through the countdown"
+
+
+func _process(delta: float) -> void:
+	# Thumbs-up-hold arms the recorder for that hand (no UI needed in-headset).
+	if _recorder.is_recording():
+		return
+	for hand in 2:
+		if "thumbs_up" in _recognizer.get_active_gestures(hand):
+			_arm_time[hand] += delta
+			if _arm_time[hand] >= _RECORD_ARM_SECONDS:
+				_arm_time = [0.0, 0.0]
+				_custom_count += 1
+				_recorder.start_recording("custom_%d" % _custom_count, hand)
+				return
+		else:
+			_arm_time[hand] = 0.0
+
+
+func _on_recording_state(state: String, seconds_left: float) -> void:
+	match state:
+		"countdown":
+			_record_label.text = "RECORDING in %d...\nget your new pose ready!" % ceili(seconds_left)
+		"capturing":
+			_record_label.text = "HOLD IT... %.1f" % seconds_left
+		"failed":
+			_record_label.text = "Recording failed - hand was not tracked.\nHold THUMBS UP 2s to try again"
+		"done":
+			pass  # recording_finished handles the reveal.
+
+
+func _on_recording_finished(gesture: XRHandGesture, _save_path: String) -> void:
+	if _cards.has(gesture.gesture_name):
+		return
+	# The new gesture joins the card row, immediately performable.
+	var card := ($Cards/fist as Label3D).duplicate() as Label3D
+	card.name = gesture.gesture_name
+	card.text = gesture.gesture_name.replace("_", " ").to_upper()
+	card.modulate = _CARD_IDLE
+	card.position = Vector3(-0.4 + 0.8 * ((_cards.size() - 4) % 3), 1.15, -1.9)
+	$Cards.add_child(card)
+	_cards[gesture.gesture_name] = card
+	_record_label.text = "Saved '%s' - perform it! Its card lights up.\nHold THUMBS UP 2s to record another" % gesture.gesture_name
 
 
 func _on_gesture_started(gesture_name: String, hand: int) -> void:

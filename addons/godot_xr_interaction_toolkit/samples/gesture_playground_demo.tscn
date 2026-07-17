@@ -3,6 +3,7 @@
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/gesture_playground_demo.gd" id="2_demo"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_recognizer.gd" id="3_recognizer"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_recorder.gd" id="9_recorder"]
 [ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="8_fontbake"]
 
 [sub_resource type="Environment" id="Env"]
@@ -45,6 +46,21 @@ shape = SubResource("FloorShape")
 [node name="GestureRecognizer" type="Node" parent="."]
 script = ExtResource("3_recognizer")
 show_debug = true
+
+[node name="GestureRecorder" type="Node" parent="."]
+script = ExtResource("9_recorder")
+recognizer_path = NodePath("../GestureRecognizer")
+
+[node name="RecordLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -1.8)
+pixel_size = 0.0013
+billboard = 1
+modulate = Color(1, 0.85, 0.4, 1)
+text = "Record your own: hold THUMBS UP for 2s"
+font_size = 28
+outline_size = 8
+width = 1300.0
+autowrap_mode = 2
 
 [node name="Cards" type="Node3D" parent="."]
 
