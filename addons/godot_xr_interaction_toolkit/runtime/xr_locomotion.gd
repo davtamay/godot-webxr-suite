@@ -22,6 +22,10 @@ signal snap_turned(degrees: float)
 
 const _LINE_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_line_material.tres")
 const _RETICLE_MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_material.tres")
+const XRHandGestureProvider := preload("res://addons/godot_xr_interaction_toolkit/runtime/input/xr_hand_gesture_provider.gd")
+
+## Group external drivers use to find the locomotion system.
+const GROUP := "xr_locomotion"
 
 const _ENGAGE := 0.65
 const _RELEASE := 0.3
@@ -57,12 +61,22 @@ var _origin: Node3D
 var _camera: Node3D
 var _controllers: Array[XRController3D] = [null, null]
 var _teleport_hand := -1
+var _intent_aim := false
+var _intent_time := 0.0
 var _target_valid := false
 var _target_point := Vector3.ZERO
 var _snap_armed := [true, true]
 var _arc_visual: MeshInstance3D
 var _arc_mesh := ImmediateMesh.new()
 var _target_visual: MeshInstance3D
+
+## External aim that never commits auto-cancels after this long.
+const _INTENT_TIMEOUT := 10.0
+
+
+func _enter_tree() -> void:
+	if not Engine.is_editor_hint():
+		add_to_group(GROUP)
 
 
 func _ready() -> void:
@@ -87,19 +101,71 @@ func _get_configuration_warnings() -> PackedStringArray:
 	return PackedStringArray()  # Paths self-resolve; nothing to warn about.
 
 
-func _physics_process(_delta: float) -> void:
+func _physics_process(delta: float) -> void:
 	if not enabled or _origin == null or _camera == null:
 		_hide_visuals()
 		return
+	# Externally driven aim (microgestures, custom gestures, UI): the SAME
+	# arc + marker, aimed by the hand ray when no controller is in that hand.
+	if _intent_aim and _teleport_hand >= 0:
+		_intent_time += delta
+		if _intent_time > _INTENT_TIMEOUT:
+			cancel_teleport()
+		else:
+			_project_intent_arc(_teleport_hand)
 	for hand in 2:
 		var controller := _controllers[hand]
 		if controller == null or not controller.get_is_active():
-			if _teleport_hand == hand:
+			if _teleport_hand == hand and not _intent_aim:
 				_cancel_teleport()
 			continue
 		var stick := controller.get_vector2(&"thumbstick")
-		_update_teleport(hand, controller, stick)
+		if not _intent_aim:
+			_update_teleport(hand, controller, stick)
 		_update_snap_turn(hand, stick)
+
+
+## ---- intent API (external drivers: microgestures, gestures, UI) --------------
+
+## Start aiming the teleport arc for a hand (0/1). Aims from the controller
+## when one is held, else from the HAND RAY - same visuals as the thumbstick.
+func begin_teleport_aim(hand: int) -> void:
+	if not teleport_enabled or hand < 0 or hand > 1:
+		return
+	_teleport_hand = hand
+	_intent_aim = true
+	_intent_time = 0.0
+
+
+## Teleport to the current marker if valid (ends the aim either way).
+func commit_teleport(hand: int = -1) -> void:
+	if not _intent_aim or (hand >= 0 and hand != _teleport_hand):
+		return
+	var commit := _target_valid
+	var target := _target_point
+	_intent_aim = false
+	_cancel_teleport()
+	if commit:
+		_teleport_to(target)
+
+
+func cancel_teleport(hand: int = -1) -> void:
+	if hand >= 0 and hand != _teleport_hand:
+		return
+	_intent_aim = false
+	_cancel_teleport()
+
+
+func is_aiming(hand: int = -1) -> bool:
+	if _teleport_hand < 0:
+		return false
+	return hand < 0 or hand == _teleport_hand
+
+
+## Snap turn; direction > 0 turns left (counter-clockwise).
+func do_snap_turn(direction: float) -> void:
+	if snap_turn_enabled:
+		_apply_snap_turn(snap_turn_degrees * signf(direction))
 
 
 ## ---- teleport ---------------------------------------------------------------
@@ -121,19 +187,46 @@ func _update_teleport(hand: int, controller: XRController3D, stick: Vector2) -> 
 	var target := _target_point
 	_cancel_teleport()
 	if commit:
-		var from := _camera.global_position
-		# Move the origin so the CAMERA lands on the target horizontally and
-		# the play space floor lands at the target height - the user's offset
-		# inside the play space is preserved.
-		var camera_floor := Vector3(_camera.global_position.x, _origin.global_position.y, _camera.global_position.z)
-		_origin.global_position += target - camera_floor
-		teleported.emit(from, _camera.global_position)
+		_teleport_to(target)
+
+
+func _teleport_to(target: Vector3) -> void:
+	var from := _camera.global_position
+	# Move the origin so the CAMERA lands on the target horizontally and the
+	# play space floor lands at the target height - the user's offset inside
+	# the play space is preserved.
+	var camera_floor := Vector3(_camera.global_position.x, _origin.global_position.y, _camera.global_position.z)
+	_origin.global_position += target - camera_floor
+	teleported.emit(from, _camera.global_position)
 
 
 func _project_arc(controller: XRController3D) -> void:
+	var start := controller.global_transform.origin
+	var direction := -controller.global_transform.basis.z
+	_project_arc_from(start, direction)
+
+
+## Aim from the hand ray (bare hand) or the controller, whichever is live.
+func _project_intent_arc(hand: int) -> void:
+	var controller := _controllers[hand]
+	if controller and controller.get_is_active() and controller.get_has_tracking_data():
+		_project_arc(controller)
+		return
+	var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if hand == 0 else "right")) as XRHandTracker
+	var local_ray := XRHandGestureProvider.get_hand_ray_pose(tracker)
+	if local_ray.is_empty():
+		_hide_visuals()
+		return
+	var origin_xf := _origin.global_transform
+	var start: Vector3 = origin_xf * (local_ray["origin"] as Vector3)
+	var direction := (origin_xf.basis * (local_ray["direction"] as Vector3)).normalized()
+	_project_arc_from(start, direction)
+
+
+func _project_arc_from(start: Vector3, direction: Vector3) -> void:
 	var space := _origin.get_world_3d().direct_space_state
-	var point := controller.global_transform.origin
-	var velocity := -controller.global_transform.basis.z * arc_velocity
+	var point := start
+	var velocity := direction * arc_velocity
 	var points := PackedVector3Array([point])
 	_target_valid = false
 
@@ -155,6 +248,7 @@ func _project_arc(controller: XRController3D) -> void:
 
 func _cancel_teleport() -> void:
 	_teleport_hand = -1
+	_intent_aim = false
 	_target_valid = false
 	_hide_visuals()
 
@@ -171,7 +265,10 @@ func _update_snap_turn(hand: int, stick: Vector2) -> void:
 	if _teleport_hand == hand or not _snap_armed[hand] or absf(stick.x) < _ENGAGE:
 		return
 	_snap_armed[hand] = false
-	var degrees := -snap_turn_degrees * signf(stick.x)
+	_apply_snap_turn(-snap_turn_degrees * signf(stick.x))
+
+
+func _apply_snap_turn(degrees: float) -> void:
 	# Rotate the origin around the CAMERA so the user pivots in place.
 	var pivot := _camera.global_position
 	var rotation_basis := Basis(Vector3.UP, deg_to_rad(degrees))

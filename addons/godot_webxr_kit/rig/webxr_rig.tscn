@@ -13,6 +13,7 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/xr_input_modality_manager.gd" id="10_modality"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_locomotion.gd" id="11_locomotion"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_interactor.gd" id="12_poke"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_microgesture_locomotion_driver.gd" id="13_microloco"]
 
 [node name="WebXRRig" type="Node3D"]
 script = ExtResource("0_rig")
@@ -47,6 +48,9 @@ xr_origin_path = NodePath("../XROrigin3D")
 camera_path = NodePath("../XROrigin3D/XRCamera3D")
 left_controller_path = NodePath("../XROrigin3D/LeftController")
 right_controller_path = NodePath("../XROrigin3D/RightController")
+
+[node name="XRMicrogestureLocomotionDriver" type="Node" parent="."]
+script = ExtResource("13_microloco")
 
 [node name="XRPokeInteractor" type="Node" parent="."]
 script = ExtResource("12_poke")
