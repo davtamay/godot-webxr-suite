@@ -39,6 +39,17 @@ const _JOINT_FLAGS: int = XRHandTracker.HAND_JOINT_FLAG_POSITION_VALID \
 		| XRHandTracker.HAND_JOINT_FLAG_ORIENTATION_VALID \
 		| XRHandTracker.HAND_JOINT_FLAG_ORIENTATION_TRACKED
 
+## The engine rebases hand-joint orientations into its Humanoid convention by
+## right-multiplying this matrix (see xr_hand_mesh_visualizer._UNADJUST, the
+## same self-inverse rotation) - the simulator applies it too, so simulated
+## trackers serve exactly what real platforms serve.
+const _GODOT_HAND_REBASE := Basis(Vector3(-1, 0, 0), Vector3(0, 0, -1), Vector3(0, -1, 0))
+const _HAND_MODEL_PATHS := [
+	"res://addons/godot_xr_hands/models/generic_hand/left.glb",
+	"res://addons/godot_xr_hands/models/generic_hand/right.glb",
+]
+const _FINGER_NAMES := ["thumb", "index", "middle", "ring", "pinky"]
+
 ## Master switch (runtime): off = never activates.
 @export var enabled := true
 ## Show the on-screen hotkey help while simulating (H toggles it live).
@@ -67,7 +78,8 @@ var _help_key_down := false
 var _mode := SimMode.CONTROLLER
 var _mode_key_down := false
 var _hand_trackers := {}      # hand -> XRHandTracker WE registered
-var _poses := {}              # "open"/"fist" -> [left PackedVector3Array, right ...]
+var _poses := {}              # "open"/"fist" -> per-hand Arrays of wrist-local Transform3D
+var _bind := {}               # hand -> {rel, curl_axes, align, rec_convert} from the asset glb
 var _pose_library: Array = [] # [{name, per_hand}] - open + presets + user recordings
 var _active_pose := 0         # library index applied to the RIGHT hand (0 = open)
 var _pose_key_down := -1
@@ -314,7 +326,6 @@ func _hands_available() -> bool:
 ## indexed by XRHandTracker joint, recorded_hand = native chirality; the other
 ## hand is a wrist-local x-flip - same convention as the gesture ghost hand).
 ## Soft-loaded so the kit never hard-depends on godot_xr_hands.
-const _GHOST_HAND_PATH := "res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_ghost_hand.gd"
 const _HAND_MESH_PATH := "res://addons/godot_xr_hands/runtime/xr_hand_mesh_visualizer.gd"
 
 ## Finger chains (XRHandTracker joint ids) for deriving per-joint
@@ -330,50 +341,197 @@ const _FINGER_CHAINS := [
 	[XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL, XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_PROXIMAL, XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_INTERMEDIATE, XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_DISTAL, XRHandTracker.HAND_JOINT_PINKY_FINGER_TIP],
 ]
 
+## Poses are wrist-local Transform3D arrays built by FK-BENDING THE ASSET'S
+## OWN BIND SKELETON (authored joint frames read from the glb's Skin). David's
+## on-device check proved the mesh+driver correct with real tracking; the
+## earlier synthesized skeleton had foreign proportions, so the skin stretched
+## (banana thumb, twisted wrist). With the bind as the base, zero curl renders
+## EXACTLY the authored hand, and curls rotate the authored frames.
 func _load_hand_poses() -> void:
 	if not _poses.is_empty():
 		return
-	# Shipped presets are condition-only (no recorded snapshot) - synthesize
-	# the joint positions from their curl conditions exactly like the gesture
-	# ghost hand's preview does (canonical right-hand skeleton, pure math).
-	var synthesizer: Node = null
+	if not _load_bind_skeletons():
+		return  # hands addon absent - controller mode only
 	for key in _POSE_PATHS:
 		var path: String = _POSE_PATHS[key]
 		if not ResourceLoader.exists(path):
-			break  # hands addon absent - controller mode only
-		var preset: Resource = load(path)
-		var snapshot: PackedVector3Array = preset.get("joint_snapshot") if preset.get("joint_snapshot") is PackedVector3Array else PackedVector3Array()
-		var native_hand: int = 1
-		if snapshot.size() >= XRHandTracker.HAND_JOINT_MAX:
-			var recorded: Variant = preset.get("recorded_hand")
-			native_hand = recorded if recorded is int and recorded >= 0 else 1
-		else:
-			if synthesizer == null and ResourceLoader.exists(_GHOST_HAND_PATH):
-				synthesizer = (load(_GHOST_HAND_PATH) as GDScript).new()
-			if synthesizer == null:
-				break
-			snapshot = synthesizer._synthesize_snapshot(preset)
-			native_hand = 1  # the synthesized skeleton is canonically right
-		if snapshot.size() < XRHandTracker.HAND_JOINT_MAX:
-			break
-		var per_hand := [null, null]
-		for hand in 2:
-			per_hand[hand] = snapshot if hand == native_hand else _mirrored(snapshot)
-		_poses[key] = per_hand
+			_poses.clear()
+			return
+		_poses[key] = _pose_from_preset(load(path))
 	if _hands_available():
-		_build_pose_library(synthesizer)
+		_build_pose_library()
 	else:
 		_poses.clear()
-	if synthesizer:
-		synthesizer.free()
+
+
+func _load_bind_skeletons() -> bool:
+	for hand in 2:
+		var path: String = _HAND_MODEL_PATHS[hand]
+		if not ResourceLoader.exists(path):
+			return false
+		var model := (load(path) as PackedScene).instantiate()
+		var skeletons := model.find_children("*", "Skeleton3D", true, false)
+		var meshes := model.find_children("*", "MeshInstance3D", true, false)
+		if skeletons.is_empty() or meshes.is_empty():
+			model.free()
+			return false
+		var skeleton := skeletons[0] as Skeleton3D
+		var skin: Skin = (meshes[0] as MeshInstance3D).skin
+		var joint_by_bone := _joint_name_map()
+		var wrist_rest := Vector3.ZERO
+		for bone in skeleton.get_bone_count():
+			if skeleton.get_bone_name(bone) == "wrist":
+				wrist_rest = skeleton.get_bone_rest(bone).origin
+		# Skin stores one transform per bind; whether it is the bind or its
+		# inverse differs by importer path - the wrist vote picks the reading
+		# whose origin matches the bone rest (the glb node translation), then
+		# all binds are read with the winning interpretation.
+		var bind_world := {}
+		var wrist_bind := Transform3D.IDENTITY
+		var use_inverse := true
+		for b in skin.get_bind_count():
+			var bone := skin.get_bind_bone(b)
+			if bone < 0:
+				bone = skeleton.find_bone(skin.get_bind_name(b))
+			if skeleton.get_bone_name(bone) == "wrist":
+				var sb := skin.get_bind_pose(b)
+				use_inverse = sb.affine_inverse().origin.distance_to(wrist_rest) <= sb.origin.distance_to(wrist_rest)
+				wrist_bind = sb.affine_inverse() if use_inverse else sb
+		for b in skin.get_bind_count():
+			var bone := skin.get_bind_bone(b)
+			if bone < 0:
+				bone = skeleton.find_bone(skin.get_bind_name(b))
+			var joint: int = joint_by_bone.get(skeleton.get_bone_name(bone), -1)
+			if joint < 0:
+				continue
+			var sb := skin.get_bind_pose(b)
+			bind_world[joint] = sb.affine_inverse() if use_inverse else sb
+		model.free()
+		if bind_world.size() < 25:
+			return false
+
+		var to_wrist := wrist_bind.affine_inverse()
+		var rel := []
+		rel.resize(XRHandTracker.HAND_JOINT_MAX)
+		for joint in XRHandTracker.HAND_JOINT_MAX:
+			rel[joint] = to_wrist * bind_world[joint] if bind_world.has(joint) else Transform3D.IDENTITY
+		var middle_origin: Vector3 = (rel[XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL] as Transform3D).origin
+		rel[XRHandTracker.HAND_JOINT_PALM] = Transform3D(Basis.IDENTITY, middle_origin * 0.5)
+
+		# Hand axes measured FROM the bind (no convention guessing): finger
+		# direction, chirality-corrected palm normal (the thumb metacarpal
+		# sits palm-side of the finger plane), per-finger curl hinge axes.
+		var fingers_dir := middle_origin.normalized()
+		var index_origin: Vector3 = (rel[XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL] as Transform3D).origin
+		var pinky_origin: Vector3 = (rel[XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL] as Transform3D).origin
+		var thumb_origin: Vector3 = (rel[XRHandTracker.HAND_JOINT_THUMB_METACARPAL] as Transform3D).origin
+		var normal := index_origin.cross(pinky_origin).normalized()
+		if normal.dot(thumb_origin - (index_origin + pinky_origin) * 0.5) < 0.0:
+			normal = -normal
+		var curl_axes := []
+		for chain in _FINGER_CHAINS:
+			var mc: Vector3 = (rel[chain[0]] as Transform3D).origin
+			var proximal: Vector3 = (rel[chain[1]] as Transform3D).origin
+			curl_axes.append((proximal - mc).normalized().cross(normal).normalized())
+
+		# View alignment measured from the same axes: fingers -> view forward
+		# (-Z), palm -> view down (-Y).
+		var z_local := (-fingers_dir).normalized()
+		var y_local := (-(normal - z_local * normal.dot(z_local))).normalized()
+		var local_frame := Basis(y_local.cross(z_local), y_local, z_local)
+		var target_frame := Basis(Vector3(-1, 0, 0), Vector3(0, -1, 0), Vector3(0, 0, 1))
+		# Recorded Gesture Studio snapshots use fingers +Y / palm +Z wrist-
+		# local; this maps them into the bind wrist frame.
+		var rec_x := fingers_dir.cross(normal).normalized()
+		_bind[hand] = {
+			"rel": rel,
+			"curl_axes": curl_axes,
+			"align": target_frame * local_frame.transposed(),
+			"rec_convert": Basis(rec_x, fingers_dir, rec_x.cross(fingers_dir)),
+		}
+	return true
+
+
+func _joint_name_map() -> Dictionary:
+	var map := {"wrist": XRHandTracker.HAND_JOINT_WRIST}
+	var segments := {
+		"thumb": ["metacarpal", "phalanx-proximal", "phalanx-distal", "tip"],
+		"index-finger": ["metacarpal", "phalanx-proximal", "phalanx-intermediate", "phalanx-distal", "tip"],
+		"middle-finger": ["metacarpal", "phalanx-proximal", "phalanx-intermediate", "phalanx-distal", "tip"],
+		"ring-finger": ["metacarpal", "phalanx-proximal", "phalanx-intermediate", "phalanx-distal", "tip"],
+		"pinky-finger": ["metacarpal", "phalanx-proximal", "phalanx-intermediate", "phalanx-distal", "tip"],
+	}
+	var chain_index := 0
+	for finger in segments:
+		var chain: Array = _FINGER_CHAINS[chain_index]
+		for i in (segments[finger] as Array).size():
+			map["%s-%s" % [finger, segments[finger][i]]] = chain[i]
+		chain_index += 1
+	return map
+
+
+## Same-axis FK: real knuckle hinges are parallel, so each finger's bends all
+## rotate around its bind hinge axis with accumulating angle - positions AND
+## authored orientations rotate together (the skin stays coherent).
+func _fk_pose(hand: int, curls: Dictionary) -> Array:
+	var bind: Array = _bind[hand]["rel"]
+	var out := bind.duplicate()
+	for f in _FINGER_CHAINS.size():
+		var chain: Array = _FINGER_CHAINS[f]
+		var curl: float = curls.get(_FINGER_NAMES[f], 0.15)
+		var total := curl * (1.7 if f == 0 else 3.6)
+		var per_joint := total / maxf(chain.size() - 2, 1.0)
+		var axis: Vector3 = _bind[hand]["curl_axes"][f]
+		var angle := 0.0
+		for i in range(1, chain.size()):
+			angle += per_joint
+			var rotation := Basis(axis, angle)
+			var previous_bind: Transform3D = bind[chain[i - 1]]
+			var previous_out: Transform3D = out[chain[i - 1]]
+			var bind_step: Vector3 = (bind[chain[i]] as Transform3D).origin - previous_bind.origin
+			out[chain[i]] = Transform3D(rotation * (bind[chain[i]] as Transform3D).basis,
+					previous_out.origin + Basis(axis, angle - per_joint) * bind_step)
+	return out
+
+
+func _pose_from_preset(preset: Resource) -> Array:
+	var per_hand := [null, null]
+	var snapshot: PackedVector3Array = preset.get("joint_snapshot") if preset.get("joint_snapshot") is PackedVector3Array else PackedVector3Array()
+	if snapshot.size() >= XRHandTracker.HAND_JOINT_MAX:
+		var recorded: Variant = preset.get("recorded_hand")
+		var native_hand: int = recorded if recorded is int and recorded >= 0 else 1
+		for hand in 2:
+			var positions := snapshot if hand == native_hand else _mirrored(snapshot)
+			per_hand[hand] = _rel_from_recorded(hand, positions)
+	else:
+		var curls := {}
+		var conditions: Variant = preset.get("conditions")
+		if conditions is Dictionary:
+			for f in _FINGER_NAMES:
+				var key := "curl_%s" % f
+				if (conditions as Dictionary).has(key):
+					curls[f] = ((conditions as Dictionary)[key] as Vector2).x
+		for hand in 2:
+			per_hand[hand] = _fk_pose(hand, curls)
+	return per_hand
+
+
+func _rel_from_recorded(hand: int, positions: PackedVector3Array) -> Array:
+	var convert: Basis = _bind[hand]["rec_convert"]
+	var bases := _derive_joint_bases(positions, hand)
+	var rel := []
+	rel.resize(positions.size())
+	for joint in positions.size():
+		rel[joint] = Transform3D(convert * (bases[joint] as Basis), convert * positions[joint])
+	return rel
 
 
 ## The Unity-style editor gesture bench: number keys apply ANY authored
 ## gesture to the simulated right hand - the shipped presets plus your own
 ## Gesture Studio recordings (user://gestures) - so the scene's REAL
 ## recognizers react while you test flat. Slot 0 = open palm; capped at 9.
-func _build_pose_library(synthesizer: Node) -> void:
-	_pose_library = [{"name": "open palm", "per_hand": _poses["open"]}]
+func _build_pose_library() -> void:
+	_pose_library = [{"name": "open palm", "per_hand": [_fk_pose(0, {}), _fk_pose(1, {})]}]
 	var sources: Array = []
 	var preset_dir := DirAccess.open(_POSE_PATHS["open"].get_base_dir())
 	if preset_dir:
@@ -391,20 +549,10 @@ func _build_pose_library(synthesizer: Node) -> void:
 		var preset: Resource = load(path)
 		if preset == null or preset.get("stages") != null:
 			continue  # sequences (motion gestures) have no static pose
-		var snapshot: PackedVector3Array = preset.get("joint_snapshot") if preset.get("joint_snapshot") is PackedVector3Array else PackedVector3Array()
-		var native_hand := 1
-		if snapshot.size() >= XRHandTracker.HAND_JOINT_MAX:
-			var recorded: Variant = preset.get("recorded_hand")
-			native_hand = recorded if recorded is int and recorded >= 0 else 1
-		elif synthesizer and preset.get("conditions") is Dictionary:
-			snapshot = synthesizer._synthesize_snapshot(preset)
-		if snapshot.size() < XRHandTracker.HAND_JOINT_MAX:
+		if not (preset.get("joint_snapshot") is PackedVector3Array) and not (preset.get("conditions") is Dictionary):
 			continue
-		var per_hand := [null, null]
-		for hand in 2:
-			per_hand[hand] = snapshot if hand == native_hand else _mirrored(snapshot)
 		var pose_name: String = preset.get("gesture_name") if preset.get("gesture_name") else str(path.get_file().get_basename()).replace("_", " ")
-		_pose_library.append({"name": pose_name, "per_hand": per_hand})
+		_pose_library.append({"name": pose_name, "per_hand": _pose_from_preset(preset)})
 
 
 func _mirrored(snapshot: PackedVector3Array) -> PackedVector3Array:
@@ -465,7 +613,7 @@ func _add_hand_trackers() -> void:
 		tracker.hand_tracking_source = XRHandTracker.HAND_TRACKING_SOURCE_UNOBSTRUCTED
 		XRServer.add_tracker(tracker)
 		_hand_trackers[hand] = tracker
-		_current_pose[hand] = (_poses["open"][hand] as PackedVector3Array).duplicate()
+		_current_pose[hand] = (_poses["open"][hand] as Array).duplicate()
 	# The procedural hand visualizer is XR-session-gated (hard-hides flat),
 	# so the simulator shows the REALISTIC hand mesh - the same visual real
 	# scenes use - driven by these fake trackers. Soft-loaded; without the
@@ -497,43 +645,49 @@ func _update_hand_poses(delta: float) -> void:
 			continue
 		# Pose target: the library pose selected by number key (0 = open palm);
 		# F momentarily overrides the RIGHT hand with a fist.
-		var target: PackedVector3Array
+		var target: Array
 		if hand == 1 and Input.is_physical_key_pressed(KEY_F):
 			target = _poses["fist"][hand]
 		elif hand == 1 and _active_pose > 0 and _active_pose < _pose_library.size():
 			target = _pose_library[_active_pose]["per_hand"][hand]
 		else:
 			target = _poses["open"][hand]
-		var current: PackedVector3Array = _current_pose[hand]
+		var current: Array = _current_pose[hand]
 		for i in current.size():
-			current[i] = current[i].lerp(target[i], blend)
-		_current_pose[hand] = current  # write back: packed arrays are CoW
+			var from: Transform3D = current[i]
+			var to: Transform3D = target[i]
+			current[i] = Transform3D(
+					Basis(from.basis.get_rotation_quaternion().slerp(to.basis.get_rotation_quaternion(), blend)),
+					from.origin.lerp(to.origin, blend))
 
-		var applied := current
+		# Pinch morph (positions only): thumb+index tips meet -> the ADAPTER's
+		# real synthetic-pinch detector fires select, exactly like on-device.
+		var pinch_offsets := {}
 		if hand == 1 and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
-			# Pinch morph: thumb+index tips meet -> the ADAPTER's real
-			# synthetic-pinch detector fires select, exactly like on-device.
-			applied = current.duplicate()
-			var thumb := applied[XRHandTracker.HAND_JOINT_THUMB_TIP]
-			var index := applied[XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP]
+			var thumb: Vector3 = (current[XRHandTracker.HAND_JOINT_THUMB_TIP] as Transform3D).origin
+			var index: Vector3 = (current[XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP] as Transform3D).origin
 			var mid := (thumb + index) * 0.5
-			applied[XRHandTracker.HAND_JOINT_THUMB_TIP] = mid + (thumb - mid).normalized() * 0.008
-			applied[XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP] = mid + (index - mid).normalized() * 0.008
+			pinch_offsets[XRHandTracker.HAND_JOINT_THUMB_TIP] = mid + (thumb - mid).normalized() * 0.008 - thumb
+			pinch_offsets[XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP] = mid + (index - mid).normalized() * 0.008 - index
 
 		# Wrist anchor mirrors the controller placement; the right hand aims
 		# at the mouse cursor so the hand ray is mouse-driven. The sub-mm sway
 		# mimics real tracking jitter - without it the hand visualizer's
 		# frozen-hand watchdog (built for Quest's stale-pose bug) classifies
-		# bit-identical simulated joints as frozen and hides the hand.
+		# bit-identical simulated joints as frozen and hides the hand. The
+		# align basis was measured from the bind skeleton: fingers point along
+		# the view forward, palm down.
 		var sway_time := Time.get_ticks_msec() * 0.001
 		var sway := Vector3(sin(sway_time * 1.3 + hand), sin(sway_time * 1.7), sin(sway_time * 2.1)) * 0.0006
 		var anchor_pos := cam * Vector3(0.25 if hand == 1 else -0.25, -0.2, -controller_distance) + sway
-		var anchor_basis := _basis_looking(anchor_pos, _mouse_target(anchor_pos)) if hand == 1 else cam.basis
-		var anchor := to_origin * Transform3D(anchor_basis, anchor_pos)
-		var joint_bases := _derive_joint_bases(applied, hand)
-		for joint in applied.size():
+		var view_basis := _basis_looking(anchor_pos, _mouse_target(anchor_pos)) if hand == 1 else cam.basis
+		var anchor := to_origin * Transform3D(view_basis * (_bind[hand]["align"] as Basis), anchor_pos)
+		for joint in current.size():
+			var world: Transform3D = anchor * (current[joint] as Transform3D)
+			if pinch_offsets.has(joint):
+				world.origin += anchor.basis * (pinch_offsets[joint] as Vector3)
 			tracker.set_hand_joint_transform(joint,
-					Transform3D(anchor.basis * joint_bases[joint], anchor * applied[joint]))
+					Transform3D(world.basis * _GODOT_HAND_REBASE, world.origin))
 			tracker.set_hand_joint_flags(joint, _JOINT_FLAGS)
 		tracker.has_tracking_data = true
 
