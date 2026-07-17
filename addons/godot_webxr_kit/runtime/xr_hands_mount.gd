@@ -14,6 +14,14 @@ extends Node3D
 ## rig-based scene adds one of these instead of hand-wiring the visualizer.
 
 const HAND_VISUALIZER := "res://addons/godot_xr_hands/runtime/hand_visualizer.gd"
+const HAND_MESH_VISUALIZER := "res://addons/godot_xr_hands/runtime/xr_hand_mesh_visualizer.gd"
+
+enum HandStyle { PROCEDURAL, REALISTIC }
+
+## Virtual hand look. PROCEDURAL = capsule joints/bones; REALISTIC = the
+## bundled WebXR Input Profiles rigged hand mesh (MIT) skinned live to the
+## tracked joints. Realistic falls back to procedural if unavailable.
+@export var hand_style := HandStyle.PROCEDURAL
 
 ## Show the virtual hand meshes during AR passthrough too. Default ON: without
 ## real-hand depth occlusion, virtual objects draw OVER your passthrough hands,
@@ -40,10 +48,14 @@ var _hands: Node3D
 
 
 func _ready() -> void:
-	if not ResourceLoader.exists(HAND_VISUALIZER):
+	var script_path := HAND_VISUALIZER
+	if hand_style == HandStyle.REALISTIC and ResourceLoader.exists(HAND_MESH_VISUALIZER):
+		script_path = HAND_MESH_VISUALIZER
+	if not ResourceLoader.exists(script_path):
 		return  # godot_xr_hands not installed; nothing to mount.
-	_hands = load(HAND_VISUALIZER).new()
-	_hands.prefer_browser_hand_bridge = prefer_browser_hand_bridge
+	_hands = load(script_path).new()
+	if "prefer_browser_hand_bridge" in _hands:
+		_hands.prefer_browser_hand_bridge = prefer_browser_hand_bridge
 	# The visualizer manages its own visibility (tracking watchdog), so the AR
 	# hide targets THIS mount - the two never fight.
 	add_child(_hands)
