@@ -182,6 +182,13 @@ static func build_starter_scene() -> Node3D:
 		grabbable.name = "Grabbable"
 		grabbable.position = Vector3(0.0, 0.9, -0.6)
 		root.add_child(grabbable)
+
+	const SIMULATOR := "res://addons/godot_webxr_kit/runtime/xr_simulator.gd"
+	if ResourceLoader.exists(SIMULATOR):
+		var simulator := Node.new()
+		simulator.name = "XRSimulator"
+		simulator.set_script(load(SIMULATOR))
+		root.add_child(simulator)
 	return root
 
 
@@ -235,6 +242,12 @@ static func _fix_web_preset() -> String:
 		config.set_value(section + ".options", "variant/thread_support", false)
 	else:
 		section = preset["section"]
+	# Editor-only addon scripts (dock, doctor, this file) never run in a build -
+	# keep them out of the pck.
+	var exclude := str(config.get_value(section, "exclude_filter", ""))
+	if not exclude.contains("addons/*/editor/*"):
+		exclude = "addons/*/editor/*" if exclude.is_empty() else exclude + ",addons/*/editor/*"
+		config.set_value(section, "exclude_filter", exclude)
 	config.set_value(section + ".options", "webxr/uses_webxr", true)
 	var shell := str(config.get_value(section + ".options", "html/custom_html_shell", ""))
 	# FileAccess, not ResourceLoader - .html is not a Godot resource type.

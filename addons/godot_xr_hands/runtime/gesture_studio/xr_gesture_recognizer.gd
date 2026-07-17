@@ -120,16 +120,8 @@ func _update_hand(hand: int, delta: float) -> void:
 
 ## ---- sequences (motion gestures: swipes, taps) --------------------------------
 
-var _seqdbg := 0.0  # SEQDBG strip after threshold tuning
-
 func _update_sequences(hand: int, delta: float) -> void:
 	var features: Dictionary = _features[hand]
-	if not sequences.is_empty() and hand == 1:  # SEQDBG strip after threshold tuning
-		_seqdbg += delta
-		if _seqdbg >= 1.0:
-			_seqdbg = 0.0
-			if not features.is_empty():
-				print("SEQDBG R contact=%.2f along=%.2f across=%.2f" % [features.get("thumb_index_contact", -1.0), features.get("thumb_along_index", 0.0), features.get("thumb_across_index", 0.0)])
 	for sequence in sequences:
 		if sequence == null or sequence.sequence_name.is_empty() or sequence.stages.is_empty():
 			continue
