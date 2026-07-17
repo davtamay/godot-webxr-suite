@@ -26,9 +26,13 @@ const _CONTROLLER_TIP_FORWARD := 0.02
 ## interactor sphere-queries this each frame so only targets NEAR a finger are
 ## processed - Unity-style broad-phase scaling instead of scanning every panel.
 @export_flags_3d_physics var poke_collision_mask := 1
-## Fingertip query radius (metres): targets within this are considered. Keep it
-## a bit larger than a panel's release depth so panels are found before contact.
-@export var poke_reach := 0.06
+## Near-interaction radius (metres): the fingertip's zone for finding poke
+## targets AND for hiding the far ray (is_poking). Unity's near region is
+## deliberately larger than the press depth, so the ray bows out as you
+## APPROACH, not only at contact - important on angled approaches. Actual
+## press still fires at each target's own press depth, so a wide zone here
+## does not cause early presses.
+@export var poke_reach := 0.12
 
 @export_group("Rig")
 ## All optional: empty paths self-resolve (drop the node anywhere - under the
