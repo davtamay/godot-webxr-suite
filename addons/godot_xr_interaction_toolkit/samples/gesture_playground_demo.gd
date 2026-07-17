@@ -12,6 +12,7 @@ extends Node3D
 @onready var _status_label: Label3D = $StatusLabel
 @onready var _ghost: XRGestureGhostHand = $GhostHand
 @onready var _ghost_label: Label3D = $GhostHand/GhostLabel
+@onready var _keyboard: XRKeyboard = $NameKeyboard
 
 var _selected: XRHandGesture
 var _custom_count := 0
@@ -35,6 +36,8 @@ func _ready() -> void:
 	_recognizer.gesture_ended.connect(_on_gesture_ended)
 	_recorder.recording_state_changed.connect(_on_recording_state)
 	_recorder.recording_finished.connect(_on_recording_finished)
+	_keyboard.text_submitted.connect(_on_name_submitted)
+	_keyboard.cancelled.connect(func() -> void: _status_label.text = "Kept the name '%s'." % (_selected.gesture_name if _selected else ""))
 	_build_library_panel()
 	_status_label.text = "RECORD a pose, or select one below to practice it:\nthe ghost hand shows the target, your wrist bars show what blocks it."
 
@@ -103,10 +106,20 @@ func _build_library_panel() -> void:
 	_authoring_box.add_child(actions_row)
 	var rerecord := Button.new()
 	rerecord.text = "RE-RECORD"
-	rerecord.custom_minimum_size = Vector2(220, 56)
+	rerecord.custom_minimum_size = Vector2(200, 56)
 	rerecord.add_theme_font_size_override("font_size", 24)
 	rerecord.pressed.connect(_on_rerecord_pressed)
 	actions_row.add_child(rerecord)
+	var rename := Button.new()
+	rename.text = "RENAME"
+	rename.custom_minimum_size = Vector2(160, 56)
+	rename.add_theme_font_size_override("font_size", 24)
+	rename.pressed.connect(func() -> void:
+		if _selected and FileAccess.file_exists("user://gestures/%s.tres" % _selected.gesture_name):
+			_open_keyboard(_selected.gesture_name, "Rename pose")
+		else:
+			_status_label.text = "Built-in presets cannot be renamed.")
+	actions_row.add_child(rename)
 	var delete := Button.new()
 	delete.text = "DELETE"
 	delete.custom_minimum_size = Vector2(180, 56)
@@ -126,6 +139,17 @@ func _build_library_panel() -> void:
 		record.add_theme_font_size_override("font_size", 26)
 		record.pressed.connect(_on_record_pressed.bind(entry[1]))
 		record_row.add_child(record)
+
+	# Be EXPLICIT about where recordings live - browser storage is not a file.
+	var storage_note := Label.new()
+	if OS.has_feature("web"):
+		storage_note.text = "Recordings save in THIS browser only (site data) - clearing browser data erases them.\nFor permanent .tres files, record on a native build or via Quest Link in the editor."
+	else:
+		storage_note.text = "Recordings save as .tres files on this device (user://gestures) - copy them into your project to ship as presets."
+	storage_note.add_theme_font_size_override("font_size", 17)
+	storage_note.modulate = Color(1.0, 0.8, 0.5, 0.9)
+	storage_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	column.add_child(storage_note)
 
 	_refresh_library()
 
@@ -231,7 +255,49 @@ func _on_recording_finished(gesture: XRHandGesture, _save_path: String) -> void:
 	_ghost.stop_live()
 	_refresh_library()
 	_on_library_selected(gesture)
-	_status_label.text = "Saved '%s' - now perform it: the ghost turns green on a match.\nIt stays saved for your next session." % gesture.gesture_name
+	var where := "in this browser's site data" if OS.has_feature("web") else "as a .tres file on this device"
+	_status_label.text = "Saved '%s' %s." % [gesture.gesture_name, where]
+	# Fresh recordings go straight to naming (loaded ones do not re-prompt).
+	if _recorder.is_inside_tree() and gesture.gesture_name.begins_with("custom_"):
+		_open_keyboard(gesture.gesture_name, "Name your pose (DONE keeps it)")
+
+
+## The keyboard anchors just below the library panel whenever it opens, so
+## it is always in the user's current line of sight.
+func _open_keyboard(initial: String, prompt: String) -> void:
+	var panel := $GestureLibraryPanel as Node3D
+	var anchor := panel.global_transform
+	anchor.basis = anchor.basis.orthonormalized()
+	_keyboard.global_transform = anchor.translated_local(Vector3(0.0, -0.72, 0.22))
+	_keyboard.open(initial, prompt)
+
+
+func _on_name_submitted(raw_name: String) -> void:
+	if _selected == null:
+		return
+	var new_name := _sanitize_name(raw_name)
+	if new_name.is_empty() or new_name == _selected.gesture_name:
+		return
+	while _has_gesture(new_name):
+		new_name += "_2"
+	var old_name := _selected.gesture_name
+	var old_path := "user://gestures/%s.tres" % old_name
+	_selected.gesture_name = new_name
+	if FileAccess.file_exists(old_path):
+		DirAccess.remove_absolute(old_path)
+		ResourceSaver.save(_selected, "user://gestures/%s.tres" % new_name)
+	_recognizer.focus_gesture_name = new_name
+	_refresh_library()
+	_on_library_selected(_selected)
+	_status_label.text = "Renamed '%s' to '%s'." % [old_name, new_name]
+
+
+func _sanitize_name(raw_name: String) -> String:
+	var cleaned := ""
+	for character in raw_name.to_lower().replace(" ", "_"):
+		if (character >= "a" and character <= "z") or (character >= "0" and character <= "9") or character == "_":
+			cleaned += character
+	return cleaned.substr(0, 24)
 
 
 ## ---- reference validation ------------------------------------------------------

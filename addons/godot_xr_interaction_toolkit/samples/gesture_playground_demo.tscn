@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_recorder.gd" id="9_recorder"]
 [ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/xr_ui_panel.tscn" id="10_panel"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_ghost_hand.gd" id="11_ghost"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/xr_keyboard.tscn" id="12_keyboard"]
 [ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="8_fontbake"]
 
 [sub_resource type="Environment" id="Env"]
@@ -67,6 +68,9 @@ autowrap_mode = 2
 [node name="GestureLibraryPanel" parent="." instance=ExtResource("10_panel")]
 transform = Transform3D(0.7, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.62, -1.6)
 viewport_pixel_size = Vector2i(720, 640)
+
+[node name="NameKeyboard" parent="." instance=ExtResource("12_keyboard")]
+transform = Transform3D(1, 0, 0, 0, 0.966, 0.259, 0, -0.259, 0.966, 0, 1.08, -1.15)
 
 [node name="GhostHand" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.98, -1.55)

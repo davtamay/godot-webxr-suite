@@ -10,6 +10,15 @@ extends Node
 ## gestures automatically. Recordings save as .tres under user://gestures and
 ## reload on the next run.
 ##
+## PERSISTENCE IS PLATFORM-DEPENDENT - be explicit with users:
+## - Web: user:// is the browser's site storage (IndexedDB). Recordings live
+##   in THAT browser on THAT device and are erased when the user clears
+##   browsing data. Good for per-user personalization, not for authoring.
+## - Native / editor (incl. Quest Link): user:// is a real folder on disk -
+##   recordings are ordinary .tres files. THE AUTHORING PIPELINE: record over
+##   Link, copy the files into your project (or point save_directory at a
+##   res:// folder while in the editor) and ship them as presets.
+##
 ## Needs an XRGestureRecognizer in the scene (it supplies the live features -
 ## one extraction pass shared by recognition, debug HUD, and recording).
 
@@ -96,6 +105,7 @@ func start_recording(gesture_name: String, hand: int) -> void:
 	_state = "countdown"
 	_time_left = countdown_seconds
 	set_process(true)
+	print("XRGestureRecorder: recording '%s' (hand %d)" % [gesture_name, _hand])
 	recording_state_changed.emit(_state, _time_left)
 
 
@@ -128,6 +138,7 @@ func _process(delta: float) -> void:
 func _finish() -> void:
 	set_process(false)
 	var sample_count: int = _samples.get("curl_index", PackedFloat32Array()).size()
+	print("XRGestureRecorder: capture ended - %d samples" % sample_count)
 	if sample_count < 10:
 		_state = "failed"
 		recording_state_changed.emit(_state, 0.0)

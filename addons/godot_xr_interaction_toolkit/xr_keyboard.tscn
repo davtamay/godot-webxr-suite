@@ -1,0 +1,37 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_keyboard.gd" id="1_keyboard"]
+
+[sub_resource type="QuadMesh" id="KeyboardQuad"]
+size = Vector2(1.05, 0.6)
+
+[sub_resource type="BoxShape3D" id="KeyboardShape"]
+size = Vector3(1.05, 0.6, 0.06)
+
+[node name="XRKeyboard" type="Node3D"]
+script = ExtResource("1_keyboard")
+viewport_path = NodePath("Viewport")
+panel_mesh_path = NodePath("PanelMesh")
+panel_size = Vector2(1.05, 0.6)
+viewport_pixel_size = Vector2i(840, 480)
+
+[node name="PanelMesh" type="MeshInstance3D" parent="."]
+mesh = SubResource("KeyboardQuad")
+
+[node name="InteractableBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="InteractableBody"]
+shape = SubResource("KeyboardShape")
+
+[node name="Viewport" type="SubViewport" parent="."]
+size = Vector2i(840, 480)
+disable_3d = true
+render_target_update_mode = 4
+
+[node name="Root" type="Control" parent="Viewport"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
