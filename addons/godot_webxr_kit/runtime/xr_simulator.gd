@@ -23,6 +23,8 @@ extends Node
 
 ## Master switch (runtime): off = never activates.
 @export var enabled := true
+## Show the on-screen hotkey help while simulating (H toggles it live).
+@export var show_help := true
 ## How far in front of the camera the simulated controllers sit.
 @export var controller_distance := 0.35
 ## Snap-turn key pulse length (locomotion edge-detects the stick).
@@ -40,6 +42,8 @@ var _select_down := false
 var _grab_down := false
 var _snap_pulse := 0.0
 var _snap_direction := 0.0
+var _help_layer: CanvasLayer
+var _help_key_down := false
 
 
 func _ready() -> void:
@@ -110,7 +114,10 @@ func _activate() -> void:
 		_screen_rays.append(node)
 
 	_active = true
-	print("XRSimulator: flat-testing active (RMB=trigger, F=grab, T=teleport, Z/C=snap turn).")
+	if _help_layer == null:
+		_build_help_overlay()
+	_help_layer.visible = show_help
+	print("XRSimulator: flat-testing active (RMB=trigger, F=grab, T=teleport, Z/C=snap turn, H=help).")
 
 
 func _deactivate() -> void:
@@ -129,6 +136,8 @@ func _deactivate() -> void:
 	_select_down = false
 	_grab_down = false
 	_active = false
+	if _help_layer:
+		_help_layer.visible = false
 
 
 func _find_adapter_interactors(root: Node) -> Array:
@@ -231,6 +240,57 @@ func _update_inputs(delta: float) -> void:
 		_snap_pulse = snap_pulse_seconds
 		_snap_direction = 1.0
 	right.set_input(&"thumbstick", stick)
+
+	var help_key := Input.is_physical_key_pressed(KEY_H)
+	if help_key and not _help_key_down:
+		show_help = not show_help
+		if _help_layer:
+			_help_layer.visible = show_help
+	_help_key_down = help_key
+
+
+## Unity XR Device Simulator-style on-screen bindings help, so nobody has to
+## remember the hotkeys. Built in code (no scene dep), bottom-left corner.
+func _build_help_overlay() -> void:
+	_help_layer = CanvasLayer.new()
+	_help_layer.layer = 90
+	add_child(_help_layer)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	panel.offset_left = 12.0
+	panel.offset_bottom = -12.0
+	panel.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	panel.self_modulate = Color(1.0, 1.0, 1.0, 0.85)
+	_help_layer.add_child(panel)
+
+	var margin := MarginContainer.new()
+	for side in ["left", "top", "right", "bottom"]:
+		margin.add_theme_constant_override("margin_%s" % side, 10)
+	panel.add_child(margin)
+
+	var column := VBoxContainer.new()
+	margin.add_child(column)
+
+	var title := Label.new()
+	title.text = "XR SIMULATOR - flat testing"
+	title.add_theme_font_size_override("font_size", 13)
+	column.add_child(title)
+
+	var body := Label.new()
+	body.text = "\n".join([
+		"Move  W A S D  +  Q / E up-down",
+		"Look  hold Left Mouse + drag",
+		"Aim ray  move the mouse cursor",
+		"Trigger / select  hold Right Mouse",
+		"Grab button  hold F",
+		"Teleport  hold T, release to go",
+		"Snap turn  Z / C",
+		"H  hide this help",
+	])
+	body.add_theme_font_size_override("font_size", 12)
+	body.self_modulate = Color(0.85, 0.9, 1.0)
+	column.add_child(body)
 
 
 func _exit_tree() -> void:
