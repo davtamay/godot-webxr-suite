@@ -49,6 +49,21 @@ var _gesture_name := ""
 var _hand := 0
 var _time_left := 0.0
 var _samples := {}
+var _joint_frames: Array[PackedVector3Array] = []
+
+
+## Wrist-local joint positions this frame - the gesture's visual snapshot
+## (the median frame is kept, so a blink of bad tracking cannot poison it).
+func _capture_joint_frame() -> void:
+	var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if _hand == 0 else "right")) as XRHandTracker
+	if tracker == null or not tracker.has_tracking_data:
+		return
+	var wrist_inverse := tracker.get_hand_joint_transform(XRHandTracker.HAND_JOINT_WRIST).affine_inverse()
+	var frame := PackedVector3Array()
+	frame.resize(XRHandTracker.HAND_JOINT_MAX)
+	for joint in XRHandTracker.HAND_JOINT_MAX:
+		frame[joint] = wrist_inverse * tracker.get_hand_joint_transform(joint).origin
+	_joint_frames.append(frame)
 
 
 func _ready() -> void:
@@ -71,6 +86,7 @@ func start_recording(gesture_name: String, hand: int) -> void:
 	_gesture_name = gesture_name
 	_hand = clampi(hand, 0, 1)
 	_samples = {}
+	_joint_frames = []
 	_state = "countdown"
 	_time_left = countdown_seconds
 	set_process(true)
@@ -88,6 +104,8 @@ func _process(delta: float) -> void:
 			if not _samples.has(feature):
 				_samples[feature] = PackedFloat32Array()
 			(_samples[feature] as PackedFloat32Array).append(features[feature])
+		if not features.is_empty():
+			_capture_joint_frame()
 	if _time_left > 0.0:
 		recording_state_changed.emit(_state, _time_left)
 		return
@@ -131,6 +149,8 @@ func _finish() -> void:
 		var tolerance := maxf(min_tolerance, (high - low) * 0.5 + 0.08)
 		conditions[feature] = Vector2(snappedf(mean, 0.01), snappedf(tolerance, 0.01))
 	gesture.conditions = conditions
+	if not _joint_frames.is_empty():
+		gesture.joint_snapshot = _joint_frames[_joint_frames.size() / 2]
 
 	var save_path := ""
 	if not save_directory.is_empty():
@@ -139,7 +159,15 @@ func _finish() -> void:
 		if ResourceSaver.save(gesture, save_path) != OK:
 			save_path = ""
 	if auto_add_to_recognizer:
-		_recognizer.gestures.append(gesture)
+		# Re-recording a name replaces the old definition.
+		var replaced := false
+		for i in _recognizer.gestures.size():
+			if _recognizer.gestures[i] and _recognizer.gestures[i].gesture_name == _gesture_name:
+				_recognizer.gestures[i] = gesture
+				replaced = true
+				break
+		if not replaced:
+			_recognizer.gestures.append(gesture)
 
 	_state = "done"
 	recording_state_changed.emit(_state, 0.0)

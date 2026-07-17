@@ -24,6 +24,11 @@ extends Resource
 ## The pose must hold this long before gesture_started fires (debounce).
 @export_range(0.0, 1.0, 0.01) var min_hold_seconds := 0.08
 
+## Optional wrist-local joint positions captured at record time (26 joints,
+## XRHandTracker order). Recognition never reads this - it is the gesture's
+## REPRESENTATION, letting a ghost hand display the pose to the user.
+@export var joint_snapshot := PackedVector3Array()
+
 ## Extra tolerance while ACTIVE (hysteresis): the gesture releases only after
 ## drifting this far past its entry tolerance, killing boundary flicker.
 @export_range(0.0, 0.5, 0.01) var release_tolerance_bonus := 0.08
