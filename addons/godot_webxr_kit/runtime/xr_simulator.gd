@@ -431,11 +431,14 @@ func _load_bind_skeletons() -> bool:
 		var normal := index_origin.cross(pinky_origin).normalized()
 		if normal.dot(thumb_origin - (index_origin + pinky_origin) * 0.5) > 0.0:
 			normal = -normal
+		# Curl hinge sign is independent of the resting-roll sign (David
+		# calibrated both separately: bone x normal curled fingers BACKWARD
+		# once the roll was fixed - the hinge is normal x bone).
 		var curl_axes := []
 		for chain in _FINGER_CHAINS:
 			var mc: Vector3 = (rel[chain[0]] as Transform3D).origin
 			var proximal: Vector3 = (rel[chain[1]] as Transform3D).origin
-			curl_axes.append((proximal - mc).normalized().cross(normal).normalized())
+			curl_axes.append(normal.cross((proximal - mc).normalized()).normalized())
 
 		# View alignment measured from the same axes: fingers -> view forward
 		# (-Z), palm -> view down (-Y).
