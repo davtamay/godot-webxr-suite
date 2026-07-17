@@ -21,6 +21,15 @@ const _CONTROLLER_TIP_FORWARD := 0.02
 
 @export var enabled := true
 
+@export_group("Detection")
+## Physics layers poke targets live on (panels + XRPokeable bodies). The
+## interactor sphere-queries this each frame so only targets NEAR a finger are
+## processed - Unity-style broad-phase scaling instead of scanning every panel.
+@export_flags_3d_physics var poke_collision_mask := 1
+## Fingertip query radius (metres): targets within this are considered. Keep it
+## a bit larger than a panel's release depth so panels are found before contact.
+@export var poke_reach := 0.06
+
 @export_group("Rig")
 ## All optional: empty paths self-resolve (drop the node anywhere - under the
 ## rig, under a hands mount, or at the scene root - and it finds the rig).
@@ -38,6 +47,10 @@ var _origin: Node3D
 var _controllers: Array = [null, null]
 var _points := [Vector3.INF, Vector3.INF]
 var _markers: Array = [null, null]
+var _finger_shape := SphereShape3D.new()
+# Per hand: the poke targets touched last frame, so we can send poke_end/release
+# to ones the finger has left.
+var _active := [{}, {}]
 
 
 func _ready() -> void:
@@ -63,13 +76,14 @@ func get_poke_point(hand: int) -> Vector3:
 func _physics_process(_delta: float) -> void:
 	if not enabled:
 		_points = [Vector3.INF, Vector3.INF]
+		for hand in 2:
+			_release_all(hand)
 		_update_markers()
-		_feed_panels()
 		return
 	for hand in 2:
 		_points[hand] = _resolve_point(hand)
 	_update_markers()
-	_feed_panels()
+	_dispatch()
 
 
 const _HAND_TRACKER_NAMES := [&"/user/hand_tracker/left", &"/user/hand_tracker/right"]
@@ -88,13 +102,55 @@ func _resolve_point(hand: int) -> Vector3:
 	return Vector3.INF
 
 
-func _feed_panels() -> void:
-	for panel in get_tree().get_nodes_in_group("xr_ui_canvas"):
-		for hand in 2:
-			if _points[hand] == Vector3.INF:
-				panel.poke_end(hand)
-			else:
-				panel.poke_update(hand, _points[hand])
+## Physics broad-phase dispatch: for each fingertip, sphere-query the poke
+## layer and feed poke_update to only the targets it actually touches. Targets
+## the finger has left get poke_end. Panels + XRPokeable share the same
+## poke_update/poke_end contract, so both are handled uniformly.
+func _dispatch() -> void:
+	var world: World3D = _origin.get_world_3d() if _origin else null
+	if world == null:
+		return
+	_finger_shape.radius = poke_reach
+	for hand in 2:
+		if _points[hand] == Vector3.INF:
+			_release_all(hand)
+			continue
+		var touched := {}
+		var params := PhysicsShapeQueryParameters3D.new()
+		params.shape = _finger_shape
+		params.transform = Transform3D(Basis.IDENTITY, _points[hand])
+		params.collision_mask = poke_collision_mask
+		params.collide_with_areas = true
+		params.collide_with_bodies = true
+		for hit in world.direct_space_state.intersect_shape(params, 16):
+			var target := _poke_target(hit.get("collider"))
+			if target != null and target.has_method("poke_update"):
+				touched[target] = true
+				target.poke_update(hand, _points[hand])
+		# Anything active last frame but not touched now: leave it.
+		for prev in _active[hand]:
+			if not touched.has(prev) and is_instance_valid(prev):
+				prev.poke_end(hand)
+		_active[hand] = touched
+
+
+## A hit collider -> its poke target (an XRPokeable via body meta, or a UI
+## canvas panel, which is the collider's own interactable ancestor).
+func _poke_target(collider) -> Node:
+	if collider == null:
+		return null
+	if collider.has_meta("xr_pokeable"):
+		return collider.get_meta("xr_pokeable")
+	if collider.has_meta("xr_poke_canvas"):
+		return collider.get_meta("xr_poke_canvas")
+	return null
+
+
+func _release_all(hand: int) -> void:
+	for target in _active[hand]:
+		if is_instance_valid(target):
+			target.poke_end(hand)
+	_active[hand] = {}
 
 
 func _update_markers() -> void:

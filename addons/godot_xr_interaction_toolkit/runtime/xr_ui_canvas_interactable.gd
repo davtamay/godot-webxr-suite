@@ -39,7 +39,10 @@ var _has_motion_position := false
 
 func _ready() -> void:
     super()
-    add_to_group("xr_ui_canvas")  # Poke sources find panels through this.
+    add_to_group("xr_ui_canvas")  # Legacy group; the poke interactor now finds
+    # panels by PHYSICS via this meta tag on the collider bodies.
+    for body in find_children("*", "CollisionObject3D", true, false):
+        (body as CollisionObject3D).set_meta("xr_poke_canvas", self)
     _viewport = get_node_or_null(viewport_path) as SubViewport
     _panel_mesh = get_node_or_null(panel_mesh_path) as MeshInstance3D
     if _viewport:
