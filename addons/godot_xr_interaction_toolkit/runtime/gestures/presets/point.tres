@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="XRHandGesture" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_hand_gesture.gd" id="1_g"]
+
+[resource]
+script = ExtResource("1_g")
+gesture_name = "point"
+conditions = Dictionary[String, Vector2]({
+"curl_index": Vector2(0.1, 0.22),
+"curl_middle": Vector2(0.8, 0.28),
+"curl_ring": Vector2(0.82, 0.28),
+"curl_pinky": Vector2(0.8, 0.3)
+})
+min_hold_seconds = 0.08
+release_tolerance_bonus = 0.08

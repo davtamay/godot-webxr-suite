@@ -1,0 +1,99 @@
+[gd_scene load_steps=9 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/gesture_playground_demo.gd" id="2_demo"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_gesture_recognizer.gd" id="3_recognizer"]
+[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="8_fontbake"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.09, 0.11, 0.14, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.7, 0.75, 0.82, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="PlaneMesh" id="FloorMesh"]
+size = Vector2(8, 8)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.2, 0.24, 0.3, 1)
+roughness = 0.9
+
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(8, 0.08, 8)
+
+[node name="GesturePlaygroundDemo" type="Node3D"]
+script = ExtResource("2_demo")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+mesh = SubResource("FloorMesh")
+surface_material_override/0 = SubResource("FloorMat")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("FloorShape")
+
+[node name="GestureRecognizer" type="Node" parent="."]
+script = ExtResource("3_recognizer")
+show_debug = true
+
+[node name="Cards" type="Node3D" parent="."]
+
+[node name="point" type="Label3D" parent="Cards"]
+transform = Transform3D(0.94, 0, -0.34, 0, 1, 0, 0.34, 0, 0.94, -1.2, 1.5, -1.7)
+pixel_size = 0.0016
+billboard = 1
+text = "POINT"
+font_size = 40
+outline_size = 10
+
+[node name="fist" type="Label3D" parent="Cards"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.4, 1.5, -1.9)
+pixel_size = 0.0016
+billboard = 1
+text = "FIST"
+font_size = 40
+outline_size = 10
+
+[node name="open_palm" type="Label3D" parent="Cards"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4, 1.5, -1.9)
+pixel_size = 0.0016
+billboard = 1
+text = "OPEN PALM"
+font_size = 40
+outline_size = 10
+
+[node name="thumbs_up" type="Label3D" parent="Cards"]
+transform = Transform3D(0.94, 0, 0.34, 0, 1, 0, -0.34, 0, 0.94, 1.2, 1.5, -1.7)
+pixel_size = 0.0016
+billboard = 1
+text = "THUMBS UP"
+font_size = 40
+outline_size = 10
+
+[node name="InfoLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.0, -2.0)
+pixel_size = 0.0013
+billboard = 1
+text = "HAND GESTURES - data-driven recognition (bare hands, put controllers down)
+Make a gesture with either hand - its card lights up
+The floating readout shows every finger's live values (the tuning tool)
+Record-your-own gestures: coming next"
+font_size = 26
+outline_size = 8
+width = 1500.0
+autowrap_mode = 2
+
+[node name="FontBakeAnchor" type="Label3D" parent="."]
+script = ExtResource("8_fontbake")
+
+[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
