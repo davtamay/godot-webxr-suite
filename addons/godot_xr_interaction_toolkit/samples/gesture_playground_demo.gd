@@ -161,13 +161,17 @@ func _refresh_library() -> void:
 		if gesture == null or gesture.gesture_name.is_empty():
 			continue
 		var entry := Button.new()
+		var is_selected: bool = _selected != null and _selected.gesture_name == gesture.gesture_name
 		var has_snapshot: bool = gesture.joint_snapshot.size() > 0
-		entry.text = "  %s%s" % [gesture.gesture_name.replace("_", " ").to_upper(), "" if has_snapshot else "   (recognition only)"]
+		# Selection must READ in-headset: strong color + marker, not just the
+		# theme's subtle pressed shading.
+		entry.text = "  %s%s%s" % ["> " if is_selected else "", gesture.gesture_name.replace("_", " ").to_upper(), "" if has_snapshot else "   (recognition only)"]
 		entry.custom_minimum_size = Vector2(0, 64)
 		entry.add_theme_font_size_override("font_size", 30)
 		entry.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		entry.toggle_mode = true
-		entry.button_pressed = _selected != null and _selected.gesture_name == gesture.gesture_name
+		entry.button_pressed = is_selected
+		entry.self_modulate = Color(0.35, 1.0, 0.6) if is_selected else Color.WHITE
 		entry.pressed.connect(_on_library_selected.bind(gesture))
 		_library_box.add_child(entry)
 
@@ -232,12 +236,24 @@ func _save_selected() -> void:
 func _on_record_pressed(hand: int) -> void:
 	if _recorder.is_recording():
 		return
+	# A NEW recording clears the current selection - the studio stops
+	# validating against the old reference (RE-RECORD keeps it: it records
+	# into the selected name).
+	_clear_selection()
 	_custom_count += 1
 	while _has_gesture("custom_%d" % _custom_count):
 		_custom_count += 1
 	_ghost.start_live(hand)
 	_ghost_label.text = "LIVE: your %s" % ("LEFT hand" if hand == 0 else ("RIGHT hand" if hand == 1 else "BOTH hands"))
 	_recorder.start_recording("custom_%d" % _custom_count, hand)
+
+
+func _clear_selection() -> void:
+	_selected = null
+	_recognizer.focus_gesture_name = ""
+	_authoring_box.visible = false
+	_ghost.set_highlight(false)
+	_refresh_library()
 
 
 func _on_recording_state(state: String, seconds_left: float) -> void:

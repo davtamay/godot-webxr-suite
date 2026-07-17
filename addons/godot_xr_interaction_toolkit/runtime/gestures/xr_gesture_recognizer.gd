@@ -44,6 +44,7 @@ var _hold := [{}, {}]
 var _features := [{}, {}]
 var _nearest := [{}, {}]
 var _panels := [null, null]
+var _heartbeat := 0.0  # GESTDBG strip after the recording hunt
 
 
 func _ready() -> void:
@@ -56,6 +57,10 @@ func _process(delta: float) -> void:
 	if not enabled:
 		return
 	_resolve_scene_refs()
+	_heartbeat += delta  # GESTDBG strip after the recording hunt
+	if _heartbeat >= 2.0:
+		_heartbeat = 0.0
+		print("GESTDBG features L=%d R=%d origin=%s cam=%s" % [_features[0].size(), _features[1].size(), str(_origin != null), str(_camera != null)])
 	for hand in 2:
 		var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if hand == 0 else "right")) as XRHandTracker
 		var origin_xf := _origin.global_transform if _origin else Transform3D.IDENTITY

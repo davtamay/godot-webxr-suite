@@ -28,6 +28,8 @@ signal recording_state_changed(state: String, seconds_left: float)
 ## The derived gesture (already saved to save_path; "" if saving failed).
 signal recording_finished(gesture: XRHandGesture, save_path: String)
 
+const _FeatureExtractor := preload("res://addons/godot_xr_interaction_toolkit/runtime/gestures/xr_hand_feature_extractor.gd")
+
 ## The recognizer supplying live features (found by class in the scene when
 ## left empty).
 @export var recognizer_path: NodePath
@@ -118,6 +120,11 @@ func _process(delta: float) -> void:
 		var capture_hands := [0, 1] if _hand == 2 else [_hand]
 		for capture_hand in capture_hands:
 			var features: Dictionary = _recognizer.get_features(capture_hand)
+			if features.is_empty():
+				# Self-sufficient fallback: read the tracker directly, so
+				# recording never depends on the recognizer's process state.
+				var tracker := XRServer.get_tracker("/user/hand_tracker/%s" % ("left" if capture_hand == 0 else "right")) as XRHandTracker
+				features = _FeatureExtractor.extract(tracker, capture_hand)
 			for feature in features:
 				if not _samples.has(feature):
 					_samples[feature] = PackedFloat32Array()
