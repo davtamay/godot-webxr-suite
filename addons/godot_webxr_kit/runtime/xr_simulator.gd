@@ -585,6 +585,11 @@ func _set_mode(mode: SimMode) -> void:
 	_mode = mode
 	if _mode == SimMode.HAND:
 		_active_pose = 0
+		# Rescan the pose library on every hand-mode entry so gestures saved
+		# DURING this run (a fresh Studio recording, a deleted file) appear on
+		# the number keys immediately - the list is disk-driven, never fixed.
+		if _hands_available():
+			_build_pose_library()
 		_remove_controller_trackers()
 		_add_hand_trackers()
 	else:
