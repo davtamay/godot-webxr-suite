@@ -145,8 +145,11 @@ func _process(delta: float) -> void:
 			features = _FeatureExtractor.extract(tracker, capture_hand)
 		for feature in features:
 			if not _samples.has(feature):
-				_samples[feature] = PackedFloat32Array()
-			(_samples[feature] as PackedFloat32Array).append(features[feature])
+				# Plain Arrays on purpose: PackedFloat32Array inside a
+				# Dictionary is copy-on-write - appends land on a temporary
+				# copy and VANISH (this project's oldest gotcha).
+				_samples[feature] = []
+			(_samples[feature] as Array).append(features[feature])
 		if not features.is_empty():
 			sampled = true
 			_capture_joint_frame(capture_hand)
@@ -182,7 +185,7 @@ func _process(delta: float) -> void:
 
 func _finish() -> void:
 	set_process(false)
-	var sample_count: int = _samples.get("curl_index", PackedFloat32Array()).size()
+	var sample_count: int = (_samples.get("curl_index", []) as Array).size()
 	print("XRGestureRecorder: capture ended - %d samples" % sample_count)
 	if sample_count < 10:
 		_state = "failed"
@@ -194,10 +197,10 @@ func _finish() -> void:
 	gesture.recorded_hand = 1 if _hand == 2 else _hand
 	var conditions: Dictionary[String, Vector2] = {}
 	for feature in _samples:
-		var values: PackedFloat32Array = _samples[feature]
+		var values: Array = _samples[feature]
 		var mean := 0.0
-		var low := values[0]
-		var high := values[0]
+		var low: float = values[0]
+		var high: float = values[0]
 		for value in values:
 			mean += value
 			low = minf(low, value)
