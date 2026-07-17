@@ -35,6 +35,10 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd
 ## Also hide the ray while THIS hand's fingertip is within poke reach of a
 ## panel or pokeable (Meta/Unity near-far switch: no far ray up close).
 @export var suppress_on_poke := true
+## During near interaction the ray SHRINKS to this stub length (metres) at the
+## hand instead of vanishing - Unity Near-Far behaviour, smoother than a hard
+## on/off and never leaves a long ray pointing off-angle. 0 = hide fully.
+@export var near_stub_length := 0.08
 
 var _ray_state := {"valid": false}
 var _poke_interactor: Node
@@ -63,13 +67,26 @@ func get_attach_pose() -> Transform3D:
     return _attach_pose
 
 func _update_ray(delta := 0.0) -> void:
+    var pose: Dictionary = _adapter.get_aim_pose(hand) if _adapter else {}
+
     if _selected == null and _is_suppressed_by_linked_interactor():
-        _ray_state = {"valid": false, "suppressed": true}
+        # Near-far switch (Unity): don't leave a long ray pointing off-angle
+        # during near interaction - SHRINK the line to a short stub at the
+        # hand (near_stub_length; 0 = hide fully). No far cursor, no select.
         _set_hovered(null)
         _has_last_ray_pose = false
+        if pose.is_empty() or near_stub_length <= 0.0:
+            _ray_state = {"valid": false, "suppressed": true}
+        else:
+            var stub_origin: Vector3 = pose["origin"]
+            var stub_dir: Vector3 = (pose["direction"] as Vector3).normalized()
+            _ray_state = {
+                "valid": true, "suppressed": true, "hit": false, "hovered": null,
+                "origin": stub_origin, "direction": stub_dir,
+                "end": stub_origin + stub_dir * near_stub_length, "grab_distance": 0.0,
+            }
         return
 
-    var pose: Dictionary = _adapter.get_aim_pose(hand) if _adapter else {}
     if pose.is_empty():
         _ray_state = {"valid": false}
         if _selected == null:
