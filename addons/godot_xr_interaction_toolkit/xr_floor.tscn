@@ -1,0 +1,21 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Material" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_floor_material.tres" id="1_mat"]
+
+[sub_resource type="PlaneMesh" id="FloorMesh"]
+size = Vector2(12, 12)
+
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(12, 0.08, 12)
+
+[node name="XRFloor" type="Node3D"]
+
+[node name="FloorMesh" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+mesh = SubResource("FloorMesh")
+surface_material_override/0 = ExtResource("1_mat")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("FloorShape")
