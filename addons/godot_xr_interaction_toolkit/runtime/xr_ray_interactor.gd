@@ -35,10 +35,10 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd
 ## Also hide the ray while THIS hand's fingertip is within poke reach of a
 ## panel or pokeable (Meta/Unity near-far switch: no far ray up close).
 @export var suppress_on_poke := true
-## During near interaction the ray SHRINKS to this stub length (metres) at the
-## hand instead of vanishing - Unity Near-Far behaviour, smoother than a hard
-## on/off and never leaves a long ray pointing off-angle. 0 = hide fully.
-@export var near_stub_length := 0.08
+## During near interaction the ray is HIDDEN (0, default) - clean, no line
+## while you poke. Set > 0 to instead SHRINK the ray to a stub of that length
+## at the hand (Unity Near-Far look) rather than hiding it fully.
+@export var near_stub_length := 0.0
 
 var _ray_state := {"valid": false}
 var _poke_interactor: Node
