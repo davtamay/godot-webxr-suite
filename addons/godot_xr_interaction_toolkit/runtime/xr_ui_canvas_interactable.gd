@@ -198,11 +198,18 @@ func _update_pointer(interactor: Node) -> bool:
     if not ray_state.get("valid", false):
         return false
 
-    var mapped := map_ray_to_viewport(ray_state["origin"], ray_state["direction"])
-    if mapped.is_empty():
-        return false
-
-    _last_pointer_position = mapped["position"]
+    # Map from the ACTUAL hit point (where the reticle sits), not by re-
+    # intersecting the flat mesh plane. Re-intersecting put the click cursor
+    # off from the reticle by the collider's depth at glancing angles - with
+    # the hand ray's downward pitch that read as a vertical offset.
+    if ray_state.get("hit", false) and ray_state.has("end"):
+        var local: Vector3 = global_transform.affine_inverse() * (ray_state["end"] as Vector3)
+        _last_pointer_position = map_local_point_to_viewport(local)
+    else:
+        var mapped := map_ray_to_viewport(ray_state["origin"], ray_state["direction"])
+        if mapped.is_empty():
+            return false
+        _last_pointer_position = mapped["position"]
     _push_mouse_motion(_last_pointer_position)
     return true
 
