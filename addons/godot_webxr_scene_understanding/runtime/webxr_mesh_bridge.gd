@@ -119,6 +119,12 @@ func _install_js_hook() -> void:
 		// after a settle window; the consumer reads the verdict.
 		dynStart: 0, dynEvents: 0, dynObserved: 0 };
 	window.GodotWebXRMeshBridge = bridge;
+
+	if (typeof XRSession === 'undefined') {
+		bridge.meshProp = 'api-unavailable';
+		return;
+	}
+
 	const orig = XRSession.prototype.requestAnimationFrame;
 	XRSession.prototype.requestAnimationFrame = function (cb) {
 		return orig.call(this, function (t, frame) {

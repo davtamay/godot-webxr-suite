@@ -191,6 +191,11 @@ func _install_js_hook() -> void:
 	};
 	window.GodotWebXRDepthBridge = bridge;
 
+	if (typeof XRSession === 'undefined') {
+		bridge.status = 'api-unavailable';
+		return;
+	}
+
 	// CPU path (Android XR): sample XRCPUDepthInformation on the grid.
 	function cpuHarvestMeters(frame, view) {
 		if (typeof frame.getDepthInformation !== 'function') {
