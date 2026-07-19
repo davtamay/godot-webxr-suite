@@ -29,6 +29,10 @@ var _origin: Node3D
 var _climbers: Array = []       # interactors currently gripping a handhold
 var _active: Node               # the one driving movement (last grabbed)
 var _last_local := Vector3.ZERO
+# Selection fires on an input event, which can be out of step with the physics
+# frame that reads the hand pose. Take the baseline on the first physics frame
+# instead, so the baseline and every later reading share one source - no jump.
+var _rebase_pending := false
 
 
 func _enter_tree() -> void:
@@ -53,7 +57,7 @@ func begin_climb(interactor: Node) -> void:
 	if not _climbers.has(interactor):
 		_climbers.append(interactor)
 	_active = interactor
-	_last_local = _hand_local(interactor)
+	_rebase_pending = true  # baseline taken on the next physics frame
 	if was_idle:
 		climb_started.emit()
 
@@ -64,7 +68,7 @@ func end_climb(interactor: Node) -> void:
 	if interactor == _active:
 		_active = _climbers.back() if not _climbers.is_empty() else null
 		if _active:
-			_last_local = _hand_local(_active)  # re-base: no jump on hand-over
+			_rebase_pending = true  # re-base on next frame: no jump on hand-over
 	if _climbers.is_empty():
 		_active = null
 		climb_ended.emit()
@@ -79,6 +83,12 @@ func _physics_process(_delta: float) -> void:
 		return
 	if not is_instance_valid(_active):
 		end_climb(_active)
+		return
+	# Take (or re-take) the baseline this frame after a grab / hand-over, so the
+	# first delta is exactly zero - no visible jump.
+	if _rebase_pending:
+		_last_local = _hand_local(_active)
+		_rebase_pending = false
 		return
 	# The hand's PLAY-SPACE position is invariant when the origin moves, so the
 	# frame-to-frame change is purely the physical hand motion. Move the origin
