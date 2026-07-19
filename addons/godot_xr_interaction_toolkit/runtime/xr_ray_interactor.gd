@@ -35,6 +35,9 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd
 ## Also hide the ray while THIS hand's fingertip is within poke reach of a
 ## panel or pokeable (Meta/Unity near-far switch: no far ray up close).
 @export var suppress_on_poke := true
+## Hide the ray while THIS hand is aiming a teleport - teleport and the far
+## selection ray are mutually exclusive (no two lines from one hand at once).
+@export var suppress_on_teleport := true
 ## During near interaction the ray is HIDDEN (0, default) - clean, no line
 ## while you poke. Set > 0 to instead SHRINK the ray to a stub of that length
 ## at the hand (Unity Near-Far look) rather than hiding it fully.
@@ -42,6 +45,7 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd
 
 var _ray_state := {"valid": false}
 var _poke_interactor: Node
+var _locomotion: Node
 var _grab_distance := 0.0
 var _hover_distance := 0.0
 var _pending_distance_delta := 0.0
@@ -203,6 +207,10 @@ func _is_suppressed_by_linked_interactor() -> bool:
     if suppress_on_poke and _is_poking():
         return true
 
+    # Aiming a teleport: teleport arc and far ray are mutually exclusive.
+    if suppress_on_teleport and _is_teleporting():
+        return true
+
     if suppress_interactor_path.is_empty():
         return false
     if _suppress_interactor == null or not is_instance_valid(_suppress_interactor):
@@ -221,3 +229,9 @@ func _is_poking() -> bool:
         _poke_interactor = get_tree().get_first_node_in_group("xr_poke_interactor")
     return _poke_interactor != null and _poke_interactor.has_method("is_poking") \
         and _poke_interactor.is_poking(hand)
+
+func _is_teleporting() -> bool:
+    if _locomotion == null or not is_instance_valid(_locomotion):
+        _locomotion = get_tree().get_first_node_in_group("xr_locomotion")
+    return _locomotion != null and _locomotion.has_method("is_aiming") \
+        and _locomotion.is_aiming(hand)

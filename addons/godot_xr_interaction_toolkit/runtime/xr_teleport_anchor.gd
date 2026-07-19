@@ -59,7 +59,7 @@ const _META_KEY := "xr_teleport_anchor"
 
 var _body: StaticBody3D
 var _ring: MeshInstance3D
-var _arrow: MeshInstance3D
+var _arrow: Node3D
 var _ring_material: StandardMaterial3D
 var _arrow_material: StandardMaterial3D
 var _highlighted := false
@@ -120,19 +120,34 @@ func _rebuild() -> void:
 	_ring.material_override = _ring_material
 	add_child(_ring)
 
-	# Facing arrow (flat wedge pointing -Z), shown only when facing is forced.
+	# Bold facing arrow (flat on the floor, pointing -Z = the way you'll face),
+	# shown only when facing is forced. Shaft + head, opaque and bright, its
+	# tip reaching past the ring so the direction is unmistakable.
 	if force_facing:
-		var head := PrismMesh.new()
-		head.size = Vector3(anchor_radius * 0.5, 0.012, anchor_radius * 0.6)
-		_arrow = MeshInstance3D.new()
+		_arrow_material = _make_arrow_material()
+		_arrow = Node3D.new()
 		_arrow.name = "AnchorArrow"
-		_arrow.mesh = head
+
+		var shaft_mesh := BoxMesh.new()
+		shaft_mesh.size = Vector3(0.05, 0.014, anchor_radius * 0.9)
+		var shaft := MeshInstance3D.new()
+		shaft.mesh = shaft_mesh
+		shaft.position = Vector3(0.0, 0.025, -anchor_radius * 0.45)
+		shaft.material_override = _arrow_material
+		shaft.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_arrow.add_child(shaft)
+
+		var head_mesh := PrismMesh.new()
+		head_mesh.size = Vector3(0.2, 0.014, 0.24)
+		var head := MeshInstance3D.new()
+		head.mesh = head_mesh
 		# Prism apex points +Y; -90 deg about X lays it flat pointing -Z.
-		_arrow.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
-		_arrow.position = Vector3(0.0, 0.02, -anchor_radius * 0.45)
-		_arrow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-		_arrow_material = _make_material()
-		_arrow.material_override = _arrow_material
+		head.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+		head.position = Vector3(0.0, 0.025, -anchor_radius - 0.02)
+		head.material_override = _arrow_material
+		head.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_arrow.add_child(head)
+
 		add_child(_arrow)
 
 	# Collider the teleport arc hits - runtime only, tagged so locomotion
@@ -164,9 +179,17 @@ func _make_material() -> StandardMaterial3D:
 	return material
 
 
+## The arrow reads as a solid, bright directional cue - opaque, no fade.
+func _make_arrow_material() -> StandardMaterial3D:
+	var material := StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(idle_color.r, idle_color.g, idle_color.b, 1.0)
+	return material
+
+
 func _apply_colors() -> void:
 	var color := active_color if _highlighted else idle_color
 	if _ring_material:
 		_ring_material.albedo_color = color
 	if _arrow_material:
-		_arrow_material.albedo_color = color
+		_arrow_material.albedo_color = Color(color.r, color.g, color.b, 1.0)

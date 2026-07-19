@@ -58,6 +58,14 @@ const _ARC_MAX_STEPS := 40
 @export var snap_turn_enabled := true
 @export_range(15.0, 90.0, 15.0) var snap_turn_degrees := 45.0
 
+@export_group("Directional Teleport")
+## Unity-style: while aiming, the THUMBSTICK direction sets which way you'll
+## FACE when you land (a facing arrow shows on the reticle). The controller
+## still aims WHERE you land; the stick only chooses the facing. Turns snap
+## turn OFF (the stick now means "facing"). An anchor with force_facing still
+## wins. Off = classic forward-to-aim + left/right snap turn.
+@export var directional_teleport := false
+
 @export_group("Appearance")
 ## Teleport marker colour on valid ground / invalid target.
 @export var valid_color := Color(0.25, 1.0, 0.5, 0.9)
@@ -84,6 +92,9 @@ var _committed_teleport := false
 var _target_point := Vector3.ZERO
 var _target_anchor: XRTeleportAnchor = null
 var _highlighted_anchor: XRTeleportAnchor = null
+var _target_facing := Vector3.ZERO
+var _has_target_facing := false
+var _reticle_arrow: Node3D
 var _snap_armed := [true, true]
 var _arc_visual: MeshInstance3D
 var _arc_mesh := ImmediateMesh.new()
@@ -204,25 +215,33 @@ func do_snap_turn(direction: float) -> void:
 func _update_teleport(hand: int, controller: XRController3D, stick: Vector2) -> void:
 	if not teleport_enabled:
 		return
-	if _teleport_hand == -1 and stick.y > stick_engage and absf(stick.x) < stick_engage:
+	# Directional mode engages/holds on stick MAGNITUDE (the angle is free to
+	# pick a facing); classic mode uses forward-push (left/right = snap turn).
+	var can_engage := stick.length() > stick_engage if directional_teleport \
+		else (stick.y > stick_engage and absf(stick.x) < stick_engage)
+	if _teleport_hand == -1 and can_engage:
 		_teleport_hand = hand
 	if _teleport_hand != hand:
 		return
 
-	if stick.y > stick_release:
+	var holding := stick.length() > stick_release if directional_teleport else stick.y > stick_release
+	if holding:
 		_project_arc(controller)
+		if directional_teleport:
+			_compute_directional_facing(stick)
 		return
 
 	# Stick released: commit if the marker was on valid ground (or an anchor).
 	var commit := _target_valid
 	var target := _target_point
 	var anchor := _target_anchor
+	var facing := _target_facing if _has_target_facing else Vector3.ZERO
 	_cancel_teleport()
 	if commit:
-		_teleport_to(target, anchor)
+		_teleport_to(target, anchor, facing)
 
 
-func _teleport_to(target: Vector3, anchor: XRTeleportAnchor = null) -> void:
+func _teleport_to(target: Vector3, anchor: XRTeleportAnchor = null, facing: Vector3 = Vector3.ZERO) -> void:
 	var from := _camera.global_position
 	# Move the origin so the CAMERA lands on the target horizontally and the
 	# play space floor lands at the target height - the user's offset inside
@@ -231,8 +250,12 @@ func _teleport_to(target: Vector3, anchor: XRTeleportAnchor = null) -> void:
 	_origin.global_position += target - camera_floor
 	# Anchors can force a facing: yaw the rig (around the now-moved camera) so
 	# the user looks along the anchor's forward.
+	# Facing precedence: a force_facing anchor is the author's intent and wins;
+	# otherwise directional teleport's stick-chosen facing (if any) applies.
 	if anchor and is_instance_valid(anchor) and anchor.wants_facing():
 		_face_direction(anchor.facing_forward())
+	elif facing.length_squared() > 0.0001:
+		_face_direction(facing)
 	_committed_teleport = true
 	teleported.emit(from, _camera.global_position)
 
@@ -307,13 +330,28 @@ func _cancel_teleport() -> void:
 	_intent_aim = false
 	_target_valid = false
 	_target_anchor = null
+	_target_facing = Vector3.ZERO
+	_has_target_facing = false
 	_hide_visuals()
+
+
+## Facing (world direction) chosen by the thumbstick angle while aiming: push
+## forward = keep current facing, rotate the stick = turn the landing facing.
+func _compute_directional_facing(stick: Vector2) -> void:
+	var cam_forward := -_camera.global_transform.basis.z
+	cam_forward.y = 0.0
+	if cam_forward.length_squared() < 0.0001:
+		return
+	var angle := atan2(stick.x, stick.y)
+	_target_facing = (Basis(Vector3.UP, -angle) * cam_forward.normalized()).normalized()
+	_has_target_facing = true
 
 
 ## ---- snap turn --------------------------------------------------------------
 
 func _update_snap_turn(hand: int, stick: Vector2) -> void:
-	if not snap_turn_enabled:
+	# Directional teleport consumes the stick angle for facing - no snap turn.
+	if not snap_turn_enabled or directional_teleport:
 		return
 	if absf(stick.x) < stick_release:
 		_snap_armed[hand] = true
@@ -376,6 +414,24 @@ func _build_visuals() -> void:
 	_target_visual.material_override = _RETICLE_MATERIAL.duplicate()
 	_target_visual.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_target_visual)
+
+	# Directional-teleport facing arrow: a flat wedge pointing the way you'll
+	# face on landing. Container yaws (looking_at); the mesh lies flat pointing
+	# the container's -Z.
+	_reticle_arrow = Node3D.new()
+	_reticle_arrow.name = "TeleportFacingArrow"
+	_reticle_arrow.top_level = true
+	var head := PrismMesh.new()
+	head.size = Vector3(0.16, 0.012, 0.22)
+	var head_instance := MeshInstance3D.new()
+	head_instance.mesh = head
+	head_instance.rotation = Vector3(-PI * 0.5, 0.0, 0.0)
+	head_instance.position = Vector3(0.0, 0.0, -marker_outer_radius - 0.12)
+	head_instance.material_override = _RETICLE_MATERIAL.duplicate()
+	(head_instance.material_override as StandardMaterial3D).albedo_color = valid_color
+	head_instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	_reticle_arrow.add_child(head_instance)
+	add_child(_reticle_arrow)
 	_hide_visuals()
 
 
@@ -395,6 +451,14 @@ func _draw_arc(points: PackedVector3Array) -> void:
 	if _target_visual.visible:
 		(_target_visual.material_override as StandardMaterial3D).albedo_color = color
 		_target_visual.global_position = _target_point + Vector3(0.0, 0.01, 0.0)
+	# Directional facing arrow: only on a free-surface landing (an anchor draws
+	# its own arrow) when the stick has chosen a facing.
+	var show_facing := _target_valid and _target_anchor == null and _has_target_facing
+	_reticle_arrow.visible = show_facing
+	if show_facing:
+		_reticle_arrow.global_transform = Transform3D(
+			Basis.looking_at(_target_facing, Vector3.UP),
+			_target_point + Vector3(0.0, 0.02, 0.0))
 	_set_anchor_highlight(_target_anchor)
 
 
@@ -403,6 +467,8 @@ func _hide_visuals() -> void:
 		_arc_visual.visible = false
 	if _target_visual:
 		_target_visual.visible = false
+	if _reticle_arrow:
+		_reticle_arrow.visible = false
 	_set_anchor_highlight(null)
 
 

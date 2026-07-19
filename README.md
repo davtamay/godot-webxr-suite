@@ -74,7 +74,7 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 ### Interaction (`godot_xr_interaction_toolkit`)
 | Block | What you get |
 |---|---|
-| **Locomotion** (self-wiring, rig-default) | Teleport arc + snap turn on the thumbsticks. External drivers (microgestures, your own gestures) steer the **same** arc via its intent API. |
+| **Locomotion** (self-wiring, rig-default) | Teleport arc + snap turn on the thumbsticks; the far selection ray hides while aiming (mutually exclusive). Optional **directional teleport**: rotate the thumbstick to choose your landing facing. External drivers (microgestures, your own gestures) steer the **same** arc via its intent API. |
 | **Microgesture Locomotion** (opt-in) | Thumb swipes drive that same teleport/turn. Needs `godot_xr_hands`; inert without. |
 | **Teleport Anchor** | A FIXED teleport destination (Unity's TeleportationAnchor): aim the arc at it to snap to that exact spot, optionally turned to face its forward. Drop-in, self-wires to the rig's locomotion. |
 | **Poke Interactor** (self-wiring, rig-default) | Fingertip touch: press panels, **drag sliders by touch**, push 3D buttons. Controller tips poke too. |

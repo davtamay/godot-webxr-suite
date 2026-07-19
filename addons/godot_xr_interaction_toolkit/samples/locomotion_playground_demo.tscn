@@ -142,10 +142,12 @@ script = ExtResource("3_anchor")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, -2.2)
 pixel_size = 0.0013
 billboard = 1
-text = "LOCOMOTION - push a thumbstick FORWARD to aim a teleport arc, release to go.
-Aim at a glowing ANCHOR to snap to it; the blue arrow = the way you'll face.
+text = "LOCOMOTION - push a thumbstick to aim a teleport arc, release to go.
+DIRECTIONAL TELEPORT is on: rotate the thumbstick to choose your FACING
+(the reticle arrow shows it); the controller aims WHERE you land.
+Aim at a glowing ANCHOR to snap to it; the bold arrow = the way you'll face.
 The purple anchor (west) moves you there but keeps your facing.
-Flick the thumbstick LEFT / RIGHT to snap-turn."
+The far ray hides while you teleport - they're exclusive."
 font_size = 26
 outline_size = 8
 width = 1700.0
