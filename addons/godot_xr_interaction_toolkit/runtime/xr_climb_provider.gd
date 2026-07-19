@@ -103,7 +103,19 @@ func _hand_local(interactor: Node) -> Vector3:
 	return _origin.to_local(_hand_world(interactor))
 
 
+## Track the physical HAND, not the attach point. A far ray's attach point is
+## reeled in/out by distance manipulation as you pull, which would read as the
+## hold moving closer and bounce the rig; the ray/grip ORIGIN is the hand and
+## moves only when you physically move it.
 func _hand_world(interactor: Node) -> Vector3:
+	if interactor.has_method("get_ray_state"):
+		var ray: Dictionary = interactor.get_ray_state()
+		if ray.get("valid", false) and ray.has("origin"):
+			return ray["origin"]
+	if interactor.has_method("get_direct_state"):
+		var direct: Dictionary = interactor.get_direct_state()
+		if direct.get("valid", false) and direct.has("origin"):
+			return direct["origin"]
 	if interactor.has_method("get_attach_pose"):
 		return (interactor.get_attach_pose() as Transform3D).origin
 	return (interactor as Node3D).global_position
