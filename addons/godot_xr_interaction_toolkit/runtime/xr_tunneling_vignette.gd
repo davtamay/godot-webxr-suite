@@ -26,11 +26,12 @@ const _MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr
 
 @export_group("Geometry")
 @export var camera_path: NodePath
-## Distance in front of the eyes and quad size - sized to roughly fill the
-## headset FOV (~100 deg on Quest) so the dark ring lands at your view edges.
-## Enlarge quad_size if you see a hard edge on a wider-FOV headset.
-@export_range(0.2, 1.0, 0.05) var distance := 0.5
-@export var quad_size := Vector2(1.35, 1.1)
+## Distance in front of the eyes and quad size. The quad OVER-covers the FOV
+## (edges sit outside your view, so there's no hard border or uncovered sliver)
+## and the gradient darkens within the visible area. Shrink quad_size for a
+## smaller clear centre; enlarge it if any edge is ever uncovered.
+@export_range(0.2, 1.0, 0.05) var distance := 0.45
+@export var quad_size := Vector2(2.0, 1.7)
 
 var _camera: Node3D
 var _quad: MeshInstance3D
