@@ -1,4 +1,4 @@
-[gd_scene load_steps=21 format=3]
+[gd_scene load_steps=28 format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/locomotion_playground_demo.gd" id="2_demo"]
@@ -7,6 +7,8 @@
 [ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="5_fontbake"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_continuous_move.gd" id="6_move"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_tunneling_vignette.gd" id="7_vignette"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_climb_provider.gd" id="8_climbprov"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_climb_interactable.gd" id="9_climbhold"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -62,6 +64,23 @@ roughness = 0.6
 [sub_resource type="StandardMaterial3D" id="PillarMatW"]
 albedo_color = Color(0.6, 0.5, 1, 1)
 roughness = 0.6
+
+[sub_resource type="BoxMesh" id="WallMesh"]
+size = Vector3(0.25, 3.2, 2.4)
+
+[sub_resource type="StandardMaterial3D" id="WallMat"]
+albedo_color = Color(0.22, 0.26, 0.3, 1)
+roughness = 0.85
+
+[sub_resource type="BoxMesh" id="HandholdMesh"]
+size = Vector3(0.22, 0.1, 0.34)
+
+[sub_resource type="StandardMaterial3D" id="HandholdMat"]
+albedo_color = Color(1, 0.6, 0.2, 1)
+roughness = 0.5
+
+[sub_resource type="BoxShape3D" id="HandholdShape"]
+size = Vector3(0.24, 0.12, 0.36)
 
 [node name="LocomotionPlaygroundDemo" type="Node3D"]
 script = ExtResource("2_demo")
@@ -149,7 +168,8 @@ edges while you move). RIGHT stick: DIRECTIONAL TELEPORT - hold to aim,
 rotate to choose your FACING (reticle arrow), release to go.
 Aim at a glowing ANCHOR to snap to it; the bold arrow = the way you'll face.
 The purple anchor (west) moves you there but keeps your facing.
-Smooth move and teleport coexist - each owns one stick."
+CLIMB the orange handholds on the east wall - grab one and pull to rise,
+hand over hand. Teleport, walk, and climb all coexist."
 font_size = 26
 outline_size = 8
 width = 1700.0
@@ -161,6 +181,90 @@ script = ExtResource("4_debug")
 
 [node name="FontBakeAnchor" type="Label3D" parent="."]
 script = ExtResource("5_fontbake")
+
+[node name="ClimbProvider" type="Node" parent="."]
+script = ExtResource("8_climbprov")
+
+[node name="ClimbWall" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 0, 0)
+
+[node name="WallMesh" type="MeshInstance3D" parent="ClimbWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
+mesh = SubResource("WallMesh")
+surface_material_override/0 = SubResource("WallMat")
+
+[node name="Handhold1" type="Node3D" parent="ClimbWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 0.7, 0.35)
+script = ExtResource("9_climbhold")
+
+[node name="Mesh" type="MeshInstance3D" parent="ClimbWall/Handhold1"]
+mesh = SubResource("HandholdMesh")
+surface_material_override/0 = SubResource("HandholdMat")
+
+[node name="Body" type="StaticBody3D" parent="ClimbWall/Handhold1"]
+
+[node name="Col" type="CollisionShape3D" parent="ClimbWall/Handhold1/Body"]
+shape = SubResource("HandholdShape")
+
+[node name="Handhold2" type="Node3D" parent="ClimbWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 1.15, -0.35)
+script = ExtResource("9_climbhold")
+
+[node name="Mesh" type="MeshInstance3D" parent="ClimbWall/Handhold2"]
+mesh = SubResource("HandholdMesh")
+surface_material_override/0 = SubResource("HandholdMat")
+
+[node name="Body" type="StaticBody3D" parent="ClimbWall/Handhold2"]
+
+[node name="Col" type="CollisionShape3D" parent="ClimbWall/Handhold2/Body"]
+shape = SubResource("HandholdShape")
+
+[node name="Handhold3" type="Node3D" parent="ClimbWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 1.6, 0.35)
+script = ExtResource("9_climbhold")
+
+[node name="Mesh" type="MeshInstance3D" parent="ClimbWall/Handhold3"]
+mesh = SubResource("HandholdMesh")
+surface_material_override/0 = SubResource("HandholdMat")
+
+[node name="Body" type="StaticBody3D" parent="ClimbWall/Handhold3"]
+
+[node name="Col" type="CollisionShape3D" parent="ClimbWall/Handhold3/Body"]
+shape = SubResource("HandholdShape")
+
+[node name="Handhold4" type="Node3D" parent="ClimbWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 2.05, -0.35)
+script = ExtResource("9_climbhold")
+
+[node name="Mesh" type="MeshInstance3D" parent="ClimbWall/Handhold4"]
+mesh = SubResource("HandholdMesh")
+surface_material_override/0 = SubResource("HandholdMat")
+
+[node name="Body" type="StaticBody3D" parent="ClimbWall/Handhold4"]
+
+[node name="Col" type="CollisionShape3D" parent="ClimbWall/Handhold4/Body"]
+shape = SubResource("HandholdShape")
+
+[node name="Handhold5" type="Node3D" parent="ClimbWall"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.18, 2.5, 0.35)
+script = ExtResource("9_climbhold")
+
+[node name="Mesh" type="MeshInstance3D" parent="ClimbWall/Handhold5"]
+mesh = SubResource("HandholdMesh")
+surface_material_override/0 = SubResource("HandholdMat")
+
+[node name="Body" type="StaticBody3D" parent="ClimbWall/Handhold5"]
+
+[node name="Col" type="CollisionShape3D" parent="ClimbWall/Handhold5/Body"]
+shape = SubResource("HandholdShape")
+
+[node name="ClimbLabel" type="Label3D" parent="ClimbWall"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.2, 3.05, 0)
+pixel_size = 0.0016
+billboard = 1
+text = "CLIMB - grab a handhold and pull"
+font_size = 28
+outline_size = 8
 
 [node name="ContinuousMove" type="Node" parent="."]
 script = ExtResource("6_move")

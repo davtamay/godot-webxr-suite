@@ -79,6 +79,7 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 | **Teleport Anchor** | A FIXED teleport destination (Unity's TeleportationAnchor): aim the arc at it to snap to that exact spot, optionally turned to face its forward. Drop-in, self-wires to the rig's locomotion. |
 | **Continuous Move** | Smooth stick-walk + optional continuous turn (Unity's Continuous Move/Turn). Opt-in; auto-claims its stick so teleport stays on the other hand — the two coexist. |
 | **Tunneling Vignette** | Comfort: darkens the view edges while you move to cut motion sickness. Watches camera motion, so it pairs with any locomotion; ignores teleport jumps. |
+| **Climb Provider + Climb Interactable** | Climbing (Unity's Climb Provider): grab a handhold and moving your hand moves the rig the opposite way — pull down to rise, hand over hand. Handholds self-wire to the provider. |
 | **Poke Interactor** (self-wiring, rig-default) | Fingertip touch: press panels, **drag sliders by touch**, push 3D buttons. Controller tips poke too. |
 | **Poke Button (3D)** | A physical push-button that visibly depresses and fires with hysteresis. |
 | **Floor (teleportable)** | Ground in one drop: visible floor + teleport collision; in AR passthrough the solid floor hides and a translucent grid marks the teleportable area. |
