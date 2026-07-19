@@ -17,19 +17,20 @@ const _MATERIAL := preload("res://addons/godot_xr_interaction_toolkit/runtime/xr
 
 @export_group("Feel")
 ## How dark the edges get at full effect (0 = off, 1 = fully black ring).
-@export_range(0.0, 1.0, 0.05) var strength := 0.85
+@export_range(0.0, 1.0, 0.05) var strength := 0.9
 ## Speed (m/s) and turn rate (deg/s) above which the vignette fades IN.
-@export_range(0.0, 3.0, 0.05) var move_threshold := 0.35
+@export_range(0.0, 3.0, 0.05) var move_threshold := 0.3
 @export_range(0.0, 90.0, 1.0) var turn_threshold := 25.0
 ## How fast the vignette fades in/out (per second).
 @export_range(1.0, 20.0, 0.5) var fade_speed := 8.0
 
 @export_group("Geometry")
 @export var camera_path: NodePath
-## Distance in front of the eyes and quad size - tune to your headset FOV so
-## the clear centre matches your comfortable view.
+## Distance in front of the eyes and quad size - sized to roughly fill the
+## headset FOV (~100 deg on Quest) so the dark ring lands at your view edges.
+## Enlarge quad_size if you see a hard edge on a wider-FOV headset.
 @export_range(0.2, 1.0, 0.05) var distance := 0.5
-@export var quad_size := Vector2(2.2, 1.8)
+@export var quad_size := Vector2(1.35, 1.1)
 
 var _camera: Node3D
 var _quad: MeshInstance3D
@@ -46,14 +47,22 @@ func _ready() -> void:
 	if Engine.is_editor_hint():
 		set_process(false)
 		return
-	_camera = get_node_or_null(camera_path) as Node3D
+	_ensure_camera()  # may fail this frame - _process keeps trying (XR session
+	# start / ready order can make the camera appear a few frames later).
+
+
+## Resolve the camera and build the quad once; returns true when ready.
+func _ensure_camera() -> bool:
+	if _quad != null:
+		return true
+	if _camera == null or not is_instance_valid(_camera):
+		_camera = get_node_or_null(camera_path) as Node3D
+		if _camera == null:
+			_camera = XRRigResolver.find_camera(self)
 	if _camera == null:
-		_camera = XRRigResolver.find_camera(self)
-	if _camera == null:
-		push_warning("XRTunnelingVignette: no camera found.")
-		set_process(false)
-		return
+		return false
 	_build_quad()
+	return true
 
 
 func _build_quad() -> void:
@@ -72,7 +81,7 @@ func _build_quad() -> void:
 
 
 func _process(delta: float) -> void:
-	if _camera == null or _quad == null or delta <= 0.0:
+	if not _ensure_camera() or delta <= 0.0:
 		return
 	var position := _camera.global_position
 	var forward := -_camera.global_transform.basis.z
