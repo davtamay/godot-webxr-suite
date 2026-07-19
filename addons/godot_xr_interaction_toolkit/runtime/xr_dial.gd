@@ -10,6 +10,10 @@ extends XRConstrainedInteractable
 
 ## Spin axis in the knob's LOCAL space (default: its up axis).
 @export var spin_axis := Vector3(0.0, 1.0, 0.0)
+## Flip which twist direction raises the value (the knob still follows your
+## wrist either way; this only swaps increase/decrease). Turn this on if
+## "clockwise = more" feels backwards for how the knob is mounted.
+@export var invert := false
 ## Total sweep from value 0 to value 1, in degrees.
 @export_range(15.0, 1440.0, 5.0) var range_degrees := 270.0
 ## 0 = smooth. >0 = snap to this many detents (e.g. 10 = eleven positions).
@@ -59,7 +63,8 @@ func _on_update(_hand: Vector3) -> void:
 
 
 func _axis() -> Vector3:
-	return spin_axis if spin_axis.length_squared() > 1e-8 else Vector3.UP
+	var axis := spin_axis if spin_axis.length_squared() > 1e-8 else Vector3.UP
+	return -axis if invert else axis
 
 
 func _axis_world() -> Vector3:

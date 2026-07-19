@@ -131,6 +131,7 @@ surface_material_override/0 = SubResource("MetalMat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 0.93, 0.05)
 script = ExtResource("3_dial")
 default_value = 0.5
+invert = true
 range_degrees = 270.0
 
 [node name="KnobMesh" type="MeshInstance3D" parent="Console/Dial"]
