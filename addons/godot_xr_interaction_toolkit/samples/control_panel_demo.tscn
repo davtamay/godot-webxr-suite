@@ -1,0 +1,249 @@
+[gd_scene load_steps=29 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/control_panel_demo.gd" id="2_demo"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_dial.gd" id="3_dial"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_lever.gd" id="4_lever"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_drawer.gd" id="5_drawer"]
+[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="6_fontbake"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.08, 0.1, 0.13, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.6, 0.66, 0.75, 1)
+ambient_light_energy = 0.5
+
+[sub_resource type="PlaneMesh" id="FloorMesh"]
+size = Vector2(8, 8)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.17, 0.2, 0.25, 1)
+roughness = 0.95
+
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(8, 0.08, 8)
+
+[sub_resource type="BoxMesh" id="ConsoleMesh"]
+size = Vector3(1.4, 0.9, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="MetalMat"]
+albedo_color = Color(0.26, 0.29, 0.34, 1)
+metallic = 0.5
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="KnobMesh"]
+top_radius = 0.06
+bottom_radius = 0.07
+height = 0.05
+
+[sub_resource type="StandardMaterial3D" id="KnobMat"]
+albedo_color = Color(0.5, 0.54, 0.6, 1)
+metallic = 0.6
+roughness = 0.35
+
+[sub_resource type="CylinderShape3D" id="KnobShape"]
+radius = 0.08
+height = 0.06
+
+[sub_resource type="BoxMesh" id="PointerMesh"]
+size = Vector3(0.02, 0.055, 0.05)
+
+[sub_resource type="StandardMaterial3D" id="PointerMat"]
+albedo_color = Color(1, 0.55, 0.2, 1)
+emission_enabled = true
+emission = Color(1, 0.55, 0.2, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="BoxMesh" id="HandleMesh"]
+size = Vector3(0.045, 0.22, 0.045)
+
+[sub_resource type="BoxShape3D" id="HandleShape"]
+size = Vector3(0.08, 0.24, 0.08)
+
+[sub_resource type="BoxMesh" id="DrawerMesh"]
+size = Vector3(0.3, 0.22, 0.06)
+
+[sub_resource type="BoxShape3D" id="DrawerShape"]
+size = Vector3(0.32, 0.24, 0.08)
+
+[sub_resource type="BoxMesh" id="GemMesh"]
+size = Vector3(0.07, 0.07, 0.07)
+
+[sub_resource type="StandardMaterial3D" id="GemMat"]
+albedo_color = Color(0.3, 1, 0.9, 1)
+emission_enabled = true
+emission = Color(0.3, 1, 0.9, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="SphereMesh" id="BulbMesh"]
+radius = 0.08
+height = 0.16
+
+[sub_resource type="StandardMaterial3D" id="BulbMat"]
+albedo_color = Color(1, 0.95, 0.85, 1)
+emission_enabled = true
+emission = Color(1, 0.85, 0.5, 1)
+emission_energy_multiplier = 1.0
+
+[sub_resource type="BoxMesh" id="PistonMesh"]
+size = Vector3(0.14, 0.5, 0.14)
+
+[sub_resource type="StandardMaterial3D" id="PistonMat"]
+albedo_color = Color(0.9, 0.5, 0.25, 1)
+metallic = 0.4
+roughness = 0.4
+
+[sub_resource type="CylinderMesh" id="PistonBaseMesh"]
+top_radius = 0.11
+bottom_radius = 0.13
+height = 0.1
+
+[node name="ControlPanelDemo" type="Node3D"]
+script = ExtResource("2_demo")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+mesh = SubResource("FloorMesh")
+surface_material_override/0 = SubResource("FloorMat")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("FloorShape")
+
+[node name="Console" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.8)
+
+[node name="ConsoleMesh" type="MeshInstance3D" parent="Console"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+mesh = SubResource("ConsoleMesh")
+surface_material_override/0 = SubResource("MetalMat")
+
+[node name="Dial" type="Node3D" parent="Console"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 0.93, 0.05)
+script = ExtResource("3_dial")
+default_value = 0.5
+range_degrees = 270.0
+
+[node name="KnobMesh" type="MeshInstance3D" parent="Console/Dial"]
+mesh = SubResource("KnobMesh")
+surface_material_override/0 = SubResource("KnobMat")
+
+[node name="Pointer" type="MeshInstance3D" parent="Console/Dial"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.045)
+mesh = SubResource("PointerMesh")
+surface_material_override/0 = SubResource("PointerMat")
+
+[node name="Body" type="StaticBody3D" parent="Console/Dial"]
+
+[node name="Col" type="CollisionShape3D" parent="Console/Dial/Body"]
+shape = SubResource("KnobShape")
+
+[node name="Lever" type="Node3D" parent="Console"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+script = ExtResource("4_lever")
+hinge_axis = Vector3(1, 0, 0)
+min_angle_deg = -40.0
+max_angle_deg = 40.0
+default_value = 0.5
+
+[node name="HandleMesh" type="MeshInstance3D" parent="Console/Lever"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.11, 0)
+mesh = SubResource("HandleMesh")
+surface_material_override/0 = SubResource("PistonMat")
+
+[node name="Body" type="StaticBody3D" parent="Console/Lever"]
+
+[node name="Col" type="CollisionShape3D" parent="Console/Lever/Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.13, 0)
+shape = SubResource("HandleShape")
+
+[node name="Drawer" type="Node3D" parent="Console"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, 0.5, 0.25)
+script = ExtResource("5_drawer")
+slide_axis = Vector3(0, 0, 1)
+travel = 0.28
+
+[node name="DrawerMesh" type="MeshInstance3D" parent="Console/Drawer"]
+mesh = SubResource("DrawerMesh")
+surface_material_override/0 = SubResource("KnobMat")
+
+[node name="Body" type="StaticBody3D" parent="Console/Drawer"]
+
+[node name="Col" type="CollisionShape3D" parent="Console/Drawer/Body"]
+shape = SubResource("DrawerShape")
+
+[node name="Gem" type="MeshInstance3D" parent="Console/Drawer"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.13)
+mesh = SubResource("GemMesh")
+surface_material_override/0 = SubResource("GemMat")
+
+[node name="DialLabel" type="Label3D" parent="Console"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 1.05, 0.1)
+pixel_size = 0.0011
+billboard = 1
+text = "BRIGHTNESS  50%"
+font_size = 26
+outline_size = 8
+
+[node name="LeverLabel" type="Label3D" parent="Console"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.28, 0.1)
+pixel_size = 0.0011
+billboard = 1
+text = "LIFT  50%"
+font_size = 26
+outline_size = 8
+
+[node name="DrawerLabel" type="Label3D" parent="Console"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.45, 0.9, 0.2)
+pixel_size = 0.0011
+billboard = 1
+text = "DRAWER  0%"
+font_size = 26
+outline_size = 8
+
+[node name="Lamp" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 1.55, -0.75)
+
+[node name="Bulb" type="MeshInstance3D" parent="Lamp"]
+mesh = SubResource("BulbMesh")
+surface_material_override/0 = SubResource("BulbMat")
+
+[node name="Light" type="OmniLight3D" parent="Lamp"]
+light_energy = 2.0
+omni_range = 4.0
+
+[node name="PistonBase" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -0.75)
+mesh = SubResource("PistonBaseMesh")
+surface_material_override/0 = SubResource("MetalMat")
+
+[node name="Piston" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.25, -0.75)
+mesh = SubResource("PistonMesh")
+surface_material_override/0 = SubResource("PistonMat")
+
+[node name="InfoLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.1, -1.6)
+pixel_size = 0.0013
+billboard = 1
+text = "MECHANISMS - grab and operate the controls (near or far):
+turn the DIAL to set the lamp, pull the LEVER to raise the piston,
+pull the DRAWER open to reveal the gem. Each outputs a 0-1 value."
+font_size = 26
+outline_size = 8
+width = 1600.0
+autowrap_mode = 2
+
+[node name="FontBakeAnchor" type="Label3D" parent="."]
+script = ExtResource("6_fontbake")
+
+[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
