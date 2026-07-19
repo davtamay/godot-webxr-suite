@@ -1,9 +1,9 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=5 format=3 uid="uid://crdc24h6y3686"]
 
-[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="1_rig"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_boot"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="3_openxr"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/webxr_prefab.gd" id="4_prefab"]
+[ext_resource type="PackedScene" uid="uid://digw24c7kgacb" path="res://addons/godot_webxr_kit/rig/webxr_rig.tscn" id="1_rig"]
+[ext_resource type="Script" uid="uid://dmbamluhcipsm" path="res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd" id="2_boot"]
+[ext_resource type="Script" uid="uid://lup4er2hx804" path="res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd" id="3_openxr"]
+[ext_resource type="Script" uid="uid://bdy5qpl4tttbh" path="res://addons/godot_webxr_kit/webxr_prefab.gd" id="4_prefab"]
 
 [node name="WebXRPrefab" type="Node3D"]
 script = ExtResource("4_prefab")

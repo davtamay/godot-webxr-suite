@@ -149,6 +149,10 @@ func _physics_process(delta: float) -> void:
 			if _teleport_hand == hand and not _intent_aim:
 				_cancel_teleport()
 			continue
+		# A continuous-move block can own a hand's stick (smooth walk/turn);
+		# don't also teleport/snap-turn on it.
+		if _hand_claimed_by_continuous_move(hand):
+			continue
 		var stick := controller.get_vector2(&"thumbstick")
 		if not _intent_aim:
 			_update_teleport(hand, controller, stick)
@@ -313,6 +317,15 @@ func _project_arc_from(start: Vector3, direction: Vector3) -> void:
 		point = next
 
 	_draw_arc(points)
+
+
+## True if a continuous-move block drives this hand's stick (walk/turn), so
+## teleport + snap turn should stay off it.
+func _hand_claimed_by_continuous_move(hand: int) -> bool:
+	for mover in get_tree().get_nodes_in_group("xr_continuous_move"):
+		if mover.has_method("get_claimed_hands") and hand in mover.get_claimed_hands():
+			return true
+	return false
 
 
 ## Return the XRTeleportAnchor owning a ray hit's collider, or null.

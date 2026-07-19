@@ -1,10 +1,12 @@
-[gd_scene load_steps=19 format=3]
+[gd_scene load_steps=21 format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/locomotion_playground_demo.gd" id="2_demo"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="3_anchor"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_debug_panel.gd" id="4_debug"]
 [ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="5_fontbake"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_continuous_move.gd" id="6_move"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_tunneling_vignette.gd" id="7_vignette"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -142,12 +144,12 @@ script = ExtResource("3_anchor")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, -2.2)
 pixel_size = 0.0013
 billboard = 1
-text = "LOCOMOTION - push a thumbstick to aim a teleport arc, release to go.
-DIRECTIONAL TELEPORT is on: rotate the thumbstick to choose your FACING
-(the reticle arrow shows it); the controller aims WHERE you land.
+text = "LOCOMOTION - LEFT stick: smooth WALK (a comfort vignette darkens the
+edges while you move). RIGHT stick: DIRECTIONAL TELEPORT - hold to aim,
+rotate to choose your FACING (reticle arrow), release to go.
 Aim at a glowing ANCHOR to snap to it; the bold arrow = the way you'll face.
 The purple anchor (west) moves you there but keeps your facing.
-The far ray hides while you teleport - they're exclusive."
+Smooth move and teleport coexist - each owns one stick."
 font_size = 26
 outline_size = 8
 width = 1700.0
@@ -159,5 +161,11 @@ script = ExtResource("4_debug")
 
 [node name="FontBakeAnchor" type="Label3D" parent="."]
 script = ExtResource("5_fontbake")
+
+[node name="ContinuousMove" type="Node" parent="."]
+script = ExtResource("6_move")
+
+[node name="TunnelingVignette" type="Node" parent="."]
+script = ExtResource("7_vignette")
 
 [node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]

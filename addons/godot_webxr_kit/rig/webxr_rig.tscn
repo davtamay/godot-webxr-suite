@@ -1,20 +1,20 @@
-[gd_scene format=3]
+[gd_scene load_steps=16 format=3 uid="uid://digw24c7kgacb"]
 
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/rig/webxr_rig.gd" id="0_rig"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_manager.gd" id="1_manager"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/webxr_input_adapter.gd" id="2_adapter"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_screen_ray_interactor.gd" id="3_screen"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_direct_interactor.gd" id="4_direct"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ray_interactor.gd" id="5_ray"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interactor_line_visual.gd" id="6_line"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_visual.gd" id="7_reticle"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/rig/flatscreen_camera_controller.gd" id="8_flatcam"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/openxr_input_adapter.gd" id="9_openxr"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/xr_input_modality_manager.gd" id="10_modality"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_locomotion.gd" id="11_locomotion"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_interactor.gd" id="12_poke"]
-[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/xr_hands_mount.gd" id="13_hands"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_feedback.gd" id="14_feedback"]
+[ext_resource type="Script" uid="uid://nrrau4vedars" path="res://addons/godot_webxr_kit/rig/webxr_rig.gd" id="0_rig"]
+[ext_resource type="Script" uid="uid://5wgrevdcbpfb" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_manager.gd" id="1_manager"]
+[ext_resource type="Script" uid="uid://clovb6i7opcxo" path="res://addons/godot_webxr_kit/runtime/webxr_input_adapter.gd" id="2_adapter"]
+[ext_resource type="Script" uid="uid://ithx3643t82h" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_screen_ray_interactor.gd" id="3_screen"]
+[ext_resource type="Script" uid="uid://dt1r2uuiyyse4" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_direct_interactor.gd" id="4_direct"]
+[ext_resource type="Script" uid="uid://ldw0xx7hf2gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ray_interactor.gd" id="5_ray"]
+[ext_resource type="Script" uid="uid://c33yoqytxon76" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interactor_line_visual.gd" id="6_line"]
+[ext_resource type="Script" uid="uid://dvjcbs1h1cy3i" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_reticle_visual.gd" id="7_reticle"]
+[ext_resource type="Script" uid="uid://cxtlrtjinnhvi" path="res://addons/godot_webxr_kit/rig/flatscreen_camera_controller.gd" id="8_flatcam"]
+[ext_resource type="Script" uid="uid://dfwfacw7ffrby" path="res://addons/godot_webxr_kit/runtime/openxr_input_adapter.gd" id="9_openxr"]
+[ext_resource type="Script" uid="uid://cyjetaw31bm76" path="res://addons/godot_webxr_kit/runtime/xr_input_modality_manager.gd" id="10_modality"]
+[ext_resource type="Script" uid="uid://eyd1amf0jmtc" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_locomotion.gd" id="11_locomotion"]
+[ext_resource type="Script" uid="uid://d2ivnk6q3qlk0" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_interactor.gd" id="12_poke"]
+[ext_resource type="Script" uid="uid://bv8cujsq5qm8j" path="res://addons/godot_webxr_kit/runtime/xr_hands_mount.gd" id="13_hands"]
+[ext_resource type="Script" uid="uid://dhcijs6x6gehg" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_interaction_feedback.gd" id="14_feedback"]
 
 [node name="WebXRRig" type="Node3D"]
 script = ExtResource("0_rig")
@@ -24,7 +24,6 @@ script = ExtResource("1_manager")
 
 [node name="FlatscreenCamera" type="Node" parent="."]
 script = ExtResource("8_flatcam")
-camera_path = NodePath("../XROrigin3D/XRCamera3D")
 
 [node name="WebXRInputAdapter" type="Node" parent="."]
 script = ExtResource("2_adapter")
@@ -49,6 +48,7 @@ xr_origin_path = NodePath("../XROrigin3D")
 camera_path = NodePath("../XROrigin3D/XRCamera3D")
 left_controller_path = NodePath("../XROrigin3D/LeftController")
 right_controller_path = NodePath("../XROrigin3D/RightController")
+directional_teleport = null
 
 [node name="InteractionFeedback" type="Node" parent="."]
 script = ExtResource("14_feedback")
@@ -86,20 +86,16 @@ show_when_tracked = true
 [node name="LeftDirectInteractor" type="Node3D" parent="XROrigin3D"]
 script = ExtResource("4_direct")
 input_adapter_path = NodePath("../../WebXRInputAdapter")
-hand = 0
-hover_radius = 0.16
 
 [node name="RightDirectInteractor" type="Node3D" parent="XROrigin3D"]
 script = ExtResource("4_direct")
 input_adapter_path = NodePath("../../WebXRInputAdapter")
 hand = 1
-hover_radius = 0.16
 
 [node name="LeftRayInteractor" type="Node3D" parent="XROrigin3D"]
 script = ExtResource("5_ray")
-input_adapter_path = NodePath("../../WebXRInputAdapter")
-hand = 0
 suppress_interactor_path = NodePath("../LeftDirectInteractor")
+input_adapter_path = NodePath("../../WebXRInputAdapter")
 
 [node name="LineVisual" type="MeshInstance3D" parent="XROrigin3D/LeftRayInteractor"]
 script = ExtResource("6_line")
@@ -110,9 +106,9 @@ script = ExtResource("7_reticle")
 
 [node name="RightRayInteractor" type="Node3D" parent="XROrigin3D"]
 script = ExtResource("5_ray")
+suppress_interactor_path = NodePath("../RightDirectInteractor")
 input_adapter_path = NodePath("../../WebXRInputAdapter")
 hand = 1
-suppress_interactor_path = NodePath("../RightDirectInteractor")
 
 [node name="LineVisual" type="MeshInstance3D" parent="XROrigin3D/RightRayInteractor"]
 script = ExtResource("6_line")
