@@ -1,0 +1,161 @@
+[gd_scene load_steps=19 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/locomotion_playground_demo.gd" id="2_demo"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="3_anchor"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_debug_panel.gd" id="4_debug"]
+[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="5_fontbake"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.08, 0.1, 0.14, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.65, 0.72, 0.82, 1)
+ambient_light_energy = 0.55
+
+[sub_resource type="PlaneMesh" id="FloorMesh"]
+size = Vector2(10, 10)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.18, 0.22, 0.28, 1)
+roughness = 0.95
+
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(10, 0.08, 10)
+
+[sub_resource type="CylinderMesh" id="PedestalMesh"]
+top_radius = 0.35
+bottom_radius = 0.45
+height = 0.6
+
+[sub_resource type="StandardMaterial3D" id="PedestalMat"]
+albedo_color = Color(0.3, 0.33, 0.4, 1)
+roughness = 0.7
+
+[sub_resource type="SphereMesh" id="OrbMesh"]
+radius = 0.28
+height = 0.56
+
+[sub_resource type="StandardMaterial3D" id="OrbMat"]
+emission_enabled = true
+emission = Color(0.35, 0.75, 1, 1)
+emission_energy_multiplier = 2.5
+albedo_color = Color(0.35, 0.75, 1, 1)
+
+[sub_resource type="BoxMesh" id="PillarMesh"]
+size = Vector3(0.3, 1.6, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="PillarMatN"]
+albedo_color = Color(1, 0.4, 0.4, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="PillarMatS"]
+albedo_color = Color(0.4, 1, 0.5, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="PillarMatE"]
+albedo_color = Color(1, 0.85, 0.35, 1)
+roughness = 0.6
+
+[sub_resource type="StandardMaterial3D" id="PillarMatW"]
+albedo_color = Color(0.6, 0.5, 1, 1)
+roughness = 0.6
+
+[node name="LocomotionPlaygroundDemo" type="Node3D"]
+script = ExtResource("2_demo")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+mesh = SubResource("FloorMesh")
+surface_material_override/0 = SubResource("FloorMat")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("FloorShape")
+
+[node name="Pedestal" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.3, 0)
+mesh = SubResource("PedestalMesh")
+surface_material_override/0 = SubResource("PedestalMat")
+
+[node name="Orb" type="MeshInstance3D" parent="Pedestal"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.65, 0)
+mesh = SubResource("OrbMesh")
+surface_material_override/0 = SubResource("OrbMat")
+
+[node name="OrbLight" type="OmniLight3D" parent="Pedestal/Orb"]
+light_color = Color(0.35, 0.75, 1, 1)
+light_energy = 2.0
+omni_range = 5.0
+
+[node name="PillarN" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, -3.4)
+mesh = SubResource("PillarMesh")
+surface_material_override/0 = SubResource("PillarMatN")
+
+[node name="PillarS" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.8, 3.4)
+mesh = SubResource("PillarMesh")
+surface_material_override/0 = SubResource("PillarMatS")
+
+[node name="PillarE" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.4, 0.8, 0)
+mesh = SubResource("PillarMesh")
+surface_material_override/0 = SubResource("PillarMatE")
+
+[node name="PillarW" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.4, 0.8, 0)
+mesh = SubResource("PillarMesh")
+surface_material_override/0 = SubResource("PillarMatW")
+
+[node name="AnchorNorth" type="Node3D" parent="."]
+transform = Transform3D(-1, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0, -2.2)
+script = ExtResource("3_anchor")
+
+[node name="AnchorSouth" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 2.2)
+script = ExtResource("3_anchor")
+
+[node name="AnchorEast" type="Node3D" parent="."]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 2.2, 0, 0)
+script = ExtResource("3_anchor")
+
+[node name="AnchorWest" type="Node3D" parent="."]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -2.2, 0, 0)
+script = ExtResource("3_anchor")
+force_facing = false
+idle_color = Color(0.85, 0.6, 1, 0.85)
+
+[node name="AnchorCorner" type="Node3D" parent="."]
+transform = Transform3D(0.707, 0, -0.707, 0, 1, 0, 0.707, 0, 0.707, 3, 0, 3)
+script = ExtResource("3_anchor")
+
+[node name="InfoLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, -2.2)
+pixel_size = 0.0013
+billboard = 1
+text = "LOCOMOTION - push a thumbstick FORWARD to aim a teleport arc, release to go.
+Aim at a glowing ANCHOR to snap to it; the blue arrow = the way you'll face.
+The purple anchor (west) moves you there but keeps your facing.
+Flick the thumbstick LEFT / RIGHT to snap-turn."
+font_size = 26
+outline_size = 8
+width = 1700.0
+autowrap_mode = 2
+
+[node name="DebugPanel" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.6, 1.4, -1.9)
+script = ExtResource("4_debug")
+
+[node name="FontBakeAnchor" type="Label3D" parent="."]
+script = ExtResource("5_fontbake")
+
+[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]

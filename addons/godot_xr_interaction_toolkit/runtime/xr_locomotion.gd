@@ -82,6 +82,8 @@ var _target_valid := false
 var _last_aim_hand := -1
 var _committed_teleport := false
 var _target_point := Vector3.ZERO
+var _target_anchor: XRTeleportAnchor = null
+var _highlighted_anchor: XRTeleportAnchor = null
 var _snap_armed := [true, true]
 var _arc_visual: MeshInstance3D
 var _arc_mesh := ImmediateMesh.new()
@@ -171,10 +173,11 @@ func commit_teleport(hand: int = -1) -> void:
 		return
 	var commit := _target_valid
 	var target := _target_point
+	var anchor := _target_anchor
 	_intent_aim = false
 	_cancel_teleport()
 	if commit:
-		_teleport_to(target)
+		_teleport_to(target, anchor)
 
 
 func cancel_teleport(hand: int = -1) -> void:
@@ -210,21 +213,26 @@ func _update_teleport(hand: int, controller: XRController3D, stick: Vector2) -> 
 		_project_arc(controller)
 		return
 
-	# Stick released: commit if the marker was on valid ground.
+	# Stick released: commit if the marker was on valid ground (or an anchor).
 	var commit := _target_valid
 	var target := _target_point
+	var anchor := _target_anchor
 	_cancel_teleport()
 	if commit:
-		_teleport_to(target)
+		_teleport_to(target, anchor)
 
 
-func _teleport_to(target: Vector3) -> void:
+func _teleport_to(target: Vector3, anchor: XRTeleportAnchor = null) -> void:
 	var from := _camera.global_position
 	# Move the origin so the CAMERA lands on the target horizontally and the
 	# play space floor lands at the target height - the user's offset inside
 	# the play space is preserved.
 	var camera_floor := Vector3(_camera.global_position.x, _origin.global_position.y, _camera.global_position.z)
 	_origin.global_position += target - camera_floor
+	# Anchors can force a facing: yaw the rig (around the now-moved camera) so
+	# the user looks along the anchor's forward.
+	if anchor and is_instance_valid(anchor) and anchor.wants_facing():
+		_face_direction(anchor.facing_forward())
 	_committed_teleport = true
 	teleported.emit(from, _camera.global_position)
 
@@ -258,6 +266,7 @@ func _project_arc_from(start: Vector3, direction: Vector3) -> void:
 	var velocity := direction * arc_velocity
 	var points := PackedVector3Array([point])
 	_target_valid = false
+	_target_anchor = null
 
 	for step in _ARC_MAX_STEPS:
 		var next := point + velocity * _ARC_STEP_SECONDS
@@ -266,8 +275,16 @@ func _project_arc_from(start: Vector3, direction: Vector3) -> void:
 		var hit := space.intersect_ray(query)
 		if not hit.is_empty():
 			points.append(hit["position"])
-			_target_valid = (hit["normal"] as Vector3).y >= min_ground_normal_y
-			_target_point = hit["position"]
+			var anchor := _anchor_from_hit(hit)
+			if anchor:
+				# Discrete destination: snap to the anchor's exact point,
+				# always valid regardless of the surface normal.
+				_target_anchor = anchor
+				_target_point = anchor.snap_position()
+				_target_valid = true
+			else:
+				_target_valid = (hit["normal"] as Vector3).y >= min_ground_normal_y
+				_target_point = hit["position"]
 			break
 		points.append(next)
 		point = next
@@ -275,10 +292,21 @@ func _project_arc_from(start: Vector3, direction: Vector3) -> void:
 	_draw_arc(points)
 
 
+## Return the XRTeleportAnchor owning a ray hit's collider, or null.
+func _anchor_from_hit(hit: Dictionary) -> XRTeleportAnchor:
+	var collider = hit.get("collider")
+	if collider and collider.has_meta("xr_teleport_anchor"):
+		var anchor = collider.get_meta("xr_teleport_anchor")
+		if anchor is XRTeleportAnchor and is_instance_valid(anchor) and anchor.enabled:
+			return anchor
+	return null
+
+
 func _cancel_teleport() -> void:
 	_teleport_hand = -1
 	_intent_aim = false
 	_target_valid = false
+	_target_anchor = null
 	_hide_visuals()
 
 
@@ -298,14 +326,30 @@ func _update_snap_turn(hand: int, stick: Vector2) -> void:
 
 
 func _apply_snap_turn(degrees: float) -> void:
-	# Rotate the origin around the CAMERA so the user pivots in place.
+	_yaw_origin_around_camera(deg_to_rad(degrees))
+	snap_turned.emit(degrees)
+
+
+## Rotate the origin around the CAMERA so the user pivots in place.
+func _yaw_origin_around_camera(radians: float) -> void:
 	var pivot := _camera.global_position
-	var rotation_basis := Basis(Vector3.UP, deg_to_rad(degrees))
+	var rotation_basis := Basis(Vector3.UP, radians)
 	var xf := _origin.global_transform
 	xf.origin = pivot + rotation_basis * (xf.origin - pivot)
 	xf.basis = rotation_basis * xf.basis
 	_origin.global_transform = xf
-	snap_turned.emit(degrees)
+
+
+## Yaw the rig so the camera's horizontal forward aligns with `forward`.
+func _face_direction(forward: Vector3) -> void:
+	forward.y = 0.0
+	if forward.length_squared() < 0.0001:
+		return
+	var cam_forward := -_camera.global_transform.basis.z
+	cam_forward.y = 0.0
+	if cam_forward.length_squared() < 0.0001:
+		return
+	_yaw_origin_around_camera(cam_forward.normalized().signed_angle_to(forward.normalized(), Vector3.UP))
 
 
 ## ---- visuals ----------------------------------------------------------------
@@ -345,10 +389,13 @@ func _draw_arc(points: PackedVector3Array) -> void:
 			_arc_mesh.surface_add_vertex(p)
 		_arc_mesh.surface_end()
 	_arc_visual.visible = true
-	_target_visual.visible = _target_valid
-	if _target_valid:
+	# The anchor draws its own ring; the free-teleport reticle is only for
+	# free-surface landings, so hide it when an anchor is the target.
+	_target_visual.visible = _target_valid and _target_anchor == null
+	if _target_visual.visible:
 		(_target_visual.material_override as StandardMaterial3D).albedo_color = color
 		_target_visual.global_position = _target_point + Vector3(0.0, 0.01, 0.0)
+	_set_anchor_highlight(_target_anchor)
 
 
 func _hide_visuals() -> void:
@@ -356,3 +403,14 @@ func _hide_visuals() -> void:
 		_arc_visual.visible = false
 	if _target_visual:
 		_target_visual.visible = false
+	_set_anchor_highlight(null)
+
+
+func _set_anchor_highlight(anchor: XRTeleportAnchor) -> void:
+	if anchor == _highlighted_anchor:
+		return
+	if _highlighted_anchor and is_instance_valid(_highlighted_anchor):
+		_highlighted_anchor.set_highlighted(false)
+	_highlighted_anchor = anchor
+	if anchor and is_instance_valid(anchor):
+		anchor.set_highlighted(true)

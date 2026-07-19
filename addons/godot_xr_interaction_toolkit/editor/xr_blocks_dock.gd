@@ -30,6 +30,7 @@ const CATEGORIES := [
 	{"name": "Locomotion", "blocks": [
 		{"name": "Locomotion", "desc": "Teleport arc + snap turn (thumbsticks). Drop anywhere - finds the rig itself. Rig-default.", "kind": "node", "base": "Node", "path": "res://addons/godot_xr_interaction_toolkit/runtime/xr_locomotion.gd", "icon": "res://addons/godot_xr_interaction_toolkit/icons/xr_locomotion.svg"},
 		{"name": "Microgesture Locomotion", "desc": "Thumb swipes drive the SAME teleport arc + snap turn (needs godot_xr_hands; inert without). Rig-default.", "kind": "node", "base": "Node", "path": "res://addons/godot_xr_interaction_toolkit/runtime/xr_microgesture_locomotion_driver.gd", "icon": "res://addons/godot_xr_interaction_toolkit/icons/xr_locomotion.svg"},
+		{"name": "Teleport Anchor", "desc": "A FIXED teleport destination: aim the arc at it to SNAP to this exact spot, optionally turned to FACE its forward. Drop anywhere, rotate to aim; self-wires to the rig's locomotion. Seats, viewpoints, doorways.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd", "icon": "res://addons/godot_xr_interaction_toolkit/icons/xr_locomotion.svg"},
 		{"name": "Floor (teleportable)", "desc": "Ground in one drop: visible floor + teleport collision; the visual hides in AR passthrough (your real floor takes over).", "kind": "scene", "path": "res://addons/godot_xr_interaction_toolkit/xr_floor.tscn", "icon": "res://addons/godot_xr_interaction_toolkit/icons/xr_locomotion.svg"},
 	]},
 	{"name": "Grab & Sockets", "blocks": [
