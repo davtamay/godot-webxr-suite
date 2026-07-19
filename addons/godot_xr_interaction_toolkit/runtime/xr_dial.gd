@@ -20,8 +20,7 @@ extends XRConstrainedInteractable
 @export_range(0, 64, 1) var snap_steps := 0
 
 var _zero_basis := Basis.IDENTITY
-var _ref_axis := 1          # which hand-basis axis we measure the twist from
-var _prev_ref := Vector3.ZERO
+var _prev_quat := Quaternion.IDENTITY
 var _accum_degrees := 0.0
 var _grab_value := 0.0
 
@@ -39,11 +38,7 @@ func _apply_value() -> void:
 
 
 func _on_grab() -> void:
-	# Track the hand-basis axis most perpendicular to the spin axis (its
-	# projection carries the cleanest twist signal). That choice is invariant
-	# under twisting, so it stays valid for the whole grab.
-	_ref_axis = _best_ref_axis()
-	_prev_ref = _hand_ref()
+	_prev_quat = _hand_quat()
 	_accum_degrees = 0.0
 	_grab_value = value
 
@@ -51,11 +46,14 @@ func _on_grab() -> void:
 func _on_update(_hand: Vector3) -> void:
 	if range_degrees < 0.001:
 		return
-	var cur_ref := _hand_ref()
-	# Accumulate per-frame twist (each frame is well under 180 deg, so no wrap
-	# glitch) - lets the knob turn past 180 deg across a grab.
-	_accum_degrees += rad_to_deg(_signed_angle_around(_prev_ref, cur_ref, _axis_world()))
-	_prev_ref = cur_ref
+	var cur := _hand_quat()
+	# The hand's rotation SINCE last frame, decomposed to just the part around
+	# the spin axis (swing-twist) - so off-axis wrist motion is ignored and the
+	# turn is symmetric regardless of how the knob is held. Small per-frame
+	# deltas accumulate, so the knob can turn past 180 deg across a grab.
+	var delta := cur * _prev_quat.inverse()
+	_prev_quat = cur
+	_accum_degrees += rad_to_deg(_twist_angle(delta, _axis_world()))
 	var new_value := _grab_value + _accum_degrees / range_degrees
 	if snap_steps > 0:
 		new_value = roundf(clampf(new_value, 0.0, 1.0) * snap_steps) / float(snap_steps)
@@ -73,23 +71,20 @@ func _axis_world() -> Vector3:
 
 ## The grabbing hand's orientation (reel-safe: rotation isn't touched by the
 ## ray's distance manipulation).
-func _hand_basis() -> Basis:
+func _hand_quat() -> Quaternion:
 	if _grabber and _grabber.has_method("get_attach_pose"):
-		return (_grabber.get_attach_pose() as Transform3D).basis.orthonormalized()
-	return (_grabber as Node3D).global_basis if _grabber is Node3D else Basis.IDENTITY
+		return (_grabber.get_attach_pose() as Transform3D).basis.orthonormalized().get_rotation_quaternion()
+	if _grabber is Node3D:
+		return _grabber.global_basis.orthonormalized().get_rotation_quaternion()
+	return Quaternion.IDENTITY
 
 
-func _hand_ref() -> Vector3:
-	var basis := _hand_basis()
-	return basis.x if _ref_axis == 0 else (basis.y if _ref_axis == 1 else basis.z)
-
-
-func _best_ref_axis() -> int:
-	var basis := _hand_basis()
-	var n := _axis_world()
-	var dx := absf(basis.x.dot(n))
-	var dy := absf(basis.y.dot(n))
-	var dz := absf(basis.z.dot(n))
-	if dx <= dy and dx <= dz:
-		return 0
-	return 1 if dy <= dz else 2
+## Signed rotation of `q` around `axis` (swing-twist decomposition). For the
+## small per-frame deltas we feed it, this is the exact twist component.
+func _twist_angle(q: Quaternion, axis: Vector3) -> float:
+	var w := q.w
+	var projected := Vector3(q.x, q.y, q.z).dot(axis)
+	if w < 0.0:  # take the shortest arc
+		w = -w
+		projected = -projected
+	return 2.0 * atan2(projected, w)
