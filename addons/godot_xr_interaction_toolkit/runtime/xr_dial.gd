@@ -2,11 +2,11 @@
 class_name XRDial
 extends XRConstrainedInteractable
 
-## A dial / rotary knob: grab it and TWIST your wrist to sweep a value 0..1
-## (Unity XRI's Dial). The knob follows your hand's rotation around its spin
-## axis 1:1 - hold and turn, like a real knob - so it never fights you.
-## Twist more than one grab allows? Release and re-grab, like a physical knob.
-## Optional detents snap to steps; wire value_changed to volume, brightness...
+## A dial / rotary knob: grab it and move your hand in an ORBIT around it to
+## sweep a value 0..1 (Unity XRI's Dial). The knob follows your hand's orbit
+## around its spin axis 1:1 - the same whether you grabbed it near or with the
+## far ray (it tracks the hand, not the reeled ray point). Optional detents
+## snap to steps; wire value_changed to volume, brightness, anything.
 
 ## Spin axis in the knob's LOCAL space (default: its up axis).
 @export var spin_axis := Vector3(0.0, 1.0, 0.0)
@@ -19,8 +19,10 @@ extends XRConstrainedInteractable
 ## 0 = smooth. >0 = snap to this many detents (e.g. 10 = eleven positions).
 @export_range(0, 64, 1) var snap_steps := 0
 
+const _MIN_RADIUS := 0.02
+
 var _zero_basis := Basis.IDENTITY
-var _prev_quat := Quaternion.IDENTITY
+var _prev_dir := Vector3.ZERO
 var _accum_degrees := 0.0
 var _grab_value := 0.0
 
@@ -38,7 +40,7 @@ func _apply_value() -> void:
 
 
 func _on_grab() -> void:
-	_prev_quat = _hand_quat()
+	_prev_dir = _orbit_dir()
 	_accum_degrees = 0.0
 	_grab_value = value
 
@@ -46,18 +48,27 @@ func _on_grab() -> void:
 func _on_update(_hand: Vector3) -> void:
 	if range_degrees < 0.001:
 		return
-	var cur := _hand_quat()
-	# The hand's rotation SINCE last frame, decomposed to just the part around
-	# the spin axis (swing-twist) - so off-axis wrist motion is ignored and the
-	# turn is symmetric regardless of how the knob is held. Small per-frame
-	# deltas accumulate, so the knob can turn past 180 deg across a grab.
-	var delta := cur * _prev_quat.inverse()
-	_prev_quat = cur
-	_accum_degrees += rad_to_deg(_twist_angle(delta, _axis_world()))
+	var cur := _orbit_dir()
+	# Accumulate the angle the hand sweeps around the dial axis this frame. Only
+	# when there's enough lever arm for a stable angle (skips the degenerate
+	# case of the hand right at the dial centre); per-frame steps let the dial
+	# turn past 180 deg across one grab.
+	if _prev_dir.length() > _MIN_RADIUS and cur.length() > _MIN_RADIUS:
+		_accum_degrees += rad_to_deg(_signed_angle_around(_prev_dir, cur, _axis_world()))
+	_prev_dir = cur
 	var new_value := _grab_value + _accum_degrees / range_degrees
 	if snap_steps > 0:
 		new_value = roundf(clampf(new_value, 0.0, 1.0) * snap_steps) / float(snap_steps)
 	set_value(new_value)
+
+
+## The hand's position relative to the dial, in the plane perpendicular to the
+## spin axis - i.e. where the hand sits on its orbit around the dial. Uses the
+## hand ORIGIN (reel-safe), so far-ray orbiting works the same as near.
+func _orbit_dir() -> Vector3:
+	var v := _hand_world() - target().global_position
+	var n := _axis_world()
+	return v - n * v.dot(n)
 
 
 func _axis() -> Vector3:
@@ -67,24 +78,3 @@ func _axis() -> Vector3:
 
 func _axis_world() -> Vector3:
 	return (target().global_transform.basis * _axis()).normalized()
-
-
-## The grabbing hand's orientation (reel-safe: rotation isn't touched by the
-## ray's distance manipulation).
-func _hand_quat() -> Quaternion:
-	if _grabber and _grabber.has_method("get_attach_pose"):
-		return (_grabber.get_attach_pose() as Transform3D).basis.orthonormalized().get_rotation_quaternion()
-	if _grabber is Node3D:
-		return _grabber.global_basis.orthonormalized().get_rotation_quaternion()
-	return Quaternion.IDENTITY
-
-
-## Signed rotation of `q` around `axis` (swing-twist decomposition). For the
-## small per-frame deltas we feed it, this is the exact twist component.
-func _twist_angle(q: Quaternion, axis: Vector3) -> float:
-	var w := q.w
-	var projected := Vector3(q.x, q.y, q.z).dot(axis)
-	if w < 0.0:  # take the shortest arc
-		w = -w
-		projected = -projected
-	return 2.0 * atan2(projected, w)
