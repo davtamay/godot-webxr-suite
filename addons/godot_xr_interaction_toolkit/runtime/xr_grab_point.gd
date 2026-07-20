@@ -24,6 +24,13 @@ extends Node3D
 ## When several points match, higher priority wins before distance.
 @export var priority := 0
 
+## The hand this grip's pose is authored for (the Preview Hand is that hand).
+@export_enum("Left:0", "Right:1") var authored_hand := 1
+
+## Auto-mirror the grip for the OTHER hand, so you author once and both hands
+## hold it as mirror images (a left-handed grip mirrors your right-handed one).
+@export var mirror_to_other_hand := true
+
 ## AUTHORING AID (editor only): show a translucent reference HAND gripping the
 ## object exactly as it will at runtime (same grip convention). Move/rotate this
 ## grab point until the hand holds the object naturally - then it's correct

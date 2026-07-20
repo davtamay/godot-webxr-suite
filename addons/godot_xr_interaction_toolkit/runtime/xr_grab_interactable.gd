@@ -162,13 +162,26 @@ func _compute_grab_offset(interactor) -> Transform3D:
 		# in the hand, position AND rotation, regardless of the free-grab
 		# track_* defaults.
 		_point_grab = true
-		return point.global_transform.affine_inverse() * target.global_transform
+		var offset := point.global_transform.affine_inverse() * target.global_transform
+		return _mirror_offset(point, interactor, offset)
 	if snap_to_attach:
 		var attach_node := get_node_or_null(attach_transform_path) as Node3D
 		if attach_node:
 			return attach_node.global_transform.affine_inverse() * target.global_transform
 		return Transform3D.IDENTITY
 	return interactor.get_attach_pose().affine_inverse() * target.global_transform
+
+## A grip authored for one hand mirrors for the other: reflect the object's pose
+## relative to the grip across the grip's sagittal plane (local X), so the other
+## hand holds it as a mirror image instead of a wrongly-rotated copy.
+func _mirror_offset(point: Node, interactor, offset: Transform3D) -> Transform3D:
+	if not bool(point.get("mirror_to_other_hand")) or not ("hand" in interactor):
+		return offset
+	if int(interactor.hand) == int(point.get("authored_hand")):
+		return offset
+	var flip := Basis(Vector3(-1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1))
+	return Transform3D(flip * offset.basis * flip, flip * offset.origin)
+
 
 ## Grab points self-register from _enter_tree (see XRGrabPoint).
 func register_grab_point(point: Node3D) -> void:
