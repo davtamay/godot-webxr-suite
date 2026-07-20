@@ -92,8 +92,10 @@ func _physics_process(_delta: float) -> void:
 		return
 	for hand in 2:
 		_points[hand] = _resolve_point(hand)
-	_update_markers()
+	# Dispatch first so _active is current: the marker only appears when the
+	# finger is actually near a pokeable, not floating on the fingertip.
 	_dispatch()
+	_update_markers()
 
 
 const _HAND_TRACKER_NAMES := [&"/user/hand_tracker/left", &"/user/hand_tracker/right"]
@@ -183,7 +185,10 @@ func _release_all(hand: int) -> void:
 
 func _update_markers() -> void:
 	for hand in 2:
-		var has_point: bool = _points[hand] != Vector3.INF
+		# Show the aiming dot only when the finger is within reach of a pokeable
+		# target (Unity/Meta-style: it appears on approach). Otherwise it would
+		# float on the fingertip and jump around as the fingers curl to pinch.
+		var has_point: bool = _points[hand] != Vector3.INF and not _active[hand].is_empty()
 		if not show_markers or not has_point:
 			if _markers[hand]:
 				(_markers[hand] as Node3D).visible = false
