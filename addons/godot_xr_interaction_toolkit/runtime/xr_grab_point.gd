@@ -148,25 +148,46 @@ func _rebuild_hand_preview() -> void:
 	_pose_skeleton(skeleton)
 
 
-## Curl the flat skeleton's finger chains into the selected pose. Each joint
-## rotates progressively around the across-the-hand axis (index->pinky), pivoting
-## on the previous joint - a simple arc curl from the bind (open) pose.
+## Curl the fingers into the selected pose using the Gesture Studio's method:
+## each finger bends around its OWN bind-measured hinge axis (palm_normal x bone;
+## the thumb is opposition, across the palm), and the FK rotates positions AND
+## orientations together, the step pivoting on the previous accumulated angle.
 func _pose_skeleton(skeleton: Skeleton3D) -> void:
 	var curls: Dictionary = _POSES.get(preview_pose, {})
 	if curls.is_empty():
 		return
-	var imc := skeleton.find_bone("index-finger-metacarpal")
-	var pmc := skeleton.find_bone("pinky-finger-metacarpal")
-	if imc < 0 or pmc < 0:
+	var wrist := _bone_pos(skeleton, "wrist")
+	var index_mc := _bone_pos(skeleton, "index-finger-metacarpal") - wrist
+	var pinky_mc := _bone_pos(skeleton, "pinky-finger-metacarpal") - wrist
+	var thumb_mc := _bone_pos(skeleton, "thumb-metacarpal") - wrist
+	# Palm normal, chirality-corrected by the thumb sitting palm-side of the
+	# finger plane (same rule the pose studio uses).
+	var normal := index_mc.cross(pinky_mc).normalized()
+	if normal.length_squared() < 0.000001:
 		return
-	var axis := (skeleton.get_bone_global_rest(pmc).origin - skeleton.get_bone_global_rest(imc).origin).normalized()
-	if axis.length_squared() < 0.000001:
-		return
+	if normal.dot(thumb_mc - (index_mc + pinky_mc) * 0.5) > 0.0:
+		normal = -normal
 	for finger in _CHAINS:
 		var total: float = curls.get(finger, 0.0)
 		if total <= 0.0:
 			continue
-		_curl_chain(skeleton, _CHAINS[finger], axis, deg_to_rad(total))
+		var names: Array = _CHAINS[finger]
+		var mc := _bone_pos(skeleton, names[0]) - wrist
+		var proximal := _bone_pos(skeleton, names[1]) - wrist
+		var bone := (proximal - mc).normalized()
+		var axis: Vector3
+		if finger == "thumb":
+			axis = bone.cross((pinky_mc - mc).normalized()).normalized()
+		else:
+			axis = normal.cross(bone).normalized()
+		if axis.length_squared() < 0.000001:
+			continue
+		_curl_chain(skeleton, names, axis, deg_to_rad(total))
+
+
+func _bone_pos(skeleton: Skeleton3D, bone_name: String) -> Vector3:
+	var idx := skeleton.find_bone(bone_name)
+	return skeleton.get_bone_global_rest(idx).origin if idx >= 0 else Vector3.ZERO
 
 
 func _curl_chain(skeleton: Skeleton3D, names: Array, axis: Vector3, total: float) -> void:
@@ -176,17 +197,15 @@ func _curl_chain(skeleton: Skeleton3D, names: Array, axis: Vector3, total: float
 		if idx < 0:
 			return
 		bones.append(idx)
-	var joints := bones.size() - 1  # metacarpal stays put
-	if joints < 1:
-		return
-	var per := total / float(joints)
+	var per := total / float(bones.size() - 1)
+	var angle := 0.0
 	var prev_pos: Vector3 = skeleton.get_bone_global_rest(bones[0]).origin
 	for i in range(1, bones.size()):
-		var segment: Vector3 = skeleton.get_bone_global_rest(bones[i]).origin - skeleton.get_bone_global_rest(bones[i - 1]).origin
-		var rotation := Basis(axis, per * i)
-		var new_pos := prev_pos + rotation * segment
+		var step: Vector3 = skeleton.get_bone_global_rest(bones[i]).origin - skeleton.get_bone_global_rest(bones[i - 1]).origin
+		var new_pos := prev_pos + Basis(axis, angle) * step  # step uses the PREVIOUS angle
+		angle += per
 		skeleton.set_bone_pose_position(bones[i], new_pos)
-		skeleton.set_bone_pose_rotation(bones[i], (rotation * skeleton.get_bone_global_rest(bones[i]).basis).get_rotation_quaternion())
+		skeleton.set_bone_pose_rotation(bones[i], (Basis(axis, angle) * skeleton.get_bone_global_rest(bones[i]).basis).get_rotation_quaternion())
 		prev_pos = new_pos
 
 
