@@ -62,6 +62,7 @@ signal thrown(linear_velocity: Vector3, angular_velocity: Vector3)
 var _grab_offset := Transform3D.IDENTITY
 var _grab_points: Array = []
 var _point_grab := false
+var _pendbg := 0  # GRIPDBG (temporary): log where a Pen's nib points on grab.
 var _grabbing: Node
 var _grabbers: Array[Node] = []
 var _two_hand_active := false
@@ -99,6 +100,8 @@ func _notify_select_entered(interactor) -> void:
         _two_hand_active = false
         _set_body_frozen(true)
         _reset_throw_sample(_attach_pose_for(interactor))
+        if String(name).begins_with("Pen"):
+            _pendbg = 3
         grabbed.emit(interactor)
     elif _grabbers.size() == 2:
         _begin_two_hand_grab()
@@ -150,6 +153,16 @@ func _physics_process(delta: float) -> void:
     if not follow_rotation:
         attach_pose.basis = _last_throw_pose.basis
     _sample_throw_velocity(attach_pose, delta)
+    if _pendbg > 0:
+        _pendbg -= 1
+        if _pendbg == 0:
+            var nib := -target.global_transform.basis.y.normalized()  # nib is the pen's -Y
+            var cam := get_viewport().get_camera_3d() if get_viewport() else null
+            var fwd := (-cam.global_transform.basis.z).normalized() if cam else Vector3.ZERO
+            var right := cam.global_transform.basis.x.normalized() if cam else Vector3.ZERO
+            print("GRIPDBG nib_world=(%.2f,%.2f,%.2f) view_fwd=(%.2f,%.2f,%.2f) view_right=(%.2f,%.2f,%.2f) | nib.down=%.2f nib.fwd=%.2f nib.right=%.2f" % [
+                nib.x, nib.y, nib.z, fwd.x, fwd.y, fwd.z, right.x, right.y, right.z,
+                -nib.y, nib.dot(fwd), nib.dot(right)])
 
 func _compute_grab_offset(interactor) -> Transform3D:
     var target := get_target()
