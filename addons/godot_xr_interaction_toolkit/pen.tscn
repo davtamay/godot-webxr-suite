@@ -52,6 +52,7 @@ shape = SubResource("Col")
 transform = Transform3D(1, 0, 0, 0, 0.64279, -0.76604, 0, 0.76604, 0.64279, 0, -0.035, 0)
 script = ExtResource("2_point")
 preview_hand = true
+preview_pose = "Pinch"
 
 [node name="PenTip" type="Node3D" parent="Body" groups=["xr_pen_tip"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.092, 0)

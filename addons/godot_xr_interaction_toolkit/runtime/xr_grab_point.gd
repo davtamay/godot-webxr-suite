@@ -30,7 +30,28 @@ extends Node3D
 ## in-headset, no guessing. The preview is never saved and never appears in-game.
 @export var preview_hand := false: set = _set_preview_hand
 
+## Which pose the preview hand makes, so you can place a grip against the
+## HELD shape (a pinch for a pen, a relaxed grip for a mug/wand, ...).
+@export_enum("Open", "Relaxed Grip", "Pinch", "Fist") var preview_pose := "Relaxed Grip": set = _set_preview_pose
+
 const _HAND_MODEL_PATH := "res://addons/godot_xr_hands/models/generic_hand/right.glb"
+
+## Finger chains (metacarpal -> tip) on the generic-hand skeleton.
+const _CHAINS := {
+	"thumb": ["thumb-metacarpal", "thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip"],
+	"index": ["index-finger-metacarpal", "index-finger-phalanx-proximal", "index-finger-phalanx-intermediate", "index-finger-phalanx-distal", "index-finger-tip"],
+	"middle": ["middle-finger-metacarpal", "middle-finger-phalanx-proximal", "middle-finger-phalanx-intermediate", "middle-finger-phalanx-distal", "middle-finger-tip"],
+	"ring": ["ring-finger-metacarpal", "ring-finger-phalanx-proximal", "ring-finger-phalanx-intermediate", "ring-finger-phalanx-distal", "ring-finger-tip"],
+	"pinky": ["pinky-finger-metacarpal", "pinky-finger-phalanx-proximal", "pinky-finger-phalanx-intermediate", "pinky-finger-phalanx-distal", "pinky-finger-tip"],
+}
+
+## Total curl (degrees) per finger for each pose; Open leaves the bind pose.
+const _POSES := {
+	"Open": {},
+	"Relaxed Grip": {"thumb": 45.0, "index": 95.0, "middle": 100.0, "ring": 105.0, "pinky": 105.0},
+	"Pinch": {"thumb": 55.0, "index": 80.0, "middle": 35.0, "ring": 30.0, "pinky": 30.0},
+	"Fist": {"thumb": 60.0, "index": 150.0, "middle": 155.0, "ring": 160.0, "pinky": 160.0},
+}
 
 var _interactable: Node
 var _hand_preview: Node3D
@@ -66,12 +87,25 @@ func _set_preview_hand(value: bool) -> void:
 		_rebuild_hand_preview()
 
 
+func _set_preview_pose(value: String) -> void:
+	preview_pose = value
+	if is_inside_tree() and Engine.is_editor_hint():
+		_rebuild_hand_preview()
+
+
 ## Editor-only ghost hand whose GRIP coincides with this grab point (built from
 ## the model's bind-pose joints with the SAME basis the live grip uses), so what
 ## you see gripping the object here is what you get in-headset.
+const _PREVIEW_META := "grab_point_hand_preview"
+
 func _rebuild_hand_preview() -> void:
-	if _hand_preview and is_instance_valid(_hand_preview):
-		_hand_preview.queue_free()
+	# Remove any previous preview - including one orphaned by a @tool script
+	# reload (which nulls _hand_preview but leaves the child), the case that made
+	# toggling off do nothing.
+	for child in get_children():
+		if child.has_meta(_PREVIEW_META):
+			remove_child(child)
+			child.queue_free()
 	_hand_preview = null
 	if not preview_hand or not Engine.is_editor_hint():
 		return
@@ -81,7 +115,9 @@ func _rebuild_hand_preview() -> void:
 	var ghost := packed.instantiate() as Node3D
 	if ghost == null:
 		return
+	ghost.set_meta(_PREVIEW_META, true)
 	add_child(ghost)
+	_hand_preview = ghost
 	var skeleton := _find_skeleton(ghost)
 	if skeleton == null:
 		return
@@ -104,9 +140,54 @@ func _rebuild_hand_preview() -> void:
 		return
 	var up := forward.cross(across.normalized()).normalized()
 	var grip_world := Transform3D(Basis(up.cross(-forward).normalized(), up, -forward).orthonormalized(), origin_p)
-	# Place the ghost so its grip lands on this grab point.
+	# Place the ghost so its grip lands on this grab point (using the OPEN-hand
+	# joints), then curl the fingers into the chosen pose - the grip origin
+	# (wrist/palm) does not move, so the alignment holds.
 	var grip_rel_hand := ghost.global_transform.affine_inverse() * grip_world
 	ghost.global_transform = global_transform * grip_rel_hand.affine_inverse()
+	_pose_skeleton(skeleton)
+
+
+## Curl the flat skeleton's finger chains into the selected pose. Each joint
+## rotates progressively around the across-the-hand axis (index->pinky), pivoting
+## on the previous joint - a simple arc curl from the bind (open) pose.
+func _pose_skeleton(skeleton: Skeleton3D) -> void:
+	var curls: Dictionary = _POSES.get(preview_pose, {})
+	if curls.is_empty():
+		return
+	var imc := skeleton.find_bone("index-finger-metacarpal")
+	var pmc := skeleton.find_bone("pinky-finger-metacarpal")
+	if imc < 0 or pmc < 0:
+		return
+	var axis := (skeleton.get_bone_global_rest(pmc).origin - skeleton.get_bone_global_rest(imc).origin).normalized()
+	if axis.length_squared() < 0.000001:
+		return
+	for finger in _CHAINS:
+		var total: float = curls.get(finger, 0.0)
+		if total <= 0.0:
+			continue
+		_curl_chain(skeleton, _CHAINS[finger], axis, deg_to_rad(total))
+
+
+func _curl_chain(skeleton: Skeleton3D, names: Array, axis: Vector3, total: float) -> void:
+	var bones: Array = []
+	for bone_name in names:
+		var idx := skeleton.find_bone(bone_name)
+		if idx < 0:
+			return
+		bones.append(idx)
+	var joints := bones.size() - 1  # metacarpal stays put
+	if joints < 1:
+		return
+	var per := total / float(joints)
+	var prev_pos: Vector3 = skeleton.get_bone_global_rest(bones[0]).origin
+	for i in range(1, bones.size()):
+		var segment: Vector3 = skeleton.get_bone_global_rest(bones[i]).origin - skeleton.get_bone_global_rest(bones[i - 1]).origin
+		var rotation := Basis(axis, per * i)
+		var new_pos := prev_pos + rotation * segment
+		skeleton.set_bone_pose_position(bones[i], new_pos)
+		skeleton.set_bone_pose_rotation(bones[i], (rotation * skeleton.get_bone_global_rest(bones[i]).basis).get_rotation_quaternion())
+		prev_pos = new_pos
 
 
 func _find_skeleton(node: Node) -> Skeleton3D:
