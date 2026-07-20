@@ -27,6 +27,7 @@ throw_on_release = false
 
 [node name="Body" type="RigidBody3D" parent="."]
 mass = 0.25
+collision_mask = 3
 continuous_cd = true
 
 [node name="Cup" type="MeshInstance3D" parent="Body"]
