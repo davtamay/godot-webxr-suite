@@ -203,7 +203,7 @@ func _hand_grip_pose(hand_id: int) -> Dictionary:
 		if forward.length_squared() > 0.000001 and across.length_squared() > 0.000001:
 			forward = forward.normalized()
 			var up := forward.cross(across.normalized()).normalized()
-			if tracker.hand == XRPositionalTracker.TRACKER_HAND_RIGHT:
+			if tracker.hand == XRPositionalTracker.TRACKER_HAND_LEFT:
 				up = -up
 			if up.length_squared() > 0.000001:
 				var basis := Basis(up.cross(-forward).normalized(), up, -forward).orthonormalized()

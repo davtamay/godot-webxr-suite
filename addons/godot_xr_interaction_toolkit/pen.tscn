@@ -48,7 +48,7 @@ surface_material_override/0 = SubResource("NibMat")
 shape = SubResource("Col")
 
 [node name="GrabPoint" type="Node3D" parent="Body"]
-transform = Transform3D(1, 0, 0, 0, 0.76604, -0.64279, 0, 0.64279, 0.76604, 0, -0.025, 0)
+transform = Transform3D(1, 0, 0, 0, 0.64279, -0.76604, 0, 0.76604, 0.64279, 0, -0.035, 0)
 script = ExtResource("2_point")
 
 [node name="PenTip" type="Node3D" parent="Body" groups=["xr_pen_tip"]]
