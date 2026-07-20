@@ -198,6 +198,13 @@ func _hand_grip_pose(hand_id: int) -> Dictionary:
 		var wrist_p: Vector3 = (o * tracker.get_hand_joint_transform(wrist)).origin
 		var index_p: Vector3 = (o * tracker.get_hand_joint_transform(index)).origin
 		var pinky_p: Vector3 = (o * tracker.get_hand_joint_transform(pinky)).origin
+		# Grip ORIGIN = palm center, defined the SAME way as the pose math and the
+		# editor Preview Hand: halfway between the wrist and the middle metacarpal.
+		# The tracker's PALM joint sits elsewhere, which made the on-device hold
+		# offset from what the preview showed.
+		var middle := XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL
+		if XRHandGestureProvider.joint_position_valid(tracker, middle):
+			origin = (wrist_p + (o * tracker.get_hand_joint_transform(middle)).origin) * 0.5
 		var forward := index_p - wrist_p
 		var across := pinky_p - index_p
 		if forward.length_squared() > 0.000001 and across.length_squared() > 0.000001:

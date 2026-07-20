@@ -33,8 +33,8 @@ track_rotation = true
 throw_on_release = false
 
 [node name="Body" type="RigidBody3D" parent="." unique_id=735807147]
-mass = 0.05
 collision_mask = 3
+mass = 0.05
 continuous_cd = true
 
 [node name="Shaft" type="MeshInstance3D" parent="Body" unique_id=373986981]
@@ -50,7 +50,7 @@ surface_material_override/0 = SubResource("NibMat")
 shape = SubResource("Col")
 
 [node name="GrabPoint" type="Node3D" parent="Body" unique_id=604832151]
-transform = Transform3D(-0.080361106, 0.979727, 0.18350492, 0.99580204, 0.070815355, 0.058001906, 0.043831185, 0.18739551, -0.9813047, -0.005463872, 0.021539945, -0.06328489)
+transform = Transform3D(-0.080361106, 0.979727, 0.18350492, 0.99580204, 0.070815355, 0.058001906, 0.043831185, 0.18739551, -0.9813047, -0.005463872, 0.021539945, -0.06689313)
 script = ExtResource("2_point")
 preview_hand = true
 preview_pose = "Pinch"
