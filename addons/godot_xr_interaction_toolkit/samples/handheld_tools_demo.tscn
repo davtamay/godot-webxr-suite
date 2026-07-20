@@ -1,14 +1,15 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene format=3 uid="uid://dufsvi0r46onf"]
 
-[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/handheld_tools_demo.gd" id="2_demo"]
-[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/pen.tscn" id="3_pen"]
+[ext_resource type="PackedScene" uid="uid://crdc24h6y3686" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="Script" uid="uid://dqvk55siw3rc4" path="res://addons/godot_xr_interaction_toolkit/samples/handheld_tools_demo.gd" id="2_demo"]
+[ext_resource type="PackedScene" uid="uid://cubdthtaurp8k" path="res://addons/godot_xr_interaction_toolkit/pen.tscn" id="3_pen"]
 [ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/coffee_cup.tscn" id="4_cup"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_drawing_surface.gd" id="5_draw"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="6_grab"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="7_point"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_button.gd" id="8_poke"]
-[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="9_fontbake"]
+[ext_resource type="Script" uid="uid://b3onaftanysxs" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_drawing_surface.gd" id="5_draw"]
+[ext_resource type="Script" uid="uid://c1rjnfwgfv7gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="6_grab"]
+[ext_resource type="Script" uid="uid://c5fxsn6osclqe" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="7_point"]
+[ext_resource type="Material" path="res://addons/godot_webgpu/font_bake_material.tres" id="8_07wyj"]
+[ext_resource type="Script" uid="uid://sslq6aacjhqo" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_button.gd" id="8_poke"]
+[ext_resource type="Script" uid="uid://baeaoop5dlsms" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="9_fontbake"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -61,49 +62,49 @@ emission_energy_multiplier = 4.0
 [sub_resource type="BoxShape3D" id="WandCol"]
 size = Vector3(0.05, 0.16, 0.05)
 
-[node name="HandheldToolsDemo" type="Node3D"]
+[node name="HandheldToolsDemo" type="Node3D" unique_id=1168813487]
 script = ExtResource("2_demo")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=897883563]
 environment = SubResource("Env")
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=1083367389]
 transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
 shadow_enabled = true
 
-[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=1221359669 groups=["ar_passthrough_hidden"]]
 mesh = SubResource("FloorMesh")
 surface_material_override/0 = SubResource("FloorMat")
 
-[node name="FloorBody" type="StaticBody3D" parent="."]
+[node name="FloorBody" type="StaticBody3D" parent="." unique_id=1539303416]
 
-[node name="FloorCol" type="CollisionShape3D" parent="FloorBody"]
+[node name="FloorCol" type="CollisionShape3D" parent="FloorBody" unique_id=878243453]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
 shape = SubResource("FloorShape")
 
-[node name="Desk" type="StaticBody3D" parent="."]
+[node name="Desk" type="StaticBody3D" parent="." unique_id=1837987926]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.37, -0.62)
 
-[node name="Mesh" type="MeshInstance3D" parent="Desk"]
+[node name="Mesh" type="MeshInstance3D" parent="Desk" unique_id=442871558]
 mesh = SubResource("DeskMesh")
 surface_material_override/0 = SubResource("DeskMat")
 
-[node name="Col" type="CollisionShape3D" parent="Desk"]
+[node name="Col" type="CollisionShape3D" parent="Desk" unique_id=1896047834]
 shape = SubResource("DeskShape")
 
-[node name="Notepad" type="MeshInstance3D" parent="."]
+[node name="Notepad" type="MeshInstance3D" parent="." unique_id=317287986]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.738, -0.55)
 mesh = SubResource("NotepadPlane")
 script = ExtResource("5_draw")
 draw_distance = 0.02
 
-[node name="ClearButton" type="Node3D" parent="."]
+[node name="ClearButton" type="Node3D" parent="." unique_id=21987915]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.16, 0.75, -0.42)
 script = ExtResource("8_poke")
 cap_radius = 0.028
 cap_color = Color(0.95, 0.5, 0.4, 1)
 
-[node name="ClearLabel" type="Label3D" parent="ClearButton"]
+[node name="ClearLabel" type="Label3D" parent="ClearButton" unique_id=959180876]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.045, 0)
 pixel_size = 0.0006
 billboard = 1
@@ -111,47 +112,48 @@ text = "CLEAR"
 font_size = 40
 outline_size = 10
 
-[node name="Pen" parent="." instance=ExtResource("3_pen")]
+[node name="Pen" parent="." unique_id=1063204666 instance=ExtResource("3_pen")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.12, 0.82, -0.44)
 
-[node name="CoffeeCup" parent="." instance=ExtResource("4_cup")]
+[node name="CoffeeCup" parent="." unique_id=587969736 instance=ExtResource("4_cup")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.42, 0.78, -0.66)
 
-[node name="Wand" type="Node3D" parent="."]
+[node name="Wand" type="Node3D" parent="." unique_id=2105178028]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.52, 0.85, -0.62)
 script = ExtResource("6_grab")
 target_path = NodePath("Body")
 track_rotation = true
 throw_on_release = false
 
-[node name="Body" type="RigidBody3D" parent="Wand"]
+[node name="Body" type="RigidBody3D" parent="Wand" unique_id=2076378611]
 mass = 0.15
 continuous_cd = true
 
-[node name="Handle" type="MeshInstance3D" parent="Wand/Body"]
+[node name="Handle" type="MeshInstance3D" parent="Wand/Body" unique_id=2111366151]
 mesh = SubResource("WandHandle")
 surface_material_override/0 = SubResource("WandMat")
 
-[node name="Orb" type="MeshInstance3D" parent="Wand/Body"]
+[node name="Orb" type="MeshInstance3D" parent="Wand/Body" unique_id=1915569316]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.078, 0)
 mesh = SubResource("WandOrb")
 surface_material_override/0 = SubResource("OrbMat")
 
-[node name="Col" type="CollisionShape3D" parent="Wand/Body"]
+[node name="Col" type="CollisionShape3D" parent="Wand/Body" unique_id=1390376632]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
 shape = SubResource("WandCol")
 
-[node name="GrabPoint" type="Node3D" parent="Wand/Body"]
+[node name="GrabPoint" type="Node3D" parent="Wand/Body" unique_id=283992753]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.02, 0)
 script = ExtResource("7_point")
+preview_pose = "Relaxed Grip"
 
-[node name="OmniLight3D" type="OmniLight3D" parent="Wand/Body"]
+[node name="OmniLight3D" type="OmniLight3D" parent="Wand/Body" unique_id=1158649356]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.078, 0)
 light_color = Color(0.5, 0.75, 1, 1)
 light_energy = 1.5
 omni_range = 1.2
 
-[node name="InfoLabel" type="Label3D" parent="."]
+[node name="InfoLabel" type="Label3D" parent="." unique_id=1267066863]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -1.3)
 pixel_size = 0.0013
 billboard = 1
@@ -161,10 +163,17 @@ handle. Grab the PEN and draw on the notepad. The WAND stands up out of your
 fist. Poke CLEAR to wipe the page."
 font_size = 24
 outline_size = 8
-width = 1700.0
 autowrap_mode = 2
+width = 1700.0
 
-[node name="FontBakeAnchor" type="Label3D" parent="."]
+[node name="FontBakeAnchor" type="Label3D" parent="." unique_id=549054852]
+visible = false
+material_override = ExtResource("8_07wyj")
+pixel_size = 0.001
+billboard = 1
+text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 +-:/()."
+font_size = 48
+outline_size = 8
 script = ExtResource("9_fontbake")
 
-[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
+[node name="WebXRPrefab" parent="." unique_id=744852498 instance=ExtResource("1_prefab")]

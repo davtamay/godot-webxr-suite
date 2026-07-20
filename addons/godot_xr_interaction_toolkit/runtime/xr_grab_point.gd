@@ -151,16 +151,20 @@ func _rebuild_hand_preview() -> void:
 	var wrist := skeleton.find_bone("wrist")
 	var index := skeleton.find_bone("index-finger-phalanx-proximal")
 	var pinky := skeleton.find_bone("pinky-finger-phalanx-proximal")
-	# No "palm" bone in the model; the middle metacarpal sits nearest the
-	# tracker's palm joint (the runtime grip origin), so use it as the proxy.
-	var palm := skeleton.find_bone("middle-finger-metacarpal")
+	var middle := skeleton.find_bone("middle-finger-metacarpal")
 	if wrist < 0 or index < 0 or pinky < 0:
 		return
 	var s2w := skeleton.global_transform
 	var wrist_p: Vector3 = s2w * skeleton.get_bone_global_rest(wrist).origin
 	var index_p: Vector3 = s2w * skeleton.get_bone_global_rest(index).origin
 	var pinky_p: Vector3 = s2w * skeleton.get_bone_global_rest(pinky).origin
-	var origin_p := s2w * skeleton.get_bone_global_rest(palm).origin if palm >= 0 else wrist_p
+	# The tracker's PALM joint (the runtime grip origin, and the pose math's palm
+	# proxy) sits ~halfway between the wrist and the middle metacarpal - NOT at
+	# the metacarpal. Using the midpoint lands the ghost's grip where the object
+	# actually anchors, instead of shifted forward toward the fingers.
+	var origin_p := wrist_p
+	if middle >= 0:
+		origin_p = (wrist_p + s2w * skeleton.get_bone_global_rest(middle).origin) * 0.5
 	var forward := (index_p - wrist_p).normalized()
 	var across := pinky_p - index_p
 	if forward.length_squared() < 0.000001 or across.length_squared() < 0.000001:
