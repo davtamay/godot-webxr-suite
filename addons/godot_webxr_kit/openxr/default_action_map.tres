@@ -1,4 +1,4 @@
-[gd_resource type="OpenXRActionMap" load_steps=30 format=3 uid="uid://6bwlnqodnsxn"]
+[gd_resource type="OpenXRActionMap" format=3 uid="uid://6bwlnqodnsxn"]
 
 [sub_resource type="OpenXRAction" id="OpenXRAction_f4kwm"]
 resource_name = "aim"

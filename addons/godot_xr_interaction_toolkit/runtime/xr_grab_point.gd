@@ -30,13 +30,14 @@ extends Node3D
 ## in-headset, no guessing. The preview is never saved and never appears in-game.
 @export var preview_hand := false: set = _set_preview_hand
 
-## Which pose the preview hand makes, so you can place a grip against the
-## HELD shape (a pinch for a pen, a relaxed grip for a mug/wand, ...).
-@export_enum("Open", "Relaxed Grip", "Pinch", "Fist") var preview_pose := "Relaxed Grip": set = _set_preview_pose
+## Which pose the preview hand makes. The dropdown lists your SAVED poses from
+## the Gesture Studio (shipped presets + your user:// recordings) plus a few
+## built-in grips, so you place a grab point against the shape you'll hold.
+var preview_pose := "Relaxed Grip": set = _set_preview_pose
 
 const _HAND_MODEL_PATH := "res://addons/godot_xr_hands/models/generic_hand/right.glb"
 
-## Finger chains (metacarpal -> tip) on the generic-hand skeleton.
+## Finger chains (metacarpal -> tip): bone names + matching XRHandTracker joints.
 const _CHAINS := {
 	"thumb": ["thumb-metacarpal", "thumb-phalanx-proximal", "thumb-phalanx-distal", "thumb-tip"],
 	"index": ["index-finger-metacarpal", "index-finger-phalanx-proximal", "index-finger-phalanx-intermediate", "index-finger-phalanx-distal", "index-finger-tip"],
@@ -44,14 +45,40 @@ const _CHAINS := {
 	"ring": ["ring-finger-metacarpal", "ring-finger-phalanx-proximal", "ring-finger-phalanx-intermediate", "ring-finger-phalanx-distal", "ring-finger-tip"],
 	"pinky": ["pinky-finger-metacarpal", "pinky-finger-phalanx-proximal", "pinky-finger-phalanx-intermediate", "pinky-finger-phalanx-distal", "pinky-finger-tip"],
 }
+const _FINGER_ORDER := ["thumb", "index", "middle", "ring", "pinky"]
+# Loaded at runtime (not preload/class_name) so this core script still parses if
+# godot_xr_hands is absent - the preview just no-ops then.
+const _POSE_MATH_PATH := "res://addons/godot_xr_hands/runtime/xr_hand_pose_math.gd"
 
-## Total curl (degrees) per finger for each pose; Open leaves the bind pose.
-const _POSES := {
-	"Open": {},
-	"Relaxed Grip": {"thumb": 45.0, "index": 95.0, "middle": 100.0, "ring": 105.0, "pinky": 105.0},
-	"Pinch": {"thumb": 55.0, "index": 80.0, "middle": 35.0, "ring": 30.0, "pinky": 30.0},
-	"Fist": {"thumb": 60.0, "index": 150.0, "middle": 155.0, "ring": 160.0, "pinky": 160.0},
+
+func _pose_math() -> Object:
+	return load(_POSE_MATH_PATH) if ResourceLoader.exists(_POSE_MATH_PATH) else null
+
+## Built-in fallback grips (per-finger curl 0..1) for when a pose has no snapshot.
+const _BUILTIN := {
+	"Open": {"thumb": 0.0, "index": 0.0, "middle": 0.0, "ring": 0.0, "pinky": 0.0},
+	"Relaxed Grip": {"thumb": 0.35, "index": 0.5, "middle": 0.55, "ring": 0.6, "pinky": 0.6},
+	"Pinch": {"thumb": 0.45, "index": 0.5, "middle": 0.25, "ring": 0.2, "pinky": 0.2},
+	"Fist": {"thumb": 0.5, "index": 0.85, "middle": 0.9, "ring": 0.95, "pinky": 0.95},
 }
+
+
+## Expose preview_pose as a dropdown of the built-in grips + every SAVED pose.
+func _get_property_list() -> Array[Dictionary]:
+	var names: Array = _BUILTIN.keys()
+	var math := _pose_math()
+	if math:
+		for pose in math.list_poses():
+			if not names.has(pose["name"]):
+				names.append(pose["name"])
+	var props: Array[Dictionary] = [{
+		"name": "preview_pose",
+		"type": TYPE_STRING,
+		"usage": PROPERTY_USAGE_DEFAULT,
+		"hint": PROPERTY_HINT_ENUM,
+		"hint_string": ",".join(names),
+	}]
+	return props
 
 var _interactable: Node
 var _hand_preview: Node3D
@@ -148,65 +175,69 @@ func _rebuild_hand_preview() -> void:
 	_pose_skeleton(skeleton)
 
 
-## Curl the fingers into the selected pose using the Gesture Studio's method:
-## each finger bends around its OWN bind-measured hinge axis (palm_normal x bone;
-## the thumb is opposition, across the palm), and the FK rotates positions AND
-## orientations together, the step pivoting on the previous accumulated angle.
+## Pose the ghost's fingers into the selected grip via the shared pose math, so
+## it matches the Gesture Studio exactly. We build the bind as wrist-relative
+## bone-rest transforms, run the shared FK / snapshot solver, then write the
+## result back (wrist_rest * result) as bone poses.
 func _pose_skeleton(skeleton: Skeleton3D) -> void:
-	var curls: Dictionary = _POSES.get(preview_pose, {})
-	if curls.is_empty():
+	var math := _pose_math()
+	if math == null:
 		return
-	var wrist := _bone_pos(skeleton, "wrist")
-	var index_mc := _bone_pos(skeleton, "index-finger-metacarpal") - wrist
-	var pinky_mc := _bone_pos(skeleton, "pinky-finger-metacarpal") - wrist
-	var thumb_mc := _bone_pos(skeleton, "thumb-metacarpal") - wrist
-	# Palm normal, chirality-corrected by the thumb sitting palm-side of the
-	# finger plane (same rule the pose studio uses).
-	var normal := index_mc.cross(pinky_mc).normalized()
-	if normal.length_squared() < 0.000001:
+	var joint_bone := _joint_bone_map(skeleton, math)
+	if not joint_bone.has(XRHandTracker.HAND_JOINT_WRIST):
 		return
-	if normal.dot(thumb_mc - (index_mc + pinky_mc) * 0.5) > 0.0:
-		normal = -normal
-	for finger in _CHAINS:
-		var total: float = curls.get(finger, 0.0)
-		if total <= 0.0:
-			continue
-		var names: Array = _CHAINS[finger]
-		var mc := _bone_pos(skeleton, names[0]) - wrist
-		var proximal := _bone_pos(skeleton, names[1]) - wrist
-		var bone := (proximal - mc).normalized()
-		var axis: Vector3
-		if finger == "thumb":
-			axis = bone.cross((pinky_mc - mc).normalized()).normalized()
-		else:
-			axis = normal.cross(bone).normalized()
-		if axis.length_squared() < 0.000001:
-			continue
-		_curl_chain(skeleton, names, axis, deg_to_rad(total))
-
-
-func _bone_pos(skeleton: Skeleton3D, bone_name: String) -> Vector3:
-	var idx := skeleton.find_bone(bone_name)
-	return skeleton.get_bone_global_rest(idx).origin if idx >= 0 else Vector3.ZERO
-
-
-func _curl_chain(skeleton: Skeleton3D, names: Array, axis: Vector3, total: float) -> void:
-	var bones: Array = []
-	for bone_name in names:
-		var idx := skeleton.find_bone(bone_name)
-		if idx < 0:
+	var wrist_rest: Transform3D = skeleton.get_bone_global_rest(joint_bone[XRHandTracker.HAND_JOINT_WRIST])
+	var bind := _build_bind(skeleton, joint_bone, wrist_rest)
+	var curl_axes: Array = math.measure_curl_axes(bind)
+	var posed: Array
+	if _BUILTIN.has(preview_pose):
+		posed = math.fk_pose(bind, curl_axes, _BUILTIN[preview_pose])
+	else:
+		var gesture := _find_pose(preview_pose, math)
+		if gesture == null:
 			return
-		bones.append(idx)
-	var per := total / float(bones.size() - 1)
-	var angle := 0.0
-	var prev_pos: Vector3 = skeleton.get_bone_global_rest(bones[0]).origin
-	for i in range(1, bones.size()):
-		var step: Vector3 = skeleton.get_bone_global_rest(bones[i]).origin - skeleton.get_bone_global_rest(bones[i - 1]).origin
-		var new_pos := prev_pos + Basis(axis, angle) * step  # step uses the PREVIOUS angle
-		angle += per
-		skeleton.set_bone_pose_position(bones[i], new_pos)
-		skeleton.set_bone_pose_rotation(bones[i], (Basis(axis, angle) * skeleton.get_bone_global_rest(bones[i]).basis).get_rotation_quaternion())
-		prev_pos = new_pos
+		posed = math.pose_joints(bind, curl_axes, gesture, 1)
+	for joint in joint_bone:
+		var world: Transform3D = wrist_rest * (posed[joint] as Transform3D)
+		skeleton.set_bone_pose_position(joint_bone[joint], world.origin)
+		skeleton.set_bone_pose_rotation(joint_bone[joint], world.basis.get_rotation_quaternion())
+
+
+## Map each WebXR joint to the ghost skeleton's bone index.
+func _joint_bone_map(skeleton: Skeleton3D, math: Object) -> Dictionary:
+	var map := {}
+	var wrist := skeleton.find_bone("wrist")
+	if wrist >= 0:
+		map[XRHandTracker.HAND_JOINT_WRIST] = wrist
+	for f in _FINGER_ORDER.size():
+		var names: Array = _CHAINS[_FINGER_ORDER[f]]
+		var joints: Array = math.FINGER_CHAINS[f]
+		for i in names.size():
+			var bone := skeleton.find_bone(names[i])
+			if bone >= 0:
+				map[joints[i]] = bone
+	return map
+
+
+## Wrist-relative bone-rest transforms per joint (the bind the pose math wants).
+func _build_bind(skeleton: Skeleton3D, joint_bone: Dictionary, wrist_rest: Transform3D) -> Array:
+	var bind: Array = []
+	bind.resize(XRHandTracker.HAND_JOINT_MAX)
+	for j in XRHandTracker.HAND_JOINT_MAX:
+		bind[j] = Transform3D.IDENTITY
+	var to_wrist := wrist_rest.affine_inverse()
+	for joint in joint_bone:
+		bind[joint] = to_wrist * skeleton.get_bone_global_rest(joint_bone[joint])
+	var middle: Vector3 = (bind[XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL] as Transform3D).origin
+	bind[XRHandTracker.HAND_JOINT_PALM] = Transform3D(Basis.IDENTITY, middle * 0.5)
+	return bind
+
+
+func _find_pose(pose_name: String, math: Object) -> Object:
+	for pose in math.list_poses():
+		if pose["name"] == pose_name:
+			return pose["resource"]
+	return null
 
 
 func _find_skeleton(node: Node) -> Skeleton3D:

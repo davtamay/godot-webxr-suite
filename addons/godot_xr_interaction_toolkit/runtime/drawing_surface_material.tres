@@ -1,7 +1,6 @@
-[gd_resource type="StandardMaterial3D" load_steps=3 format=3]
+[gd_resource type="StandardMaterial3D" format=3 uid="uid://elsp45xvjktn"]
 
 [sub_resource type="Gradient" id="G"]
-offsets = PackedFloat32Array(0, 1)
 colors = PackedColorArray(1, 1, 1, 1, 1, 1, 1, 1)
 
 [sub_resource type="GradientTexture2D" id="T"]
@@ -12,4 +11,3 @@ height = 4
 [resource]
 albedo_texture = SubResource("T")
 roughness = 0.92
-metallic = 0.0
