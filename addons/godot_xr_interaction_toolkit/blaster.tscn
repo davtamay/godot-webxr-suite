@@ -1,8 +1,9 @@
-[gd_scene format=3 uid="uid://bsd0rwvi081of"]
+[gd_scene load_steps=11 format=3 uid="uid://bsd0rwvi081of"]
 
 [ext_resource type="Script" uid="uid://c1rjnfwgfv7gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
 [ext_resource type="Script" uid="uid://c5fxsn6osclqe" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
 [ext_resource type="Script" uid="uid://chpretc0axrj0" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_blaster.gd" id="3_blaster"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_hand_activator.gd" id="4_activator"]
 
 [sub_resource type="BoxMesh" id="Barrel"]
 size = Vector3(0.03, 0.032, 0.17)
@@ -17,6 +18,19 @@ size = Vector3(0.032, 0.08, 0.04)
 
 [sub_resource type="BoxShape3D" id="Col"]
 size = Vector3(0.04, 0.12, 0.19)
+
+[sub_resource type="BoxMesh" id="Trigger"]
+size = Vector3(0.01, 0.028, 0.012)
+
+[sub_resource type="StandardMaterial3D" id="GlowMat"]
+albedo_color = Color(1, 0.55, 0.2, 1)
+emission_enabled = true
+emission = Color(1, 0.5, 0.15, 1)
+emission_energy_multiplier = 0.0
+
+[sub_resource type="SphereMesh" id="Glow"]
+radius = 0.012
+height = 0.024
 
 [node name="Blaster" type="Node3D" unique_id=1744952252]
 script = ExtResource("1_grab")
@@ -43,8 +57,18 @@ surface_material_override/0 = SubResource("GunMat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.005, -0.02)
 shape = SubResource("Col")
 
+[node name="Trigger" type="MeshInstance3D" parent="Body" unique_id=201044771]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.005, -0.01)
+mesh = SubResource("Trigger")
+surface_material_override/0 = SubResource("GunMat")
+
 [node name="Muzzle" type="Node3D" parent="Body" unique_id=574592890]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.12)
+
+[node name="MuzzleGlow" type="MeshInstance3D" parent="Body" unique_id=690012774]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.12)
+mesh = SubResource("Glow")
+surface_material_override/0 = SubResource("GlowMat")
 
 [node name="GrabPoint" type="Node3D" parent="Body" unique_id=1240773231]
 transform = Transform3D(0.1969608, -0.9774498, -0.076145984, 0.9231227, 0.21105197, -0.32140544, 0.33022842, -0.0069878115, 0.94387513, 0.034925595, -0.02839208, 0.094119444)
@@ -52,6 +76,11 @@ script = ExtResource("2_point")
 preview_hand = true
 preview_pose = "Relaxed Grip"
 
+[node name="Activator" type="Node" parent="Body" unique_id=331802455]
+script = ExtResource("4_activator")
+
 [node name="Blaster" type="Node" parent="Body" unique_id=119900901]
 script = ExtResource("3_blaster")
 muzzle_path = NodePath("../Muzzle")
+trigger_path = NodePath("../Trigger")
+muzzle_glow_path = NodePath("../MuzzleGlow")

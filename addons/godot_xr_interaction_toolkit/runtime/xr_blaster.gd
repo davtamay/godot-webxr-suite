@@ -23,12 +23,26 @@ extends Node
 ## Optional kick pushed back into a RigidBody3D body on each shot.
 @export var recoil := 0.0
 
+@export_group("Live feedback")
+## Optional trigger mesh that visibly depresses as the finger curls - this is how
+## bare-hand users discover the shoot gesture (the tool reacts to the finger).
+@export var trigger_path: NodePath
+## How far (degrees, around local X) the trigger rotates back at full pull.
+@export_range(0.0, 90.0, 1.0) var trigger_max_angle := 22.0
+## Optional muzzle mesh whose emission brightens as the trigger is pulled.
+@export var muzzle_glow_path: NodePath
+
 ## Fired on each shot (for muzzle flash / sound / haptics).
 signal fired(muzzle: Node3D)
 
 var _interactable: Node
 var _muzzle: Node3D
 var _cooldown := 0.0
+var _trigger: Node3D
+var _trigger_rest: Basis
+var _glow: MeshInstance3D
+var _glow_material: StandardMaterial3D
+var _glow_base_energy := 0.0
 
 
 func _ready() -> void:
@@ -43,6 +57,35 @@ func _ready() -> void:
 			and not _interactable.activated.is_connected(_on_activated):
 		_interactable.activated.connect(_on_activated)
 	_muzzle = get_node_or_null(muzzle_path) as Node3D
+	_setup_feedback()
+
+
+## Live trigger + muzzle glow. Follows the hand's trigger finger through the
+## sibling XRHandActivator, so the gesture teaches itself.
+func _setup_feedback() -> void:
+	_trigger = get_node_or_null(trigger_path) as Node3D
+	if _trigger:
+		_trigger_rest = _trigger.transform.basis
+	var glow_node := get_node_or_null(muzzle_glow_path)
+	if glow_node is MeshInstance3D:
+		_glow = glow_node
+		var mat := _glow.get_active_material(0)
+		if mat is StandardMaterial3D:
+			_glow_material = (mat as StandardMaterial3D).duplicate()
+			_glow.material_override = _glow_material
+			_glow_base_energy = _glow_material.emission_energy_multiplier
+	if _interactable:
+		for node in _interactable.find_children("*", "Node", true, false):
+			if node is XRHandActivator:
+				(node as XRHandActivator).trigger_progress.connect(_on_trigger_progress)
+				break
+
+
+func _on_trigger_progress(_hand: int, amount: float) -> void:
+	if _trigger:
+		_trigger.transform.basis = _trigger_rest * Basis(Vector3.RIGHT, -deg_to_rad(trigger_max_angle * amount))
+	if _glow_material:
+		_glow_material.emission_energy_multiplier = _glow_base_energy + amount * 4.0
 
 
 func _get_configuration_warnings() -> PackedStringArray:
