@@ -23,13 +23,15 @@ extends Node
 
 enum Finger { THUMB, INDEX, MIDDLE, RING, PINKY }
 
-## Which finger's curl pulls the trigger. Ignored when activate_gesture is set.
+## Which finger pulls the trigger. Ignored when activate_gesture is set.
 @export var trigger_finger: Finger = Finger.INDEX
-## Curl (0 = straight, 1 = fully curled) at which the trigger fires.
-@export_range(0.05, 1.0, 0.01) var curl_to_fire := 0.55
-## Curl the finger must fall back below before it can fire again (hysteresis, so
-## one deliberate pull = one shot). Keep it below curl_to_fire.
-@export_range(0.0, 1.0, 0.01) var curl_to_rearm := 0.3
+## How much MORE the finger must curl, past its resting position, to fire (0..1).
+## Measured relative to how you're holding the tool, so it adapts to any grip and
+## hand - a deliberate trigger pull, not an absolute pose. Lower = hair trigger.
+@export_range(0.03, 0.6, 0.01) var fire_pull := 0.14
+## How far the pull must relax back before it can fire again (hysteresis, so one
+## pull = one shot). Keep below fire_pull.
+@export_range(0.01, 0.5, 0.01) var release_pull := 0.06
 ## Optional: fire on a whole authored pose (a Gesture Studio recording or preset)
 ## instead of a single finger curl. When set, the finger settings are ignored.
 @export var activate_gesture: XRHandGesture:
@@ -47,31 +49,42 @@ signal trigger_progress(hand: int, amount: float)
 
 const _RECOGNIZER_PATH := "res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_recognizer.gd"
 
-# base / knuckle / tip joints per finger - curl is the bend between the two bones.
+# Full joint chain per finger (base -> tip). Curl = the SUM of the bend angles at
+# each knuckle, so a trigger pull (which bends the mid/tip joints while the big
+# knuckle barely moves) reads strongly - a single-joint measure misses it.
 const _FINGER_JOINTS := {
 	Finger.THUMB: [
 		XRHandTracker.HAND_JOINT_THUMB_METACARPAL,
 		XRHandTracker.HAND_JOINT_THUMB_PHALANX_PROXIMAL,
+		XRHandTracker.HAND_JOINT_THUMB_PHALANX_DISTAL,
 		XRHandTracker.HAND_JOINT_THUMB_TIP,
 	],
 	Finger.INDEX: [
 		XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL,
 		XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL,
+		XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_INTERMEDIATE,
+		XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_DISTAL,
 		XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP,
 	],
 	Finger.MIDDLE: [
 		XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL,
 		XRHandTracker.HAND_JOINT_MIDDLE_FINGER_PHALANX_PROXIMAL,
+		XRHandTracker.HAND_JOINT_MIDDLE_FINGER_PHALANX_INTERMEDIATE,
+		XRHandTracker.HAND_JOINT_MIDDLE_FINGER_PHALANX_DISTAL,
 		XRHandTracker.HAND_JOINT_MIDDLE_FINGER_TIP,
 	],
 	Finger.RING: [
 		XRHandTracker.HAND_JOINT_RING_FINGER_METACARPAL,
 		XRHandTracker.HAND_JOINT_RING_FINGER_PHALANX_PROXIMAL,
+		XRHandTracker.HAND_JOINT_RING_FINGER_PHALANX_INTERMEDIATE,
+		XRHandTracker.HAND_JOINT_RING_FINGER_PHALANX_DISTAL,
 		XRHandTracker.HAND_JOINT_RING_FINGER_TIP,
 	],
 	Finger.PINKY: [
 		XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL,
 		XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_PROXIMAL,
+		XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_INTERMEDIATE,
+		XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_DISTAL,
 		XRHandTracker.HAND_JOINT_PINKY_FINGER_TIP,
 	],
 }
@@ -80,6 +93,8 @@ var _interactable: XRBaseInteractable
 var _recognizer: Node
 # Per-hand armed state so one pull fires once (mirrors the pinch re-arm).
 var _armed := {}
+# Per-hand resting curl (how the finger sits while holding) - the pull baseline.
+var _rest := {}
 
 
 func _ready() -> void:
@@ -112,42 +127,56 @@ func _find_interactable() -> XRBaseInteractable:
 func _poll_finger(hand: int) -> void:
 	var interactor := _held_by(hand)
 	if require_held and interactor == null:
+		_rest.erase(hand)
+		_armed[hand] = true
 		return
 	var curl := _finger_curl(hand)
 	if curl < 0.0:
 		return  # no valid tracking this frame
-	trigger_progress.emit(hand, curl)
+	# Baseline = how the finger rests in this grip. Follow DOWN instantly (a more
+	# relaxed finger is the new rest) and drift UP slowly (so holding it a little
+	# curled re-baselines without eroding a quick pull). Pull = curl above rest.
+	var rest: float = _rest.get(hand, curl)
+	rest = minf(rest, curl)
+	rest = lerpf(rest, curl, 0.02)
+	_rest[hand] = rest
+	var pull := curl - rest
+	# Trigger bottoms out exactly at the fire point, so the visual = the shot.
+	trigger_progress.emit(hand, clampf(pull / fire_pull, 0.0, 1.0))
 	if not _armed.get(hand, true):
-		if curl <= curl_to_rearm:
+		if pull <= release_pull:
 			_armed[hand] = true
 		return
-	if curl >= curl_to_fire:
+	if pull >= fire_pull:
 		_armed[hand] = false
 		_fire(hand, interactor)
 
 
 ## Curl of the trigger finger, 0 (straight) .. 1 (fully curled), or -1 if the
-## hand isn't tracked this frame. Measured as the bend between the base bone
-## (metacarpal -> knuckle) and the finger (knuckle -> tip) - pose-stable and
-## independent of the hand's world orientation.
+## hand isn't tracked this frame. Sum of the bend angles at every knuckle, so a
+## trigger pull (bending the mid/tip joints) reads even when the big knuckle
+## stays put; pose-stable and independent of the hand's world orientation.
 func _finger_curl(hand: int) -> float:
 	var tracker := XRHandTrackerResolver.get_tracker(hand)
 	if tracker == null:
 		return -1.0
 	var joints: Array = _FINGER_JOINTS[trigger_finger]
+	var pts: Array[Vector3] = []
 	for j in joints:
 		if not XRHandGestureProvider.joint_position_valid(tracker, j):
 			return -1.0
-	var base_p: Vector3 = tracker.get_hand_joint_transform(joints[0]).origin
-	var knuckle_p: Vector3 = tracker.get_hand_joint_transform(joints[1]).origin
-	var tip_p: Vector3 = tracker.get_hand_joint_transform(joints[2]).origin
-	var bone := knuckle_p - base_p
-	var finger := tip_p - knuckle_p
-	if bone.length_squared() < 0.000001 or finger.length_squared() < 0.000001:
-		return -1.0
-	# Angle between the two bones: straight ~0.2 rad, fully curled ~2.4 rad.
-	var angle := bone.normalized().angle_to(finger.normalized())
-	return clampf((angle - 0.2) / 2.0, 0.0, 1.0)
+		pts.append(tracker.get_hand_joint_transform(j).origin)
+	var bones: Array[Vector3] = []
+	for i in range(pts.size() - 1):
+		var b := pts[i + 1] - pts[i]
+		if b.length_squared() < 0.000001:
+			return -1.0
+		bones.append(b.normalized())
+	var total := 0.0
+	for i in range(bones.size() - 1):
+		total += bones[i].angle_to(bones[i + 1])
+	# ~4 rad of total bend is a full fist; normalize so pull thresholds sit in 0..1.
+	return clampf(total / 4.0, 0.0, 1.0)
 
 
 func _held_by(hand: int) -> Node:
