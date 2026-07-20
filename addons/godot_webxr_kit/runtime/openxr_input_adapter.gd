@@ -5,8 +5,10 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/input/xr_controller_h
 ## Native (OpenXR) select source - the platform twin of WebXRInputAdapter for
 ## editor-time / native testing via Meta Quest Link, SteamVR, or Android XR.
 ##
-## Wires the controllers' action-map button signals (trigger -> select, grip ->
-## activate) into the shared controller + hand adapter base. Poses, hand ray, and
+## Wires the controllers' action-map button signals (grip -> select/grab, trigger
+## -> activate/use) into the shared controller + hand adapter base - the VR
+## standard: hold with the grip, act with the trigger, so grabbing and using
+## (e.g. a blaster's fire) are distinct buttons. Poses, hand ray, and
 ## bare-hand pinch all live in the base (XRControllerHandAdapter), so the exact
 ## same interaction runs natively as on WebXR - this file only adds where
 ## select/activate come from. Inert on web exports (the WebXR adapter owns that).
@@ -16,9 +18,11 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/input/xr_controller_h
 
 @export_group("Actions")
 ## Boolean action name (from the OpenXR action map) that fires select (grab).
-@export var select_action := "select"
-## Boolean action name that fires activate (use / trigger-while-held).
-@export var activate_action := "grab"
+## "grab" is bound to the GRIP/squeeze, so you hold objects with the grip.
+@export var select_action := "grab"
+## Boolean action name that fires activate (use / trigger-while-held). "select"
+## is bound to the TRIGGER, so trigger = fire/use - distinct from grab.
+@export var activate_action := "select"
 
 
 func _ready() -> void:

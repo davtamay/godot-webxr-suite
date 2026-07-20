@@ -1,8 +1,8 @@
-[gd_scene load_steps=8 format=3]
+[gd_scene format=3 uid="uid://bsd0rwvi081of"]
 
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_blaster.gd" id="3_blaster"]
+[ext_resource type="Script" uid="uid://c1rjnfwgfv7gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
+[ext_resource type="Script" uid="uid://c5fxsn6osclqe" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
+[ext_resource type="Script" uid="uid://chpretc0axrj0" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_blaster.gd" id="3_blaster"]
 
 [sub_resource type="BoxMesh" id="Barrel"]
 size = Vector3(0.03, 0.032, 0.17)
@@ -18,40 +18,40 @@ size = Vector3(0.032, 0.08, 0.04)
 [sub_resource type="BoxShape3D" id="Col"]
 size = Vector3(0.04, 0.12, 0.19)
 
-[node name="Blaster" type="Node3D"]
+[node name="Blaster" type="Node3D" unique_id=1744952252]
 script = ExtResource("1_grab")
 target_path = NodePath("Body")
 track_rotation = true
 throw_on_release = false
 
-[node name="Body" type="RigidBody3D" parent="."]
-mass = 0.4
+[node name="Body" type="RigidBody3D" parent="." unique_id=1449225478]
 collision_mask = 3
+mass = 0.4
 continuous_cd = true
 
-[node name="Barrel" type="MeshInstance3D" parent="Body"]
+[node name="Barrel" type="MeshInstance3D" parent="Body" unique_id=505019726]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.03)
 mesh = SubResource("Barrel")
 surface_material_override/0 = SubResource("GunMat")
 
-[node name="Grip" type="MeshInstance3D" parent="Body"]
+[node name="Grip" type="MeshInstance3D" parent="Body" unique_id=373742031]
 transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, -0.03, 0.03)
 mesh = SubResource("Grip")
 surface_material_override/0 = SubResource("GunMat")
 
-[node name="Col" type="CollisionShape3D" parent="Body"]
+[node name="Col" type="CollisionShape3D" parent="Body" unique_id=1082043081]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.005, -0.02)
 shape = SubResource("Col")
 
-[node name="Muzzle" type="Node3D" parent="Body"]
+[node name="Muzzle" type="Node3D" parent="Body" unique_id=574592890]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.12)
 
-[node name="GrabPoint" type="Node3D" parent="Body"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.03, 0.03)
+[node name="GrabPoint" type="Node3D" parent="Body" unique_id=1240773231]
+transform = Transform3D(0.1969608, -0.9774498, -0.076145984, 0.9231227, 0.21105197, -0.32140544, 0.33022842, -0.0069878115, 0.94387513, 0.034925595, -0.02839208, 0.094119444)
 script = ExtResource("2_point")
 preview_hand = true
 preview_pose = "Relaxed Grip"
 
-[node name="Blaster" type="Node" parent="Body"]
+[node name="Blaster" type="Node" parent="Body" unique_id=119900901]
 script = ExtResource("3_blaster")
 muzzle_path = NodePath("../Muzzle")
