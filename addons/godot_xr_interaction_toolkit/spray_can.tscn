@@ -1,9 +1,9 @@
-[gd_scene load_steps=12 format=3 uid="uid://c0spraycan01a"]
+[gd_scene format=3 uid="uid://c0spraycan01a"]
 
 [ext_resource type="Script" uid="uid://c1rjnfwgfv7gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
 [ext_resource type="Script" uid="uid://c5fxsn6osclqe" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_hand_activator.gd" id="3_activator"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_sprayer.gd" id="4_sprayer"]
+[ext_resource type="Script" uid="uid://bmqbukssmhtyk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_hand_activator.gd" id="3_activator"]
+[ext_resource type="Script" uid="uid://bho3vy48o0d7t" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_sprayer.gd" id="4_sprayer"]
 
 [sub_resource type="CylinderMesh" id="Can"]
 top_radius = 0.028
@@ -38,15 +38,15 @@ height = 0.3
 
 [sub_resource type="StandardMaterial3D" id="MistMat"]
 transparency = 1
-albedo_color = Color(0.95, 0.35, 0.4, 0.22)
 shading_mode = 0
+albedo_color = Color(0.95, 0.35, 0.4, 0.22)
 
 [node name="SprayCan" type="Node3D" unique_id=2100100100]
 script = ExtResource("1_grab")
 target_path = NodePath("Body")
+hand_grab_style = 1
 track_rotation = true
 throw_on_release = false
-hand_grab_style = 1
 
 [node name="Body" type="RigidBody3D" parent="." unique_id=2100100101]
 collision_mask = 3
@@ -74,12 +74,12 @@ surface_material_override/0 = SubResource("CapMat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.093, -0.033)
 
 [node name="SprayVisual" type="MeshInstance3D" parent="Body/Nozzle" unique_id=2100100106]
-transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.15)
+transform = Transform3D(1, 0, 0, 0, 8.742278e-08, 1, 0, -1, 8.742278e-08, 0, 0, -0.15)
 mesh = SubResource("Cone")
 surface_material_override/0 = SubResource("MistMat")
 
 [node name="GrabPoint" type="Node3D" parent="Body" unique_id=2100100107]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.01, 0.0)
+transform = Transform3D(-0.9565071, -0.10921136, 0.27049416, -8.829811e-08, -0.9272736, -0.37438473, 0.29170913, -0.3581017, 0.8869437, 0.012282848, 0.044772215, 0.13498352)
 script = ExtResource("2_point")
 preview_hand = true
 preview_pose = "Trigger Grip"

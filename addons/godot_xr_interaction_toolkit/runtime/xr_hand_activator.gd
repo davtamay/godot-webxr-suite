@@ -102,6 +102,8 @@ var _recognizer: Node
 var _armed := {}
 # Per-hand resting curl (how the finger sits while holding) - the pull baseline.
 var _rest := {}
+# Per-hand smoothed curl, to shave tracking jitter on a held pull.
+var _smooth := {}
 # Per-hand active interactor while CONTINUOUS spray/drill is on (null = off).
 var _active := {}
 
@@ -140,17 +142,24 @@ func _poll_finger(hand: int) -> void:
 	if require_held and interactor == null:
 		_end_continuous(hand)  # dropping the tool always stops a held activate
 		_rest.erase(hand)
+		_smooth.erase(hand)
 		_armed[hand] = true
 		return
-	var curl := _finger_curl(hand)
-	if curl < 0.0:
+	var raw := _finger_curl(hand)
+	if raw < 0.0:
 		return  # no valid tracking this frame
-	# Baseline = how the finger rests in this grip. Follow DOWN instantly (a more
-	# relaxed finger is the new rest) and drift UP slowly (so holding it a little
-	# curled re-baselines without eroding a quick pull). Pull = curl above rest.
+	# Smooth the curl so hand-tracking jitter (worst while moving the tool around)
+	# can't flicker the state on a held pull.
+	var curl: float = lerpf(_smooth.get(hand, raw), raw, 0.5)
+	_smooth[hand] = curl
+	# Baseline = the RELAXED finger in this grip. Follow DOWN instantly (a more
+	# relaxed finger is the new rest), but drift UP only while the finger is NEAR
+	# rest - never during a deliberate hold, or the baseline would creep up toward
+	# a sustained curl and drop the pull (the spray cutting out mid-hold).
 	var rest: float = _rest.get(hand, curl)
 	rest = minf(rest, curl)
-	rest = lerpf(rest, curl, 0.02)
+	if curl - rest < release_pull:
+		rest = lerpf(rest, curl, 0.05)
 	_rest[hand] = rest
 	var pull := curl - rest
 	# Trigger bottoms out exactly at the fire point, so the visual = the shot.
