@@ -52,8 +52,7 @@ shape = SubResource("Col")
 [node name="GrabPoint" type="Node3D" parent="Body" unique_id=604832151]
 transform = Transform3D(0.12185161, 0.9739124, 0.19142662, 0.91087544, -0.033111367, -0.41135234, -0.394284, 0.22448955, -0.8911469, 0.0036579669, 0.0071867146, -0.07174562)
 script = ExtResource("2_point")
-preview_hand = true
 preview_pose = "Open"
 
 [node name="PenTip" type="Node3D" parent="Body" unique_id=203742131 groups=["xr_pen_tip"]]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.078482226, 0)
+transform = Transform3D(0.5, 0, 0, 0, 0.5, 0, 0, 0, 0.5, 0, -0.07968761, 0)

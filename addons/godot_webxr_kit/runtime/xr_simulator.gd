@@ -431,21 +431,8 @@ func _load_bind_skeletons() -> bool:
 		var normal := index_origin.cross(pinky_origin).normalized()
 		if normal.dot(thumb_origin - (index_origin + pinky_origin) * 0.5) > 0.0:
 			normal = -normal
-		# Curl hinge sign is independent of the resting-roll sign (David
-		# calibrated both separately: bone x normal curled fingers BACKWARD
-		# once the roll was fixed - the hinge is normal x bone). The THUMB is
-		# different: it curls ACROSS the palm (opposition), so its hinge tilts
-		# the bone toward the pinky base instead of folding with the fingers.
-		var curl_axes := []
-		for f in _FINGER_CHAINS.size():
-			var chain: Array = _FINGER_CHAINS[f]
-			var mc: Vector3 = (rel[chain[0]] as Transform3D).origin
-			var proximal: Vector3 = (rel[chain[1]] as Transform3D).origin
-			var bone := (proximal - mc).normalized()
-			if f == 0:
-				curl_axes.append(bone.cross((pinky_origin - mc).normalized()).normalized())
-			else:
-				curl_axes.append(normal.cross(bone).normalized())
+		# Per-finger curl hinge axes come from the shared pose math (same result).
+		var curl_axes: Array = _pose_math().measure_curl_axes(rel)
 
 		# View alignment measured from the same axes: fingers -> view forward
 		# (-Z), palm -> view down (-Y).
@@ -486,25 +473,20 @@ func _joint_name_map() -> Dictionary:
 ## Same-axis FK: real knuckle hinges are parallel, so each finger's bends all
 ## rotate around its bind hinge axis with accumulating angle - positions AND
 ## authored orientations rotate together (the skin stays coherent).
+## Shared pose math (godot_xr_hands). Loaded at runtime so the simulator still
+## works controller-only when godot_xr_hands is absent.
+var _pose_math_cache: Object
+
+func _pose_math() -> Object:
+	if _pose_math_cache == null:
+		var path := "res://addons/godot_xr_hands/runtime/xr_hand_pose_math.gd"
+		if ResourceLoader.exists(path):
+			_pose_math_cache = load(path)
+	return _pose_math_cache
+
+
 func _fk_pose(hand: int, curls: Dictionary) -> Array:
-	var bind: Array = _bind[hand]["rel"]
-	var out := bind.duplicate()
-	for f in _FINGER_CHAINS.size():
-		var chain: Array = _FINGER_CHAINS[f]
-		var curl: float = curls.get(_FINGER_NAMES[f], 0.15)
-		var total := curl * (1.7 if f == 0 else 3.6)
-		var per_joint := total / maxf(chain.size() - 2, 1.0)
-		var axis: Vector3 = _bind[hand]["curl_axes"][f]
-		var angle := 0.0
-		for i in range(1, chain.size()):
-			angle += per_joint
-			var rotation := Basis(axis, angle)
-			var previous_bind: Transform3D = bind[chain[i - 1]]
-			var previous_out: Transform3D = out[chain[i - 1]]
-			var bind_step: Vector3 = (bind[chain[i]] as Transform3D).origin - previous_bind.origin
-			out[chain[i]] = Transform3D(rotation * (bind[chain[i]] as Transform3D).basis,
-					previous_out.origin + Basis(axis, angle - per_joint) * bind_step)
-	return out
+	return _pose_math().fk_pose(_bind[hand]["rel"], _bind[hand]["curl_axes"], curls)
 
 
 func _pose_from_preset(preset: Resource) -> Array:
@@ -538,69 +520,7 @@ func _pose_from_preset(preset: Resource) -> Array:
 ## downstream (orientations derived in bind space), so recorded and synthesized
 ## poses render in one consistent convention.
 func _rel_from_recorded(hand: int, positions: PackedVector3Array) -> Array:
-	var bind_rel: Array = _bind[hand]["rel"]
-	var f_rec := _measure_wrist_frame(func(j): return positions[j])
-	var f_bind := _measure_wrist_frame(func(j): return (bind_rel[j] as Transform3D).origin)
-	var convert := f_bind * f_rec.inverse()
-	var wrist_pos := positions[XRHandTracker.HAND_JOINT_WRIST]
-	var reframed := PackedVector3Array()
-	reframed.resize(positions.size())
-	for joint in positions.size():
-		reframed[joint] = convert * (positions[joint] - wrist_pos)
-	# Orientations must live in the ASSET'S AUTHORED frame (the one the Link
-	# _UNADJUST fix respects and FK already uses) - deriving fresh frames put
-	# recorded poses in a foreign convention (correct shape, twisted skin,
-	# David's Link-crumple tell). Instead RETARGET each authored bind frame by
-	# the rotation that carries its bone direction onto the recorded bone, so
-	# recorded and FK poses share one verified convention.
-	var rel := []
-	rel.resize(positions.size())
-	for joint in positions.size():
-		rel[joint] = Transform3D((bind_rel[joint] as Transform3D).basis, reframed[joint])
-	for chain in _FINGER_CHAINS:
-		for i in range(chain.size() - 1):
-			var joint: int = chain[i]
-			var bind_bone: Vector3 = ((bind_rel[chain[i + 1]] as Transform3D).origin - (bind_rel[joint] as Transform3D).origin)
-			var rec_bone: Vector3 = reframed[chain[i + 1]] - reframed[joint]
-			var retarget := _rotation_between(bind_bone, rec_bone)
-			rel[joint] = Transform3D(retarget * (bind_rel[joint] as Transform3D).basis, reframed[joint])
-		# Tip keeps its parent's retarget (no successor bone).
-		var tip: int = chain[chain.size() - 1]
-		var parent: int = chain[chain.size() - 2]
-		rel[tip] = Transform3D((rel[parent] as Transform3D).basis, reframed[tip])
-	return rel
-
-
-func _rotation_between(from_dir: Vector3, to_dir: Vector3) -> Basis:
-	var a := from_dir.normalized()
-	var b := to_dir.normalized()
-	if a.length_squared() < 0.000001 or b.length_squared() < 0.000001:
-		return Basis.IDENTITY
-	var dot := clampf(a.dot(b), -1.0, 1.0)
-	if dot > 0.9999:
-		return Basis.IDENTITY
-	var axis := a.cross(b)
-	if axis.length_squared() < 0.000001:
-		axis = a.cross(Vector3.UP)
-		if axis.length_squared() < 0.000001:
-			axis = a.cross(Vector3.RIGHT)
-	return Basis(axis.normalized(), acos(dot))
-
-
-## Wrist frame from joint positions, measured identically for recorded and
-## bind data (fingers = middle-metacarpal dir, palm normal = index x pinky with
-## the thumb-side correction). The shared correction is what removes the free
-## chirality sign.
-func _measure_wrist_frame(get_pos: Callable) -> Basis:
-	var wrist: Vector3 = get_pos.call(XRHandTracker.HAND_JOINT_WRIST)
-	var index: Vector3 = get_pos.call(XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL)
-	var pinky: Vector3 = get_pos.call(XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL)
-	var thumb: Vector3 = get_pos.call(XRHandTracker.HAND_JOINT_THUMB_METACARPAL)
-	var normal := (index - wrist).cross(pinky - wrist).normalized()
-	if normal.dot(thumb - (index + pinky) * 0.5) > 0.0:
-		normal = -normal
-	var fingers: Vector3 = (get_pos.call(XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL) - wrist).normalized()
-	return _basis_from_bone(fingers, normal)
+	return _pose_math().rel_from_recorded(_bind[hand]["rel"], positions)
 
 
 ## The Unity-style editor gesture bench: number keys apply ANY authored
@@ -633,12 +553,7 @@ func _build_pose_library() -> void:
 
 
 func _mirrored(snapshot: PackedVector3Array) -> PackedVector3Array:
-	var flipped := PackedVector3Array()
-	flipped.resize(snapshot.size())
-	for i in snapshot.size():
-		var p := snapshot[i]
-		flipped[i] = Vector3(-p.x, p.y, p.z)
-	return flipped
+	return _pose_math().mirrored(snapshot)
 
 
 func _set_mode(mode: SimMode) -> void:
@@ -774,47 +689,6 @@ func _update_hand_poses(delta: float) -> void:
 		tracker.has_tracking_data = true
 
 
-## Per-joint orientations from the position snapshot, in Godot's Humanoid
-## hand convention: +Y aims at the next joint along the finger (tip-ward),
-## Z built from the palm normal (chirality-corrected). Consumers that read
-## orientations - most importantly the realistic hand mesh, whose driver
-## un-rebases back to the WebXR frame - get proper curl instead of a
-## uniform-orientation smear.
-func _derive_joint_bases(pose: PackedVector3Array, hand: int) -> Array:
-	var bases := []
-	bases.resize(pose.size())
-	var wrist := pose[XRHandTracker.HAND_JOINT_WRIST]
-	var palm_normal := (pose[XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL] - wrist).cross(
-			pose[XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL] - wrist).normalized()
-	if hand == 0:
-		palm_normal = -palm_normal
-	var wrist_basis := _basis_from_bone(
-			(pose[XRHandTracker.HAND_JOINT_MIDDLE_FINGER_METACARPAL] - wrist).normalized(), palm_normal)
-	for joint in pose.size():
-		bases[joint] = wrist_basis
-	for chain in _FINGER_CHAINS:
-		for i in chain.size():
-			var joint: int = chain[i]
-			var bone_dir: Vector3
-			if i < chain.size() - 1:
-				bone_dir = pose[chain[i + 1]] - pose[joint]
-			else:
-				bone_dir = pose[joint] - pose[chain[i - 1]]  # tip keeps its bone's aim
-			bases[joint] = _basis_from_bone(bone_dir.normalized(), palm_normal)
-	return bases
-
-
-func _basis_from_bone(y_dir: Vector3, reference_normal: Vector3) -> Basis:
-	if y_dir.length_squared() < 0.000001:
-		return Basis.IDENTITY
-	var x_axis := reference_normal.cross(y_dir)
-	if x_axis.length_squared() < 0.000001:
-		x_axis = y_dir.cross(Vector3.UP)
-		if x_axis.length_squared() < 0.000001:
-			x_axis = Vector3.RIGHT
-	x_axis = x_axis.normalized()
-	var z_axis := x_axis.cross(y_dir).normalized()
-	return Basis(x_axis, y_dir, z_axis)
 
 
 ## Unity XR Device Simulator-style on-screen bindings help, so nobody has to

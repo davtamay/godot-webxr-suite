@@ -3,7 +3,7 @@
 [ext_resource type="PackedScene" uid="uid://crdc24h6y3686" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" uid="uid://dqvk55siw3rc4" path="res://addons/godot_xr_interaction_toolkit/samples/handheld_tools_demo.gd" id="2_demo"]
 [ext_resource type="PackedScene" uid="uid://cubdthtaurp8k" path="res://addons/godot_xr_interaction_toolkit/pen.tscn" id="3_pen"]
-[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/coffee_cup.tscn" id="4_cup"]
+[ext_resource type="PackedScene" uid="uid://cjwitvued8gec" path="res://addons/godot_xr_interaction_toolkit/coffee_cup.tscn" id="4_cup"]
 [ext_resource type="Script" uid="uid://b3onaftanysxs" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_drawing_surface.gd" id="5_draw"]
 [ext_resource type="Script" uid="uid://c1rjnfwgfv7gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="6_grab"]
 [ext_resource type="Script" uid="uid://c5fxsn6osclqe" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="7_point"]
@@ -42,7 +42,7 @@ size = Vector3(1.3, 0.74, 0.6)
 size = Vector2(0.3, 0.38)
 
 [sub_resource type="BoxShape3D" id="NotepadShape"]
-size = Vector3(0.34, 0.014, 0.42)
+size = Vector3(0.34, 0.008464844, 0.42)
 
 [sub_resource type="CylinderMesh" id="WandHandle"]
 top_radius = 0.009
@@ -106,7 +106,7 @@ collision_layer = 2
 collision_mask = 0
 
 [node name="Col" type="CollisionShape3D" parent="Notepad/Body" unique_id=918372675]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.007, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.009767592, 0)
 shape = SubResource("NotepadShape")
 
 [node name="ClearButton" type="Node3D" parent="." unique_id=21987915]
