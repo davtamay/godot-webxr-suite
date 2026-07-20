@@ -1,0 +1,36 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
+
+[sub_resource type="BoxMesh" id="Mesh"]
+size = Vector3(0.1, 0.1, 0.1)
+
+[sub_resource type="StandardMaterial3D" id="Mat"]
+albedo_color = Color(0.4, 0.62, 0.95, 1)
+metallic = 0.2
+roughness = 0.5
+
+[sub_resource type="BoxShape3D" id="Shape"]
+size = Vector3(0.1, 0.1, 0.1)
+
+[sub_resource type="PhysicsMaterial" id="Phys"]
+friction = 0.7
+bounce = 0.35
+
+[node name="Throwable" type="Node3D"]
+script = ExtResource("1_grab")
+target_path = NodePath("Body")
+track_rotation = true
+throw_on_release = true
+
+[node name="Body" type="RigidBody3D" parent="."]
+mass = 0.4
+physics_material_override = SubResource("Phys")
+continuous_cd = true
+
+[node name="Mesh" type="MeshInstance3D" parent="Body"]
+mesh = SubResource("Mesh")
+surface_material_override/0 = SubResource("Mat")
+
+[node name="Col" type="CollisionShape3D" parent="Body"]
+shape = SubResource("Shape")

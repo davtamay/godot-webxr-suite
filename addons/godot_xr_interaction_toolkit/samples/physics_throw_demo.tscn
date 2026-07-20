@@ -1,0 +1,156 @@
+[gd_scene load_steps=17 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/physics_throw_demo.gd" id="2_demo"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/throwable.tscn" id="3_throw"]
+[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="4_fontbake"]
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.09, 0.11, 0.14, 1)
+ambient_light_source = 2
+ambient_light_color = Color(0.66, 0.72, 0.82, 1)
+ambient_light_energy = 0.55
+
+[sub_resource type="PlaneMesh" id="FloorMesh"]
+size = Vector2(8, 8)
+
+[sub_resource type="StandardMaterial3D" id="FloorMat"]
+albedo_color = Color(0.18, 0.22, 0.28, 1)
+roughness = 0.95
+
+[sub_resource type="BoxShape3D" id="FloorShape"]
+size = Vector3(8, 0.08, 8)
+
+[sub_resource type="BoxMesh" id="TableMesh"]
+size = Vector3(0.9, 0.8, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="TableMat"]
+albedo_color = Color(0.3, 0.24, 0.2, 1)
+roughness = 0.8
+
+[sub_resource type="BoxShape3D" id="TableShape"]
+size = Vector3(0.9, 0.8, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="TrayMat"]
+albedo_color = Color(0.25, 0.55, 0.5, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="TrayFloorMesh"]
+size = Vector3(0.42, 0.03, 0.42)
+
+[sub_resource type="BoxShape3D" id="TrayFloorShape"]
+size = Vector3(0.42, 0.03, 0.42)
+
+[sub_resource type="BoxMesh" id="TrayWallMesh"]
+size = Vector3(0.42, 0.14, 0.025)
+
+[sub_resource type="BoxShape3D" id="TrayWallShape"]
+size = Vector3(0.42, 0.14, 0.025)
+
+[node name="PhysicsThrowDemo" type="Node3D"]
+script = ExtResource("2_demo")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
+shadow_enabled = true
+
+[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+mesh = SubResource("FloorMesh")
+surface_material_override/0 = SubResource("FloorMat")
+
+[node name="FloorBody" type="StaticBody3D" parent="."]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="FloorBody"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
+shape = SubResource("FloorShape")
+
+[node name="Table" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, -0.7)
+
+[node name="Mesh" type="MeshInstance3D" parent="Table"]
+mesh = SubResource("TableMesh")
+surface_material_override/0 = SubResource("TableMat")
+
+[node name="Col" type="CollisionShape3D" parent="Table"]
+shape = SubResource("TableShape")
+
+[node name="Tray" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, 0.02, -0.95)
+
+[node name="FloorMesh" type="MeshInstance3D" parent="Tray"]
+mesh = SubResource("TrayFloorMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="FloorCol" type="CollisionShape3D" parent="Tray"]
+shape = SubResource("TrayFloorShape")
+
+[node name="WallFront" type="MeshInstance3D" parent="Tray"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0.2)
+mesh = SubResource("TrayWallMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="WallFrontCol" type="CollisionShape3D" parent="Tray"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0.2)
+shape = SubResource("TrayWallShape")
+
+[node name="WallBack" type="MeshInstance3D" parent="Tray"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, -0.2)
+mesh = SubResource("TrayWallMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="WallBackCol" type="CollisionShape3D" parent="Tray"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, -0.2)
+shape = SubResource("TrayWallShape")
+
+[node name="WallLeft" type="MeshInstance3D" parent="Tray"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.2, 0.07, 0)
+mesh = SubResource("TrayWallMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="WallLeftCol" type="CollisionShape3D" parent="Tray"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.2, 0.07, 0)
+shape = SubResource("TrayWallShape")
+
+[node name="WallRight" type="MeshInstance3D" parent="Tray"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.2, 0.07, 0)
+mesh = SubResource("TrayWallMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="WallRightCol" type="CollisionShape3D" parent="Tray"]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.2, 0.07, 0)
+shape = SubResource("TrayWallShape")
+
+[node name="Blocks" type="Node3D" parent="."]
+
+[node name="Block1" parent="Blocks" instance=ExtResource("3_throw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.27, 0.86, -0.7)
+
+[node name="Block2" parent="Blocks" instance=ExtResource("3_throw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.09, 0.86, -0.7)
+
+[node name="Block3" parent="Blocks" instance=ExtResource("3_throw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.09, 0.86, -0.7)
+
+[node name="Block4" parent="Blocks" instance=ExtResource("3_throw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.27, 0.86, -0.7)
+
+[node name="InfoLabel" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.9, -1.4)
+pixel_size = 0.0013
+billboard = 1
+text = "GRAB & THROW - grab a block (near or far), swing your hand, and let go
+to THROW it. It flies, falls, and bounces with real gravity.
+Try landing one in the tray. Blocks that fall off respawn on the table."
+font_size = 26
+outline_size = 8
+width = 1600.0
+autowrap_mode = 2
+
+[node name="FontBakeAnchor" type="Label3D" parent="."]
+script = ExtResource("4_fontbake")
+
+[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]

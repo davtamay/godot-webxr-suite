@@ -84,6 +84,7 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 | **Poke Button (3D)** | A physical push-button that visibly depresses and fires with hysteresis. |
 | **Floor (teleportable)** | Ground in one drop: visible floor + teleport collision; in AR passthrough the solid floor hides and a translucent grid marks the teleportable area. |
 | **Grabbable** | Ready grabbable: swap the mesh, collision auto-fits, highlight included. |
+| **Throwable** | A physics block you grab and **throw** — a RigidBody3D frozen while held (gravity won't fight the grab), thrown on release, so it flies, falls, and bounces with real gravity. |
 | **Grab Point** | Authored grip: parent INSIDE a grabbable where the hand should hold it — grabbing anywhere snaps the object into the palm, position *and* orientation (Unity attach transforms / Meta grab poses). Per-hand filter + priority; multiple points, nearest wins. |
 | **Interaction Feedback** (rig-default) | Scene-wide feel: every interactable automatically gets hover glow + click sound + hand-correct controller haptics, styled by ONE swappable `XRFeedbackTheme` resource. Unity deprecated its affordance system and only announced a unified replacement — this ships it. |
 | **Highlight / Socket Affordance** | Self-wiring child components: parent INSIDE the object, they find their interactable and mesh. Doubles as the per-object OVERRIDE for Interaction Feedback (objects with their own affordance are skipped). |

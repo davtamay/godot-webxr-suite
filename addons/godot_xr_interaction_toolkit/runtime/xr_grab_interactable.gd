@@ -97,6 +97,7 @@ func _notify_select_entered(interactor) -> void:
         _grabbing = interactor
         _grab_offset = _compute_grab_offset(interactor)
         _two_hand_active = false
+        _set_body_frozen(true)
         _reset_throw_sample(_attach_pose_for(interactor))
         grabbed.emit(interactor)
     elif _grabbers.size() == 2:
@@ -108,6 +109,7 @@ func _notify_select_exited(interactor) -> void:
         _grabbers.erase(interactor)
 
     if _grabbers.is_empty():
+        _set_body_frozen(false)
         _apply_throw_on_release()
         _grabbing = null
         _two_hand_active = false
@@ -321,6 +323,18 @@ func _sample_throw_velocity(pose: Transform3D, delta: float) -> void:
     _throw_linear_velocity = _average_throw_samples(_throw_linear_samples).limit_length(max_throw_speed)
     _throw_angular_velocity = _average_throw_samples(_throw_angular_samples).limit_length(max_throw_angular_speed)
     _last_throw_pose = pose
+
+## Freeze a RigidBody3D target (kinematic) while it's held, so gravity doesn't
+## fight the grab; unfreezing on release lets the thrown velocity carry it with
+## real physics. No-op for non-rigid targets (the common case).
+func _set_body_frozen(frozen: bool) -> void:
+    var body := get_target() as RigidBody3D
+    if body == null:
+        return
+    if frozen:
+        body.freeze_mode = RigidBody3D.FREEZE_MODE_KINEMATIC
+    body.freeze = frozen
+
 
 func _apply_throw_on_release() -> void:
     if not throw_on_release or not _has_throw_sample:
