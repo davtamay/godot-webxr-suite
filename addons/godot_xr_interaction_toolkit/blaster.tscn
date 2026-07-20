@@ -1,0 +1,57 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_blaster.gd" id="3_blaster"]
+
+[sub_resource type="BoxMesh" id="Barrel"]
+size = Vector3(0.03, 0.032, 0.17)
+
+[sub_resource type="StandardMaterial3D" id="GunMat"]
+albedo_color = Color(0.16, 0.17, 0.2, 1)
+metallic = 0.7
+roughness = 0.4
+
+[sub_resource type="BoxMesh" id="Grip"]
+size = Vector3(0.032, 0.08, 0.04)
+
+[sub_resource type="BoxShape3D" id="Col"]
+size = Vector3(0.04, 0.12, 0.19)
+
+[node name="Blaster" type="Node3D"]
+script = ExtResource("1_grab")
+target_path = NodePath("Body")
+track_rotation = true
+throw_on_release = false
+
+[node name="Body" type="RigidBody3D" parent="."]
+mass = 0.4
+collision_mask = 3
+continuous_cd = true
+
+[node name="Barrel" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.03)
+mesh = SubResource("Barrel")
+surface_material_override/0 = SubResource("GunMat")
+
+[node name="Grip" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 0.965926, 0.258819, 0, -0.258819, 0.965926, 0, -0.03, 0.03)
+mesh = SubResource("Grip")
+surface_material_override/0 = SubResource("GunMat")
+
+[node name="Col" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.005, -0.02)
+shape = SubResource("Col")
+
+[node name="Muzzle" type="Node3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.12)
+
+[node name="GrabPoint" type="Node3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.03, 0.03)
+script = ExtResource("2_point")
+preview_hand = true
+preview_pose = "Relaxed Grip"
+
+[node name="Blaster" type="Node" parent="Body"]
+script = ExtResource("3_blaster")
+muzzle_path = NodePath("../Muzzle")

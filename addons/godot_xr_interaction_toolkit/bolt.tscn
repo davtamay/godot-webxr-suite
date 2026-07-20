@@ -1,0 +1,37 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_bolt.gd" id="1_bolt"]
+
+[sub_resource type="CapsuleMesh" id="Mesh"]
+radius = 0.012
+height = 0.06
+
+[sub_resource type="StandardMaterial3D" id="Mat"]
+emission_enabled = true
+emission = Color(1, 0.7, 0.2, 1)
+emission_energy_multiplier = 6.0
+albedo_color = Color(1, 0.85, 0.5, 1)
+
+[sub_resource type="CapsuleShape3D" id="Col"]
+radius = 0.012
+height = 0.06
+
+[node name="Bolt" type="RigidBody3D"]
+mass = 0.08
+gravity_scale = 0.25
+continuous_cd = true
+script = ExtResource("1_bolt")
+
+[node name="Mesh" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+mesh = SubResource("Mesh")
+surface_material_override/0 = SubResource("Mat")
+
+[node name="Col" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, 0)
+shape = SubResource("Col")
+
+[node name="Light" type="OmniLight3D" parent="."]
+light_color = Color(1, 0.7, 0.3, 1)
+light_energy = 0.8
+omni_range = 0.5
