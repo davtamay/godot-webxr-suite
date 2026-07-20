@@ -25,6 +25,12 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd
 @export_range(0.0, 0.2, 0.001, "or_greater") var distance_motion_deadzone := 0.006
 @export var allow_push_distance_manipulation := true
 @export_range(0.0, 40.0, 0.1, "or_greater") var max_distance_change_per_second := 12.0
+## As you pull a far-grabbed object to within this distance, its pose blends
+## from the ray aim into your hand's natural GRIP pose - so it settles into a
+## real hold (and grab-point objects orient correctly) instead of staying
+## aimed along the ray. Needs a linked near/direct interactor as the grip
+## source (suppress_interactor_path). 0 = off (keeps the ray orientation).
+@export_range(0.0, 2.0, 0.01) var reel_to_grip_distance := 0.45
 
 @export_group("Suppression")
 ## Optional linked near/direct interactor. When it is active, this far ray is
@@ -122,7 +128,7 @@ func _update_ray(delta := 0.0) -> void:
         _attach_pose = Transform3D(pose_basis, end)
     else:
         _apply_motion_distance_manipulation(origin, direction, delta)
-        _attach_pose = Transform3D(pose_basis, origin + direction * _grab_distance)
+        _attach_pose = _blend_toward_grip(Transform3D(pose_basis, origin + direction * _grab_distance))
         end = _attach_pose.origin
         hit_anything = true
         hovered = _selected
@@ -186,6 +192,26 @@ func _apply_motion_distance_manipulation(origin: Vector3, _direction: Vector3, d
     _pending_distance_delta -= _grab_distance - previous
     if is_equal_approx(_grab_distance, floor_distance) or is_equal_approx(_grab_distance, max_distance):
         _pending_distance_delta = 0.0
+
+## Reel-to-hand: the closer a far-grabbed object is pulled (grab distance nears
+## the floor), the more its pose blends into the linked interactor's grip pose,
+## so it rotates into a natural hold as it arrives. Returns the ray pose
+## unchanged when disabled or there is no grip source.
+func _blend_toward_grip(ray_attach: Transform3D) -> Transform3D:
+    if reel_to_grip_distance <= 0.0:
+        return ray_attach
+    if _suppress_interactor == null or not is_instance_valid(_suppress_interactor):
+        _resolve_suppression_interactor()
+    if _suppress_interactor == null or not _suppress_interactor.has_method("get_attach_pose"):
+        return ray_attach
+    var floor_distance := minf(min_grab_distance, _grab_distance)
+    if reel_to_grip_distance <= floor_distance:
+        return ray_attach
+    var t := clampf(inverse_lerp(reel_to_grip_distance, floor_distance, _grab_distance), 0.0, 1.0)
+    if t <= 0.0:
+        return ray_attach
+    return ray_attach.interpolate_with(_suppress_interactor.get_attach_pose(), t)
+
 
 func _seed_last_ray_pose_from_state() -> void:
     if not _ray_state.get("valid", false):

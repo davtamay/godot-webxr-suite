@@ -1,4 +1,4 @@
-[gd_scene load_steps=24 format=3]
+[gd_scene load_steps=25 format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/handheld_tools_demo.gd" id="2_demo"]
@@ -39,6 +39,9 @@ size = Vector3(1.3, 0.74, 0.6)
 
 [sub_resource type="PlaneMesh" id="NotepadPlane"]
 size = Vector2(0.3, 0.38)
+
+[sub_resource type="BoxShape3D" id="NotepadShape"]
+size = Vector3(0.3, 0.012, 0.38)
 
 [sub_resource type="CylinderMesh" id="WandHandle"]
 top_radius = 0.009
@@ -92,9 +95,15 @@ surface_material_override/0 = SubResource("DeskMat")
 shape = SubResource("DeskShape")
 
 [node name="Notepad" type="MeshInstance3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.745, -0.55)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.12, 0.752, -0.55)
 mesh = SubResource("NotepadPlane")
 script = ExtResource("5_draw")
+
+[node name="Body" type="StaticBody3D" parent="Notepad"]
+
+[node name="Col" type="CollisionShape3D" parent="Notepad/Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.006, 0)
+shape = SubResource("NotepadShape")
 
 [node name="ClearButton" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.16, 0.75, -0.42)
