@@ -37,6 +37,7 @@ script = ExtResource("1_grab")
 target_path = NodePath("Body")
 track_rotation = true
 throw_on_release = false
+hand_grab_style = 1
 
 [node name="Body" type="RigidBody3D" parent="." unique_id=1449225478]
 collision_mask = 3

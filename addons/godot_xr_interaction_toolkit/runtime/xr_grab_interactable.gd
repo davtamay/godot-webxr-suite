@@ -8,6 +8,11 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactable.
 ## INSTANT for non-rigid targets).
 
 enum MovementType { INSTANT, KINEMATIC_SMOOTH, VELOCITY_TRACKED }
+## How a BARE HAND grabs this: PINCH (thumb+index, the default) or GRIP (curl
+## middle/ring/pinky, leaving the index free for a trigger - the way you hold a
+## gun or drill). GRIP is honored only on bare hands; controllers always use the
+## grip button. Far-ray grabbing is unaffected either way.
+enum HandGrab { PINCH, GRIP }
 
 ## Grab-specific lifecycle on top of the base select_entered/select_exited
 ## (which fire per interactor): grabbed = the object went free -> held,
@@ -19,6 +24,16 @@ signal thrown(linear_velocity: Vector3, angular_velocity: Vector3)
 @export_group("Target")
 ## Node3D to move. Empty = this node.
 @export var target_path: NodePath
+
+@export_group("Grab")
+## Bare-hand grab gesture: PINCH (default) or GRIP (curl the lower fingers, index
+## free). See HandGrab. A gun/blaster uses GRIP so the index can pull a trigger.
+@export var hand_grab_style: HandGrab = HandGrab.PINCH
+
+## Whether a bare hand grabs this by gripping the lower fingers instead of
+## pinching. Queried by the direct interactor.
+func uses_grip_grab() -> bool:
+	return hand_grab_style == HandGrab.GRIP
 
 @export_group("Attach")
 ## Optional grip-point child. Only used when snap_to_attach is true.
