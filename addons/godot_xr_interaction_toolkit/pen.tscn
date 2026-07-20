@@ -30,6 +30,7 @@ size = Vector3(0.016, 0.16, 0.016)
 script = ExtResource("1_grab")
 target_path = NodePath("Body")
 track_rotation = true
+throw_on_release = false
 
 [node name="Body" type="RigidBody3D" parent="."]
 mass = 0.05
