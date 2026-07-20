@@ -99,17 +99,35 @@ func _physics_process(_delta: float) -> void:
 const _HAND_TRACKER_NAMES := [&"/user/hand_tracker/left", &"/user/hand_tracker/right"]
 
 func _resolve_point(hand: int) -> Vector3:
-	# Bare hand: the index fingertip.
+	var controller := _controllers[hand] as XRController3D
+	var controller_live: bool = controller and controller.get_is_active() and controller.get_has_tracking_data()
+	# CONTROLLER modality: use the controller tip - a stable point rigidly on the
+	# control - NOT the controller-emulated hand joints (which jitter, so the dot
+	# bounced). The modality manager is the authority on who's driving.
+	if _is_controller_modality(hand) and controller_live:
+		return controller.global_transform * Vector3(0.0, 0.0, -_CONTROLLER_TIP_FORWARD)
+	# Bare-hand tracking: the index fingertip.
 	var tracker := XRServer.get_tracker(_HAND_TRACKER_NAMES[hand]) as XRHandTracker
 	if tracker and tracker.has_tracking_data and _origin:
 		var tip := XRHandTracker.HAND_JOINT_INDEX_FINGER_TIP
 		if XRHandGestureProvider.joint_position_valid(tracker, tip):
 			return _origin.global_transform * tracker.get_hand_joint_transform(tip).origin
-	# Controller in hand: the controller's tip.
-	var controller := _controllers[hand] as XRController3D
-	if controller and controller.get_is_active() and controller.get_has_tracking_data():
+	# Fallback to the controller tip if one is present.
+	if controller_live:
 		return controller.global_transform * Vector3(0.0, 0.0, -_CONTROLLER_TIP_FORWARD)
 	return Vector3.INF
+
+
+## Is this hand driving a controller? The modality manager decides (it counts
+## controller-emulated hands as CONTROLLER); without it, fall back to the
+## tracker source.
+func _is_controller_modality(hand: int) -> bool:
+	var manager := get_tree().get_first_node_in_group("xr_input_modality_manager")
+	if manager and manager.has_method("get_modality"):
+		return int(manager.get_modality(hand)) == 1  # Modality.CONTROLLER
+	var tracker := XRServer.get_tracker(_HAND_TRACKER_NAMES[hand]) as XRHandTracker
+	return tracker != null and tracker.has_tracking_data \
+			and tracker.hand_tracking_source == XRHandTracker.HAND_TRACKING_SOURCE_CONTROLLER
 
 
 ## Physics broad-phase dispatch: for each fingertip, sphere-query the poke

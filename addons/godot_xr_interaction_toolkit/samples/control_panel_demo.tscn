@@ -33,8 +33,8 @@ metallic = 0.5
 roughness = 0.5
 
 [sub_resource type="CylinderMesh" id="KnobMesh"]
-top_radius = 0.06
-bottom_radius = 0.07
+top_radius = 0.1
+bottom_radius = 0.11
 height = 0.05
 
 [sub_resource type="StandardMaterial3D" id="KnobMat"]
@@ -43,7 +43,7 @@ metallic = 0.6
 roughness = 0.35
 
 [sub_resource type="CylinderShape3D" id="KnobShape"]
-radius = 0.08
+radius = 0.12
 height = 0.06
 
 [sub_resource type="BoxMesh" id="PointerMesh"]
@@ -130,8 +130,10 @@ surface_material_override/0 = SubResource("MetalMat")
 [node name="Dial" type="Node3D" parent="Console"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.45, 0.93, 0.05)
 script = ExtResource("3_dial")
+spin_axis = Vector3(0, 1, 0)
 default_value = 0.5
 invert = true
+sensitivity = 1.0
 range_degrees = 270.0
 
 [node name="KnobMesh" type="MeshInstance3D" parent="Console/Dial"]
@@ -139,7 +141,7 @@ mesh = SubResource("KnobMesh")
 surface_material_override/0 = SubResource("KnobMat")
 
 [node name="Pointer" type="MeshInstance3D" parent="Console/Dial"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.045)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.025, -0.078)
 mesh = SubResource("PointerMesh")
 surface_material_override/0 = SubResource("PointerMat")
 
