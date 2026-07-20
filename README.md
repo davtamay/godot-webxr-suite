@@ -86,6 +86,7 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 | **Grabbable** | Ready grabbable: swap the mesh, collision auto-fits, highlight included. |
 | **Throwable** | A physics block you grab and **throw** — a RigidBody3D frozen while held (gravity won't fight the grab), thrown on release, so it flies, falls, and bounces with real gravity. |
 | **Grab Point** | Authored grip: parent INSIDE a grabbable where the hand should hold it — grabbing anywhere snaps the object into the palm, position *and* orientation (Unity attach transforms / Meta grab poses). Per-hand filter + priority; multiple points, nearest wins. |
+| **Pen + Drawing Surface** | A grabbable pen whose grab point is pitched into a natural writing pose, and a notepad its tip draws on — swap the mesh, drop a Drawing Surface, and any pen tip paints where it touches (runtime texture on a baked material, WebGPU-safe). |
 | **Interaction Feedback** (rig-default) | Scene-wide feel: every interactable automatically gets hover glow + click sound + hand-correct controller haptics, styled by ONE swappable `XRFeedbackTheme` resource. Unity deprecated its affordance system and only announced a unified replacement — this ships it. |
 | **Highlight / Socket Affordance** | Self-wiring child components: parent INSIDE the object, they find their interactable and mesh. Doubles as the per-object OVERRIDE for Interaction Feedback (objects with their own affordance are skipped). |
 | **Socket Interactor** | Snap-zone that grabs and holds interactables. |

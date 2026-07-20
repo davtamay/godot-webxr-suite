@@ -1,0 +1,57 @@
+[gd_scene load_steps=8 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
+
+[sub_resource type="CylinderMesh" id="Shaft"]
+top_radius = 0.006
+bottom_radius = 0.006
+height = 0.13
+
+[sub_resource type="StandardMaterial3D" id="PenMat"]
+albedo_color = Color(0.12, 0.16, 0.3, 1)
+metallic = 0.3
+roughness = 0.4
+
+[sub_resource type="CylinderMesh" id="Nib"]
+top_radius = 0.0
+bottom_radius = 0.006
+height = 0.025
+
+[sub_resource type="StandardMaterial3D" id="NibMat"]
+albedo_color = Color(0.75, 0.75, 0.8, 1)
+metallic = 0.8
+roughness = 0.3
+
+[sub_resource type="BoxShape3D" id="Col"]
+size = Vector3(0.016, 0.016, 0.17)
+
+[node name="Pen" type="Node3D"]
+script = ExtResource("1_grab")
+target_path = NodePath("Body")
+track_rotation = true
+
+[node name="Body" type="RigidBody3D" parent="."]
+mass = 0.05
+continuous_cd = true
+
+[node name="Shaft" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.02)
+mesh = SubResource("Shaft")
+surface_material_override/0 = SubResource("PenMat")
+
+[node name="Nib" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.0975)
+mesh = SubResource("Nib")
+surface_material_override/0 = SubResource("NibMat")
+
+[node name="Col" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.02)
+shape = SubResource("Col")
+
+[node name="GrabPoint" type="Node3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 0.64279, 0.76604, 0, -0.76604, 0.64279, 0, 0, -0.05)
+script = ExtResource("2_point")
+
+[node name="PenTip" type="Node3D" parent="Body" groups=["xr_pen_tip"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.112)

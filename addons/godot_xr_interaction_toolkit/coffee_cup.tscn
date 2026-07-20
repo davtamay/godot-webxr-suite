@@ -1,0 +1,47 @@
+[gd_scene load_steps=7 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
+
+[sub_resource type="CylinderMesh" id="BodyMesh"]
+top_radius = 0.043
+bottom_radius = 0.037
+height = 0.1
+
+[sub_resource type="StandardMaterial3D" id="CupMat"]
+albedo_color = Color(0.92, 0.9, 0.86, 1)
+roughness = 0.5
+
+[sub_resource type="TorusMesh" id="HandleMesh"]
+inner_radius = 0.011
+outer_radius = 0.03
+
+[sub_resource type="BoxShape3D" id="Col"]
+size = Vector3(0.15, 0.1, 0.088)
+
+[node name="CoffeeCup" type="Node3D"]
+script = ExtResource("1_grab")
+target_path = NodePath("Body")
+track_rotation = true
+
+[node name="Body" type="RigidBody3D" parent="."]
+mass = 0.25
+continuous_cd = true
+
+[node name="Cup" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
+mesh = SubResource("BodyMesh")
+surface_material_override/0 = SubResource("CupMat")
+
+[node name="Handle" type="MeshInstance3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.05, 0.05, 0)
+mesh = SubResource("HandleMesh")
+surface_material_override/0 = SubResource("CupMat")
+
+[node name="Col" type="CollisionShape3D" parent="Body"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.01, 0.05, 0)
+shape = SubResource("Col")
+
+[node name="GrabPoint" type="Node3D" parent="Body"]
+transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.064, 0.05, 0)
+script = ExtResource("2_point")
