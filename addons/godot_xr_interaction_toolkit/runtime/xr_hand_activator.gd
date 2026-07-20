@@ -22,9 +22,16 @@ extends Node
 ## quiet unless a HAND is the one holding the object.
 
 enum Finger { THUMB, INDEX, MIDDLE, RING, PINKY }
+## MOMENTARY: one activate per pull (a gun shot). CONTINUOUS: the object stays
+## activated the whole time the finger is held past the threshold and
+## deactivates on release (a spray can, a drill) - drives activate_entered /
+## activate_exited on the interactable.
+enum ActivateMode { MOMENTARY, CONTINUOUS }
 
 ## Which finger pulls the trigger. Ignored when activate_gesture is set.
 @export var trigger_finger: Finger = Finger.INDEX
+## One shot per pull, or held-active while pulled. See ActivateMode.
+@export var activate_mode: ActivateMode = ActivateMode.MOMENTARY
 ## How much MORE the finger must curl, past its resting position, to fire (0..1).
 ## Measured relative to how you're holding the tool, so it adapts to any grip and
 ## hand - a deliberate trigger pull, not an absolute pose. Lower = hair trigger.
@@ -95,6 +102,8 @@ var _recognizer: Node
 var _armed := {}
 # Per-hand resting curl (how the finger sits while holding) - the pull baseline.
 var _rest := {}
+# Per-hand active interactor while CONTINUOUS spray/drill is on (null = off).
+var _active := {}
 
 
 func _ready() -> void:
@@ -129,6 +138,7 @@ func _find_interactable() -> XRBaseInteractable:
 func _poll_finger(hand: int) -> void:
 	var interactor := _held_by(hand)
 	if require_held and interactor == null:
+		_end_continuous(hand)  # dropping the tool always stops a held activate
 		_rest.erase(hand)
 		_armed[hand] = true
 		return
@@ -145,6 +155,16 @@ func _poll_finger(hand: int) -> void:
 	var pull := curl - rest
 	# Trigger bottoms out exactly at the fire point, so the visual = the shot.
 	trigger_progress.emit(hand, clampf(pull / fire_pull, 0.0, 1.0))
+	if activate_mode == ActivateMode.CONTINUOUS:
+		if _active.get(hand) == null and pull >= fire_pull:
+			_active[hand] = interactor
+			activated_by_gesture.emit(hand)
+			if _interactable != null:
+				_interactable._notify_activate_entered(interactor)
+		elif _active.get(hand) != null and pull <= release_pull:
+			_end_continuous(hand)
+		return
+	# MOMENTARY: one shot per pull.
 	if not _armed.get(hand, true):
 		if pull <= release_pull:
 			_armed[hand] = true
@@ -152,6 +172,17 @@ func _poll_finger(hand: int) -> void:
 	if pull >= fire_pull:
 		_armed[hand] = false
 		_fire(hand, interactor)
+
+
+## End a CONTINUOUS activate using the interactor that started it, so releasing
+## or dropping the tool always deactivates cleanly (spray never sticks on).
+func _end_continuous(hand: int) -> void:
+	var interactor = _active.get(hand)
+	if interactor == null:
+		return
+	_active.erase(hand)
+	if _interactable != null:
+		_interactable._notify_activate_exited(interactor)
 
 
 ## Curl of the trigger finger, 0 (straight) .. 1 (fully curled), or -1 if the

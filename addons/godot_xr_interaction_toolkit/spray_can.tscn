@@ -1,0 +1,86 @@
+[gd_scene load_steps=11 format=3 uid="uid://c0spraycan01a"]
+
+[ext_resource type="Script" uid="uid://c1rjnfwgfv7gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
+[ext_resource type="Script" uid="uid://c5fxsn6osclqe" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_hand_activator.gd" id="3_activator"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_sprayer.gd" id="4_sprayer"]
+
+[sub_resource type="CylinderMesh" id="Can"]
+top_radius = 0.028
+bottom_radius = 0.028
+height = 0.14
+
+[sub_resource type="StandardMaterial3D" id="CanMat"]
+albedo_color = Color(0.85, 0.2, 0.28, 1)
+metallic = 0.6
+roughness = 0.35
+
+[sub_resource type="CylinderMesh" id="Cap"]
+top_radius = 0.02
+bottom_radius = 0.03
+height = 0.03
+
+[sub_resource type="StandardMaterial3D" id="CapMat"]
+albedo_color = Color(0.12, 0.12, 0.14, 1)
+roughness = 0.5
+
+[sub_resource type="CylinderShape3D" id="Col"]
+height = 0.17
+radius = 0.032
+
+[sub_resource type="CylinderMesh" id="Cone"]
+top_radius = 0.055
+bottom_radius = 0.002
+height = 0.3
+
+[sub_resource type="StandardMaterial3D" id="MistMat"]
+transparency = 1
+albedo_color = Color(0.95, 0.35, 0.4, 0.22)
+shading_mode = 0
+
+[node name="SprayCan" type="Node3D" unique_id=2100100100]
+script = ExtResource("1_grab")
+target_path = NodePath("Body")
+track_rotation = true
+throw_on_release = false
+hand_grab_style = 1
+
+[node name="Body" type="RigidBody3D" parent="." unique_id=2100100101]
+collision_mask = 3
+mass = 0.3
+continuous_cd = true
+
+[node name="Can" type="MeshInstance3D" parent="Body" unique_id=2100100102]
+mesh = SubResource("Can")
+surface_material_override/0 = SubResource("CanMat")
+
+[node name="Cap" type="MeshInstance3D" parent="Body" unique_id=2100100103]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.085, 0)
+mesh = SubResource("Cap")
+surface_material_override/0 = SubResource("CapMat")
+
+[node name="Col" type="CollisionShape3D" parent="Body" unique_id=2100100104]
+shape = SubResource("Col")
+
+[node name="Nozzle" type="Node3D" parent="Body" unique_id=2100100105]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, -0.026)
+
+[node name="SprayVisual" type="MeshInstance3D" parent="Body/Nozzle" unique_id=2100100106]
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.15)
+mesh = SubResource("Cone")
+surface_material_override/0 = SubResource("MistMat")
+
+[node name="GrabPoint" type="Node3D" parent="Body" unique_id=2100100107]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.01, 0.0)
+script = ExtResource("2_point")
+preview_hand = true
+preview_pose = "Relaxed Grip"
+
+[node name="Activator" type="Node" parent="Body" unique_id=2100100108]
+script = ExtResource("3_activator")
+activate_mode = 1
+
+[node name="Sprayer" type="Node" parent="Body" unique_id=2100100109]
+script = ExtResource("4_sprayer")
+nozzle_path = NodePath("../Nozzle")
+spray_visual_path = NodePath("../Nozzle/SprayVisual")

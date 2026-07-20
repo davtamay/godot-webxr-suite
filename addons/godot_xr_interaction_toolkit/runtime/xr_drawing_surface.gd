@@ -91,6 +91,40 @@ func _process(_delta: float) -> void:
 		_texture.update(_image)
 
 
+## Paint a soft mark where a world-space point projects onto the surface, for
+## sprayers / decals / splats (no touching needed). Soft, alpha-blended edges so
+## overlapping sprays build up. Returns true if it landed on the paper.
+func paint_at_world(world_pos: Vector3, radius_px: int, color: Color) -> bool:
+	if _image == null:
+		return false
+	var local := to_local(world_pos)
+	var u := local.x / _size.x + 0.5
+	var v := local.z / _size.y + 0.5
+	if u < 0.0 or u > 1.0 or v < 0.0 or v > 1.0:
+		return false
+	_soft_dot(Vector2i(int(u * _img_w), int(v * _img_h)), radius_px, color)
+	_texture.update(_image)
+	return true
+
+
+func _soft_dot(center: Vector2i, r: int, color: Color) -> void:
+	var r2 := float(maxi(1, r * r))
+	for dy in range(-r, r + 1):
+		var yy := center.y + dy
+		if yy < 0 or yy >= _img_h:
+			continue
+		for dx in range(-r, r + 1):
+			var xx := center.x + dx
+			if xx < 0 or xx >= _img_w:
+				continue
+			var d2 := float(dx * dx + dy * dy)
+			if d2 > r2:
+				continue
+			var a := color.a * (1.0 - d2 / r2)
+			_image.set_pixel(xx, yy, _image.get_pixel(xx, yy).lerp(color, clampf(a, 0.0, 1.0)))
+	_painted = true
+
+
 func _stroke(from_pixel: Vector2i, to_pixel: Vector2i) -> void:
 	var span := (Vector2(to_pixel) - Vector2(from_pixel)).length()
 	var steps := maxi(1, int(span))
