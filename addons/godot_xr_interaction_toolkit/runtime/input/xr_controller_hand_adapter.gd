@@ -178,8 +178,39 @@ func _hand_grip_pose(hand_id: int) -> Dictionary:
 		return {}
 
 	var grip_transform := _origin.global_transform * tracker.get_hand_joint_transform(grip_joint)
+	var origin: Vector3 = grip_transform.origin
+
+	# Godot re-bases joint ORIENTATIONS into a humanoid convention (a held
+	# object's grab point ends up aimed at the fingers/knuckles, not settled in
+	# the fist). Joint POSITIONS are reliable, so build a controller-style grip
+	# basis from them instead: -Z = pointing (wrist -> index knuckle), +Y = out
+	# of the fist (palm normal). This matches the controller grip convention, so
+	# grab points behave the same on hands and controllers.
+	var wrist := XRHandTracker.HAND_JOINT_WRIST
+	var index := XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL
+	if not XRHandGestureProvider.joint_position_valid(tracker, index):
+		index = XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL
+	var pinky := XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_PROXIMAL
+	if XRHandGestureProvider.joint_position_valid(tracker, wrist) \
+			and XRHandGestureProvider.joint_position_valid(tracker, index) \
+			and XRHandGestureProvider.joint_position_valid(tracker, pinky):
+		var o := _origin.global_transform
+		var wrist_p: Vector3 = (o * tracker.get_hand_joint_transform(wrist)).origin
+		var index_p: Vector3 = (o * tracker.get_hand_joint_transform(index)).origin
+		var pinky_p: Vector3 = (o * tracker.get_hand_joint_transform(pinky)).origin
+		var forward := index_p - wrist_p
+		var across := pinky_p - index_p
+		if forward.length_squared() > 0.000001 and across.length_squared() > 0.000001:
+			forward = forward.normalized()
+			var up := forward.cross(across.normalized()).normalized()
+			if tracker.hand == XRPositionalTracker.TRACKER_HAND_RIGHT:
+				up = -up
+			if up.length_squared() > 0.000001:
+				var basis := Basis(up.cross(-forward).normalized(), up, -forward).orthonormalized()
+				return {"origin": origin, "basis": basis}
+
 	return {
-		"origin": grip_transform.origin,
+		"origin": origin,
 		"basis": grip_transform.basis.orthonormalized(),
 	}
 

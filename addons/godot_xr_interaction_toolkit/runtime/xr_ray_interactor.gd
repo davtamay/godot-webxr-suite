@@ -134,6 +134,14 @@ func _update_ray(delta := 0.0) -> void:
         end = _attach_pose.origin
         hit_anything = true
         hovered = _selected
+        if _grip_latched:
+            # Reeled into the hand: it's a near hold now, so hide the far line
+            # and cursor entirely (still selected - the object follows the grip).
+            _ray_state = {"valid": false, "suppressed": true}
+            _last_ray_origin = origin
+            _last_ray_direction = direction
+            _has_last_ray_pose = true
+            return
 
     _ray_state = {
         "valid": true,
