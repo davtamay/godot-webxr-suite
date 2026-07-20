@@ -50,7 +50,7 @@ surface_material_override/0 = SubResource("NibMat")
 shape = SubResource("Col")
 
 [node name="GrabPoint" type="Node3D" parent="Body" unique_id=604832151]
-transform = Transform3D(-0.080361106, 0.979727, 0.18350492, 0.99580204, 0.070815355, 0.058001906, 0.043831185, 0.18739551, -0.9813047, -0.005463872, 0.021539945, -0.06689313)
+transform = Transform3D(-0.080361106, 0.979727, 0.18350492, 0.99580204, 0.070815355, 0.058001906, 0.043831185, 0.18739551, -0.9813047, -0.0049348846, 0.021539945, -0.077015504)
 script = ExtResource("2_point")
 preview_hand = true
 preview_pose = "Pinch"

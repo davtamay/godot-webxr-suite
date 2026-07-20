@@ -149,8 +149,10 @@ func _rebuild_hand_preview() -> void:
 	if skeleton == null:
 		return
 	var wrist := skeleton.find_bone("wrist")
-	var index := skeleton.find_bone("index-finger-phalanx-proximal")
-	var pinky := skeleton.find_bone("pinky-finger-phalanx-proximal")
+	# Metacarpals (palm bones) for direction - pose-independent, matching the
+	# runtime grip - so the preview orientation holds regardless of finger curl.
+	var index := skeleton.find_bone("index-finger-metacarpal")
+	var pinky := skeleton.find_bone("pinky-finger-metacarpal")
 	var middle := skeleton.find_bone("middle-finger-metacarpal")
 	if wrist < 0 or index < 0 or pinky < 0:
 		return

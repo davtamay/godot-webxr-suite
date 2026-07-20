@@ -186,11 +186,12 @@ func _hand_grip_pose(hand_id: int) -> Dictionary:
 	# basis from them instead: -Z = pointing (wrist -> index knuckle), +Y = out
 	# of the fist (palm normal). This matches the controller grip convention, so
 	# grab points behave the same on hands and controllers.
+	# Use the METACARPALS (palm bones) for direction, not the finger knuckles -
+	# knuckles curl when you pinch, which would twist the grip by pose. Palm bones
+	# hold still, so the held orientation matches the (open-hand) editor preview.
 	var wrist := XRHandTracker.HAND_JOINT_WRIST
-	var index := XRHandTracker.HAND_JOINT_INDEX_FINGER_PHALANX_PROXIMAL
-	if not XRHandGestureProvider.joint_position_valid(tracker, index):
-		index = XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL
-	var pinky := XRHandTracker.HAND_JOINT_PINKY_FINGER_PHALANX_PROXIMAL
+	var index := XRHandTracker.HAND_JOINT_INDEX_FINGER_METACARPAL
+	var pinky := XRHandTracker.HAND_JOINT_PINKY_FINGER_METACARPAL
 	if XRHandGestureProvider.joint_position_valid(tracker, wrist) \
 			and XRHandGestureProvider.joint_position_valid(tracker, index) \
 			and XRHandGestureProvider.joint_position_valid(tracker, pinky):
