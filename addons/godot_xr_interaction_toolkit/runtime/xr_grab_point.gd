@@ -24,7 +24,16 @@ extends Node3D
 ## When several points match, higher priority wins before distance.
 @export var priority := 0
 
+## AUTHORING AID (editor only): show a translucent reference HAND gripping the
+## object exactly as it will at runtime (same grip convention). Move/rotate this
+## grab point until the hand holds the object naturally - then it's correct
+## in-headset, no guessing. The preview is never saved and never appears in-game.
+@export var preview_hand := false: set = _set_preview_hand
+
+const _HAND_MODEL_PATH := "res://addons/godot_xr_hands/models/generic_hand/right.glb"
+
 var _interactable: Node
+var _hand_preview: Node3D
 
 
 func _enter_tree() -> void:
@@ -47,6 +56,67 @@ func _exit_tree() -> void:
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		_build_editor_marker()
+		if preview_hand:
+			_rebuild_hand_preview()
+
+
+func _set_preview_hand(value: bool) -> void:
+	preview_hand = value
+	if is_inside_tree() and Engine.is_editor_hint():
+		_rebuild_hand_preview()
+
+
+## Editor-only ghost hand whose GRIP coincides with this grab point (built from
+## the model's bind-pose joints with the SAME basis the live grip uses), so what
+## you see gripping the object here is what you get in-headset.
+func _rebuild_hand_preview() -> void:
+	if _hand_preview and is_instance_valid(_hand_preview):
+		_hand_preview.queue_free()
+	_hand_preview = null
+	if not preview_hand or not Engine.is_editor_hint():
+		return
+	var packed := load(_HAND_MODEL_PATH) as PackedScene
+	if packed == null:
+		return
+	var ghost := packed.instantiate() as Node3D
+	if ghost == null:
+		return
+	add_child(ghost)
+	var skeleton := _find_skeleton(ghost)
+	if skeleton == null:
+		return
+	var wrist := skeleton.find_bone("wrist")
+	var index := skeleton.find_bone("index-finger-phalanx-proximal")
+	var pinky := skeleton.find_bone("pinky-finger-phalanx-proximal")
+	# No "palm" bone in the model; the middle metacarpal sits nearest the
+	# tracker's palm joint (the runtime grip origin), so use it as the proxy.
+	var palm := skeleton.find_bone("middle-finger-metacarpal")
+	if wrist < 0 or index < 0 or pinky < 0:
+		return
+	var s2w := skeleton.global_transform
+	var wrist_p: Vector3 = s2w * skeleton.get_bone_global_rest(wrist).origin
+	var index_p: Vector3 = s2w * skeleton.get_bone_global_rest(index).origin
+	var pinky_p: Vector3 = s2w * skeleton.get_bone_global_rest(pinky).origin
+	var origin_p := s2w * skeleton.get_bone_global_rest(palm).origin if palm >= 0 else wrist_p
+	var forward := (index_p - wrist_p).normalized()
+	var across := pinky_p - index_p
+	if forward.length_squared() < 0.000001 or across.length_squared() < 0.000001:
+		return
+	var up := forward.cross(across.normalized()).normalized()
+	var grip_world := Transform3D(Basis(up.cross(-forward).normalized(), up, -forward).orthonormalized(), origin_p)
+	# Place the ghost so its grip lands on this grab point.
+	var grip_rel_hand := ghost.global_transform.affine_inverse() * grip_world
+	ghost.global_transform = global_transform * grip_rel_hand.affine_inverse()
+
+
+func _find_skeleton(node: Node) -> Skeleton3D:
+	if node is Skeleton3D:
+		return node
+	for child in node.get_children():
+		var found := _find_skeleton(child)
+		if found:
+			return found
+	return null
 
 
 func _get_configuration_warnings() -> PackedStringArray:
