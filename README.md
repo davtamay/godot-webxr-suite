@@ -89,6 +89,7 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 | **Highlight / Socket Affordance** | Self-wiring child components: parent INSIDE the object, they find their interactable and mesh. Doubles as the per-object OVERRIDE for Interaction Feedback (objects with their own affordance are skipped). |
 | **Socket Interactor** | Snap-zone that grabs and holds interactables. |
 | **Dial / Lever / Drawer** | Grab-driven mechanisms (Unity's Dial/Lever/Drawer): a rotary knob, a hinged handle, a linear drawer — each constrains your grab to one degree of freedom and outputs a normalized 0–1 `value_changed`. Track the hand, so far-ray operation never bounces. |
+| **Surface Draggable** | Position constraint (Unity XRI / XR Hands transform constraints): grab a piece and slide it along only the local axes you allow — a magnet on a board (two axes), a bead on a wire (one). Parent-local, so it works on a tilted board; optional per-axis bounds. |
 | **UI Panel (3D)** | In-world panel: ordinary Godot Controls, usable by ray *and* by touch. |
 | **Keyboard (XR)** | In-world keyboard: `open(initial, prompt)` → `text_submitted` / `cancelled`. |
 

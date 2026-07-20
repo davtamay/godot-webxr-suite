@@ -31,6 +31,12 @@ func _ready() -> void:
 	_gem.set_surface_override_material(0, _gem_material)
 	_piston_base_y = _piston.position.y
 
+	# Checkerboard for the slide surface.
+	var board_mesh := $Console/Board/BoardMesh as MeshInstance3D
+	var board_mat := (board_mesh.get_active_material(0) as StandardMaterial3D).duplicate() as StandardMaterial3D
+	board_mat.albedo_texture = _make_checker()
+	board_mesh.set_surface_override_material(0, board_mat)
+
 	_dial.value_changed.connect(_on_dial)
 	_lever.value_changed.connect(_on_lever)
 	_drawer.value_changed.connect(_on_drawer)
@@ -59,3 +65,15 @@ func _on_drawer(value: float) -> void:
 	_gem.visible = value > 0.05
 	_gem_material.emission_energy_multiplier = value * 4.0
 	_drawer_label.text = "DRAWER  %d%%" % roundi(value * 100.0)
+
+
+## An 8x8 checkerboard texture for the slide board.
+func _make_checker() -> ImageTexture:
+	var size := 256
+	var tiles := 8
+	var image := Image.create(size, size, false, Image.FORMAT_RGB8)
+	for y in size:
+		for x in size:
+			var cell := (x * tiles / size + y * tiles / size) % 2
+			image.set_pixel(x, y, Color(0.9, 0.9, 0.92) if cell == 0 else Color(0.12, 0.14, 0.2))
+	return ImageTexture.create_from_image(image)
