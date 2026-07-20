@@ -75,7 +75,7 @@ surface_material_override/0 = SubResource("GlowMat")
 transform = Transform3D(0.1969608, -0.9774498, -0.076145984, 0.9231227, 0.21105197, -0.32140544, 0.33022842, -0.0069878115, 0.94387513, 0.034925595, -0.02839208, 0.094119444)
 script = ExtResource("2_point")
 preview_hand = true
-preview_pose = "Relaxed Grip"
+preview_pose = "Trigger Grip"
 
 [node name="Activator" type="Node" parent="Body" unique_id=331802455]
 script = ExtResource("4_activator")

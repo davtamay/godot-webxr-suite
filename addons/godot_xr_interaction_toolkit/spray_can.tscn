@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://c0spraycan01a"]
+[gd_scene load_steps=12 format=3 uid="uid://c0spraycan01a"]
 
 [ext_resource type="Script" uid="uid://c1rjnfwgfv7gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
 [ext_resource type="Script" uid="uid://c5fxsn6osclqe" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
@@ -27,6 +27,9 @@ roughness = 0.5
 [sub_resource type="CylinderShape3D" id="Col"]
 height = 0.17
 radius = 0.032
+
+[sub_resource type="BoxMesh" id="Button"]
+size = Vector3(0.02, 0.012, 0.03)
 
 [sub_resource type="CylinderMesh" id="Cone"]
 top_radius = 0.055
@@ -62,8 +65,13 @@ surface_material_override/0 = SubResource("CapMat")
 [node name="Col" type="CollisionShape3D" parent="Body" unique_id=2100100104]
 shape = SubResource("Col")
 
+[node name="Button" type="MeshInstance3D" parent="Body" unique_id=2100100110]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.096, -0.018)
+mesh = SubResource("Button")
+surface_material_override/0 = SubResource("CapMat")
+
 [node name="Nozzle" type="Node3D" parent="Body" unique_id=2100100105]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, -0.026)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.093, -0.033)
 
 [node name="SprayVisual" type="MeshInstance3D" parent="Body/Nozzle" unique_id=2100100106]
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.15)
@@ -74,7 +82,7 @@ surface_material_override/0 = SubResource("MistMat")
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.01, 0.0)
 script = ExtResource("2_point")
 preview_hand = true
-preview_pose = "Relaxed Grip"
+preview_pose = "Trigger Grip"
 
 [node name="Activator" type="Node" parent="Body" unique_id=2100100108]
 script = ExtResource("3_activator")
