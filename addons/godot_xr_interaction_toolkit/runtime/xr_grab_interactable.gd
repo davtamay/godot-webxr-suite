@@ -350,10 +350,17 @@ func _set_body_frozen(frozen: bool) -> void:
 
 
 func _apply_throw_on_release() -> void:
+	var body := get_target() as RigidBody3D
 	if not throw_on_release or not _has_throw_sample:
+		# Not thrown: drop from REST. A body moved kinematically inherits the
+		# hand's motion as velocity when unfrozen - releasing while pushing the
+		# pen down at the desk would fling it through the surface. Zero it so it
+		# just settles.
+		if body:
+			body.linear_velocity = Vector3.ZERO
+			body.angular_velocity = Vector3.ZERO
 		return
 
-	var body := get_target() as RigidBody3D
 	if body == null:
 		return
 

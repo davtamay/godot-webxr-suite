@@ -1,7 +1,7 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene format=3 uid="uid://cjwitvued8gec"]
 
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
+[ext_resource type="Script" uid="uid://c1rjnfwgfv7gk" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="1_grab"]
+[ext_resource type="Script" uid="uid://c5fxsn6osclqe" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_point.gd" id="2_point"]
 
 [sub_resource type="CylinderMesh" id="BodyMesh"]
 top_radius = 0.043
@@ -19,31 +19,33 @@ outer_radius = 0.03
 [sub_resource type="BoxShape3D" id="Col"]
 size = Vector3(0.15, 0.1, 0.088)
 
-[node name="CoffeeCup" type="Node3D"]
+[node name="CoffeeCup" type="Node3D" unique_id=1075237683]
 script = ExtResource("1_grab")
 target_path = NodePath("Body")
 track_rotation = true
 throw_on_release = false
 
-[node name="Body" type="RigidBody3D" parent="."]
-mass = 0.25
+[node name="Body" type="RigidBody3D" parent="." unique_id=1996894218]
 collision_mask = 3
+mass = 0.25
 continuous_cd = true
 
-[node name="Cup" type="MeshInstance3D" parent="Body"]
+[node name="Cup" type="MeshInstance3D" parent="Body" unique_id=381622326]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.05, 0)
 mesh = SubResource("BodyMesh")
 surface_material_override/0 = SubResource("CupMat")
 
-[node name="Handle" type="MeshInstance3D" parent="Body"]
+[node name="Handle" type="MeshInstance3D" parent="Body" unique_id=396408167]
 transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.05, 0.05, 0)
 mesh = SubResource("HandleMesh")
 surface_material_override/0 = SubResource("CupMat")
 
-[node name="Col" type="CollisionShape3D" parent="Body"]
+[node name="Col" type="CollisionShape3D" parent="Body" unique_id=1242073710]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.01, 0.05, 0)
 shape = SubResource("Col")
 
-[node name="GrabPoint" type="Node3D" parent="Body"]
-transform = Transform3D(0, 0, -1, 0, 1, 0, 1, 0, 0, 0.064, 0.05, 0)
+[node name="GrabPoint" type="Node3D" parent="Body" unique_id=512544123]
+transform = Transform3D(0.22951029, -0.2289006, 0.9460072, 0.9624329, 0.19825055, -0.18552563, -0.14507952, 0.95304847, 0.265802, 0.18175909, 0.057119835, 0)
 script = ExtResource("2_point")
+preview_hand = true
+preview_pose = "Relaxed Grip"
