@@ -108,11 +108,13 @@ func _process(_delta: float) -> void:
 	if Engine.is_editor_hint():
 		return
 	# The recognizer path drives itself off its own signals; the finger path
-	# polls the holding hand here.
+	# polls the holding hand here. Use the interactor/tracker-resolver Hand enum
+	# (LEFT = 0, RIGHT = 1) - NOT XRPositionalTracker.TRACKER_HAND_* (1, 2), which
+	# would skip the left hand and mis-match the holding interactor.
 	if activate_gesture != null:
 		return
-	_poll_finger(XRPositionalTracker.TRACKER_HAND_LEFT)
-	_poll_finger(XRPositionalTracker.TRACKER_HAND_RIGHT)
+	_poll_finger(XRInputAdapter.Hand.LEFT)
+	_poll_finger(XRInputAdapter.Hand.RIGHT)
 
 
 func _find_interactable() -> XRBaseInteractable:
