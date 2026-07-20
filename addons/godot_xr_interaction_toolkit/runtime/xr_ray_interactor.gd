@@ -53,6 +53,7 @@ var _ray_state := {"valid": false}
 var _poke_interactor: Node
 var _locomotion: Node
 var _grab_distance := 0.0
+var _grip_latched := false
 var _hover_distance := 0.0
 var _pending_distance_delta := 0.0
 var _attach_pose := Transform3D.IDENTITY
@@ -127,8 +128,9 @@ func _update_ray(delta := 0.0) -> void:
         _set_hovered(hovered)
         _attach_pose = Transform3D(pose_basis, end)
     else:
-        _apply_motion_distance_manipulation(origin, direction, delta)
-        _attach_pose = _blend_toward_grip(Transform3D(pose_basis, origin + direction * _grab_distance))
+        if not _grip_latched:
+            _apply_motion_distance_manipulation(origin, direction, delta)
+        _attach_pose = _resolve_grab_pose(Transform3D(pose_basis, origin + direction * _grab_distance))
         end = _attach_pose.origin
         hit_anything = true
         hovered = _selected
@@ -158,12 +160,14 @@ func _notify_select_granted(interactable) -> void:
     # object does not pop forward; min_grab_distance only floors pull-ins.
     _grab_distance = minf(_hover_distance, max_distance)
     _pending_distance_delta = 0.0
+    _grip_latched = false
     _seed_last_ray_pose_from_state()
     super(interactable)
 
 func _notify_select_released(interactable) -> void:
     super(interactable)
     _pending_distance_delta = 0.0
+    _grip_latched = false
     _seed_last_ray_pose_from_state()
 
 func _apply_motion_distance_manipulation(origin: Vector3, _direction: Vector3, delta: float) -> void:
@@ -193,24 +197,36 @@ func _apply_motion_distance_manipulation(origin: Vector3, _direction: Vector3, d
     if is_equal_approx(_grab_distance, floor_distance) or is_equal_approx(_grab_distance, max_distance):
         _pending_distance_delta = 0.0
 
-## Reel-to-hand: the closer a far-grabbed object is pulled (grab distance nears
-## the floor), the more its pose blends into the linked interactor's grip pose,
-## so it rotates into a natural hold as it arrives. Returns the ray pose
-## unchanged when disabled or there is no grip source.
-func _blend_toward_grip(ray_attach: Transform3D) -> Transform3D:
-    if reel_to_grip_distance <= 0.0:
+## Reel-to-hand with LATCH: the closer a far-grabbed object is pulled, the more
+## its pose blends into the linked interactor's grip pose; once it fully arrives
+## it LATCHES into the hand (a real hold) and no longer reels back out along the
+## ray - you have to let go to release it. Returns the ray pose unchanged when
+## disabled or there is no grip source.
+func _resolve_grab_pose(ray_attach: Transform3D) -> Transform3D:
+    var grip := _grip_pose()
+    if reel_to_grip_distance <= 0.0 or not grip.get("valid", false):
         return ray_attach
-    if _suppress_interactor == null or not is_instance_valid(_suppress_interactor):
-        _resolve_suppression_interactor()
-    if _suppress_interactor == null or not _suppress_interactor.has_method("get_attach_pose"):
-        return ray_attach
+    if _grip_latched:
+        return grip["pose"]
     var floor_distance := minf(min_grab_distance, _grab_distance)
     if reel_to_grip_distance <= floor_distance:
         return ray_attach
     var t := clampf(inverse_lerp(reel_to_grip_distance, floor_distance, _grab_distance), 0.0, 1.0)
+    if t >= 0.999:
+        _grip_latched = true
+        return grip["pose"]
     if t <= 0.0:
         return ray_attach
-    return ray_attach.interpolate_with(_suppress_interactor.get_attach_pose(), t)
+    return ray_attach.interpolate_with(grip["pose"], t)
+
+
+## The linked near/direct interactor's grip pose, our blend/latch target.
+func _grip_pose() -> Dictionary:
+    if _suppress_interactor == null or not is_instance_valid(_suppress_interactor):
+        _resolve_suppression_interactor()
+    if _suppress_interactor == null or not _suppress_interactor.has_method("get_attach_pose"):
+        return {"valid": false}
+    return {"valid": true, "pose": _suppress_interactor.get_attach_pose()}
 
 
 func _seed_last_ray_pose_from_state() -> void:
