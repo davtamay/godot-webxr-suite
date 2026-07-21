@@ -26,6 +26,11 @@ roughness = 0.3
 [sub_resource type="BoxShape3D" id="Col"]
 size = Vector3(0.016, 0.16, 0.016)
 
+[sub_resource type="PhysicsMaterial" id="Phys"]
+friction = 1.0
+bounce = 0.0
+rough = true
+
 [node name="Pen" type="Node3D" unique_id=45086845]
 script = ExtResource("1_grab")
 target_path = NodePath("Body")
@@ -34,7 +39,8 @@ throw_on_release = false
 
 [node name="Body" type="RigidBody3D" parent="." unique_id=735807147]
 collision_mask = 3
-mass = 0.05
+mass = 0.12
+physics_material_override = SubResource("Phys")
 continuous_cd = true
 
 [node name="Shaft" type="MeshInstance3D" parent="Body" unique_id=373986981]

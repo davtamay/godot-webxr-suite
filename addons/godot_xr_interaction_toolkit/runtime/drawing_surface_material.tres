@@ -9,7 +9,6 @@ width = 4
 height = 4
 
 [resource]
-shading_mode = 0
 cull_mode = 2
+shading_mode = 0
 albedo_texture = SubResource("T")
-roughness = 0.92

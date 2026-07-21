@@ -79,7 +79,7 @@ mesh = SubResource("Cone")
 surface_material_override/0 = SubResource("MistMat")
 
 [node name="GrabPoint" type="Node3D" parent="Body" unique_id=2100100107]
-transform = Transform3D(-0.9565071, -0.10921136, 0.27049416, -8.829811e-08, -0.9272736, -0.37438473, 0.29170913, -0.3581017, 0.8869437, 0.012282848, 0.044772215, 0.13498352)
+transform = Transform3D(-0.9565071, -0.10921134, 0.27049416, -0.036781568, -0.8747199, -0.48323113, 0.28938094, -0.47216317, 0.83265895, 0.012282848, 0.03285504, 0.1308627)
 script = ExtResource("2_point")
 preview_hand = true
 preview_pose = "Trigger Grip"
