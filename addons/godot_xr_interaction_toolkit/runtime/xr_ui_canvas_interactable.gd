@@ -271,7 +271,7 @@ func _mark_screen_input_handled() -> void:
         get_viewport().set_input_as_handled()
 
 func _push_mouse_motion(position: Vector2) -> void:
-    if _viewport == null:
+    if _viewport == null or not _viewport.is_inside_tree():
         return
 
     var event := InputEventMouseMotion.new()
@@ -284,7 +284,10 @@ func _push_mouse_motion(position: Vector2) -> void:
     _has_motion_position = true
 
 func _push_mouse_button(position: Vector2, pressed: bool) -> void:
-    if _viewport == null or _pointer_down == pressed:
+    # A deselect can arrive after the panel (and its viewport) has left the tree -
+    # e.g. the scene changes while a grab/select is still held. push_input on an
+    # out-of-tree viewport errors, so bail; there is nothing to release anyway.
+    if _viewport == null or not _viewport.is_inside_tree() or _pointer_down == pressed:
         return
 
     _pointer_down = pressed

@@ -1,4 +1,4 @@
-[gd_scene load_steps=30 format=3]
+[gd_scene load_steps=35 format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/perception_managers_demo.gd" id="9_demo"]
@@ -10,6 +10,9 @@
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_canvas_interactable.gd" id="10_uicanvas"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/feature_panel.gd" id="11_feature"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/hit_test_anchor_manager.gd" id="12_hit"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/xr_light_lab.gd" id="13_lightlab"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/light_estimation_controls.gd" id="14_controls"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="15_anchor"]
 
 [sub_resource type="QuadMesh" id="PanelQuad"]
 size = Vector2(1.7, 1.25)
@@ -17,26 +20,42 @@ size = Vector2(1.7, 1.25)
 [sub_resource type="BoxShape3D" id="PanelShape"]
 size = Vector3(1.7, 1.25, 0.08)
 
+[sub_resource type="BoxMesh" id="StageMesh"]
+size = Vector3(3.35, 0.06, 0.62)
+
+[sub_resource type="StandardMaterial3D" id="StageMat"]
+albedo_color = Color(0.24, 0.29, 0.36, 1)
+metallic = 0.08
+roughness = 0.68
+
+[sub_resource type="BoxMesh" id="ArrowShaftMesh"]
+size = Vector3(0.022, 0.022, 0.38)
+
+[sub_resource type="CylinderMesh" id="ArrowTipMesh"]
+top_radius = 0.0
+bottom_radius = 0.065
+height = 0.16
+radial_segments = 20
+
+[sub_resource type="StandardMaterial3D" id="ArrowMat"]
+albedo_color = Color(0.16, 0.92, 1, 1)
+emission_enabled = true
+emission = Color(0.08, 0.78, 1, 1)
+emission_energy_multiplier = 2.2
+roughness = 0.24
+
 [sub_resource type="BoxMesh" id="SwatchMesh"]
-size = Vector3(0.18, 0.18, 0.04)
+size = Vector3(0.34, 0.34, 0.05)
 
 [sub_resource type="StandardMaterial3D" id="SwatchMat"]
 shading_mode = 0
-albedo_color = Color(0.8, 0.8, 0.8, 1)
+albedo_color = Color(0.6, 0.6, 0.62, 1)
 
-[sub_resource type="CylinderMesh" id="ArrowShaft"]
-top_radius = 0.012
-bottom_radius = 0.012
-height = 0.2
+[sub_resource type="QuadMesh" id="ControlsQuad"]
+size = Vector2(1.45, 1.65)
 
-[sub_resource type="StandardMaterial3D" id="ArrowMat"]
-shading_mode = 0
-albedo_color = Color(1, 0.85, 0.3, 1)
-
-[sub_resource type="CylinderMesh" id="ArrowTip"]
-top_radius = 0.0
-bottom_radius = 0.03
-height = 0.06
+[sub_resource type="BoxShape3D" id="ControlsShape"]
+size = Vector3(1.45, 1.65, 0.06)
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -223,49 +242,146 @@ theme_override_colors/font_color = Color(0.62, 0.66, 0.72, 1)
 autowrap_mode = 3
 text = "Room Mesh & Live Recon -> mesh-detection. Depth Scan -> depth-sensing (live per-frame depth, even a moving hand). Scene Labels -> plane-detection. Show = draw it; Occlude = hide virtual content behind it."
 
-[node name="LightReadout" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.1, 1.4, -1.6)
+[node name="HitTestAnchorManager" type="Node3D" parent="."]
+script = ExtResource("12_hit")
 
-[node name="Swatch" type="MeshInstance3D" parent="LightReadout"]
+[node name="LightSection" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 0, 0.4)
+
+[node name="FallbackLight" type="DirectionalLight3D" parent="LightSection"]
+transform = Transform3D(0.930357, -0.252593, 0.265878, 0, 0.725048, 0.688699, -0.366655, -0.640727, 0.67453, 0, 2.8, 0)
+light_color = Color(0.84, 0.9, 1, 1)
+light_energy = 1.15
+shadow_enabled = true
+
+[node name="LightLab" type="Node3D" parent="LightSection"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.3, -1.8)
+script = ExtResource("13_lightlab")
+manager_path = NodePath("../../LightEstimationManager")
+controls_path = NodePath("../ControlsPanel/Viewport/Root")
+fallback_light_path = NodePath("../FallbackLight")
+
+[node name="Stage" type="MeshInstance3D" parent="LightSection/LightLab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.52, 0.05)
+mesh = SubResource("StageMesh")
+surface_material_override/0 = SubResource("StageMat")
+
+[node name="HeroMount" type="Node3D" parent="LightSection/LightLab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.08, 0, 0)
+
+[node name="ProbeLabel" type="Label3D" parent="LightSection/LightLab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.08, 0.53, 0)
+modulate = Color(0.78, 0.94, 1, 1)
+pixel_size = 0.0012
+billboard = 1
+text = "GRABBABLE HERO MATERIAL
+inspect highlights up close"
+font_size = 22
+outline_size = 6
+
+[node name="LightMeter" type="Node3D" parent="LightSection/LightLab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.32, 0, 0)
+
+[node name="Swatch" type="MeshInstance3D" parent="LightSection/LightLab/LightMeter"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, 0)
 mesh = SubResource("SwatchMesh")
 surface_material_override/0 = SubResource("SwatchMat")
 
-[node name="DirectionArrow" type="Node3D" parent="LightReadout"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.32, 0)
-
-[node name="Shaft" type="MeshInstance3D" parent="LightReadout/DirectionArrow"]
-transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.1)
-mesh = SubResource("ArrowShaft")
-surface_material_override/0 = SubResource("ArrowMat")
-
-[node name="Tip" type="MeshInstance3D" parent="LightReadout/DirectionArrow"]
-transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0, 0, -0.23)
-mesh = SubResource("ArrowTip")
-surface_material_override/0 = SubResource("ArrowMat")
-
-[node name="ReadoutLabel" type="Label3D" parent="LightReadout"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.2, 0)
-pixel_size = 0.0011
+[node name="MeterLabel" type="Label3D" parent="LightSection/LightLab/LightMeter"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.4, 0)
+modulate = Color(0.78, 0.94, 1, 1)
+pixel_size = 0.00125
 billboard = 1
-text = "ROOM LIGHT
-color swatch + direction to light
-(Android XR estimates it live)"
-font_size = 24
+text = "ROOM LIGHT COLOR"
+font_size = 22
 outline_size = 6
-width = 900.0
+
+[node name="LightDirectionArrow" type="Node3D" parent="LightSection/LightLab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.3, 0.16, 0)
+
+[node name="Shaft" type="MeshInstance3D" parent="LightSection/LightLab/LightDirectionArrow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.19)
+mesh = SubResource("ArrowShaftMesh")
+surface_material_override/0 = SubResource("ArrowMat")
+
+[node name="Tip" type="MeshInstance3D" parent="LightSection/LightLab/LightDirectionArrow"]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 0, -0.46)
+mesh = SubResource("ArrowTipMesh")
+surface_material_override/0 = SubResource("ArrowMat")
+
+[node name="ArrowLabel" type="Label3D" parent="LightSection/LightLab/LightDirectionArrow"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+modulate = Color(0.78, 0.94, 1, 1)
+pixel_size = 0.001
+billboard = 1
+text = "POINTS AT YOUR MAIN LIGHT"
+font_size = 20
+outline_size = 5
+
+[node name="StatusLabel" type="Label3D" parent="LightSection/LightLab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.82, 0)
+modulate = Color(0.78, 0.94, 1, 1)
+pixel_size = 0.0014
+billboard = 1
+text = "Enter AR to begin environmental light estimation."
+font_size = 28
+outline_size = 8
+width = 1450.0
 autowrap_mode = 2
 
-[node name="HitTestAnchorManager" type="Node3D" parent="."]
-script = ExtResource("12_hit")
+[node name="ModeLabel" type="Label3D" parent="LightSection/LightLab"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.72, 0)
+modulate = Color(0.78, 0.94, 1, 1)
+pixel_size = 0.00125
+billboard = 1
+text = "LIVE ROOM LIGHT
+Tune the hero material on the XR panel"
+font_size = 24
+outline_size = 7
+width = 1000.0
+
+[node name="ControlsPanel" type="Node3D" parent="LightSection"]
+transform = Transform3D(0.951057, 0, -0.309017, 0, 1, 0, 0.309017, 0, 0.951057, 1.62, 1.38, -2.38)
+script = ExtResource("10_uicanvas")
+viewport_path = NodePath("Viewport")
+panel_mesh_path = NodePath("PanelMesh")
+panel_size = Vector2(1.45, 1.65)
+viewport_pixel_size = Vector2i(850, 960)
+
+[node name="PanelMesh" type="MeshInstance3D" parent="LightSection/ControlsPanel"]
+mesh = SubResource("ControlsQuad")
+
+[node name="InteractableBody" type="StaticBody3D" parent="LightSection/ControlsPanel"]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="LightSection/ControlsPanel/InteractableBody"]
+shape = SubResource("ControlsShape")
+
+[node name="Viewport" type="SubViewport" parent="LightSection/ControlsPanel"]
+disable_3d = true
+render_target_update_mode = 4
+size = Vector2i(850, 960)
+
+[node name="Root" type="Control" parent="LightSection/ControlsPanel/Viewport"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("14_controls")
+
+[node name="LightAnchor" type="Node3D" parent="LightSection"]
+script = ExtResource("15_anchor")
 
 [node name="InfoLabel" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -1.6)
 pixel_size = 0.0013
 billboard = 1
-text = "DRAG-AND-DROP SCENE PERCEPTION - 3 manager nodes, zero code
-OCCLUSION: put your hand in front of the cube or sphere (soft fade)
-LIGHT: objects are lit by your real room (Android XR)
-Scene mesh manager is here too - visualize is one checkbox on its node"
+text = "SCENE PERCEPTION SHOWCASE
+DEPTH / OCCLUSION: toggle it on the panel; put your hand in front of the cube or sphere
+SCENE MESH & LABELS: Room Mesh / Live Recon / Scene Labels on the panel
+LIGHT LAB: teleport to the pad on your right - grab the sphere, tune its material
+ANCHORS: point at the floor and select to drop an anchor"
 font_size = 26
 outline_size = 8
 width = 1600.0
