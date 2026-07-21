@@ -1,4 +1,4 @@
-[gd_scene load_steps=28 format=3]
+[gd_scene load_steps=29 format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/locomotion_playground_demo.gd" id="2_demo"]
@@ -9,6 +9,7 @@
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_tunneling_vignette.gd" id="7_vignette"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_climb_provider.gd" id="8_climbprov"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_climb_interactable.gd" id="9_climbhold"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_microgesture_locomotion_driver.gd" id="10_micro"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -181,6 +182,9 @@ script = ExtResource("4_debug")
 
 [node name="FontBakeAnchor" type="Label3D" parent="."]
 script = ExtResource("5_fontbake")
+
+[node name="MicrogestureLocomotion" type="Node" parent="."]
+script = ExtResource("10_micro")
 
 [node name="ClimbProvider" type="Node" parent="."]
 script = ExtResource("8_climbprov")
