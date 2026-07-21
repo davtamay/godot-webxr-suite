@@ -104,6 +104,8 @@ var _armed := {}
 var _rest := {}
 # Per-hand smoothed curl, to shave tracking jitter on a held pull.
 var _smooth := {}
+# Per-hand count of consecutive frames with no valid curl (tracking gap).
+var _invalid := {}
 # Per-hand active interactor while CONTINUOUS spray/drill is on (null = off).
 var _active := {}
 
@@ -143,11 +145,22 @@ func _poll_finger(hand: int) -> void:
 		_end_continuous(hand)  # dropping the tool always stops a held activate
 		_rest.erase(hand)
 		_smooth.erase(hand)
+		_invalid.erase(hand)
 		_armed[hand] = true
 		return
 	var raw := _finger_curl(hand)
 	if raw < 0.0:
-		return  # no valid tracking this frame
+		# Brief tracking gap - hold the last curl a few frames so a pull isn't
+		# silently dropped mid-motion; give up if the hand is truly gone.
+		var last: float = _smooth.get(hand, -1.0)
+		if last < 0.0:
+			return
+		_invalid[hand] = _invalid.get(hand, 0) + 1
+		if _invalid[hand] > 8:
+			return
+		raw = last
+	else:
+		_invalid[hand] = 0
 	# Smooth the curl so hand-tracking jitter (worst while moving the tool around)
 	# can't flicker the state on a held pull.
 	var curl: float = lerpf(_smooth.get(hand, raw), raw, 0.5)
@@ -202,12 +215,16 @@ func _finger_curl(hand: int) -> float:
 	var tracker := XRHandTrackerResolver.get_tracker(hand)
 	if tracker == null:
 		return -1.0
+	# Use the base -> distal joints, NOT the fingertip: curling to fire folds the
+	# tip toward the palm where the cameras lose it, so requiring the tip made a
+	# real pull read as "no data" and drop the shot. These four track reliably
+	# through the whole curl, and their two knuckle bends still capture the pull.
 	var joints: Array = _FINGER_JOINTS[trigger_finger]
 	var pts: Array[Vector3] = []
-	for j in joints:
-		if not XRHandGestureProvider.joint_position_valid(tracker, j):
+	for i in mini(4, joints.size()):
+		if not XRHandGestureProvider.joint_position_valid(tracker, joints[i]):
 			return -1.0
-		pts.append(tracker.get_hand_joint_transform(j).origin)
+		pts.append(tracker.get_hand_joint_transform(joints[i]).origin)
 	var bones: Array[Vector3] = []
 	for i in range(pts.size() - 1):
 		var b := pts[i + 1] - pts[i]
@@ -217,8 +234,8 @@ func _finger_curl(hand: int) -> float:
 	var total := 0.0
 	for i in range(bones.size() - 1):
 		total += bones[i].angle_to(bones[i + 1])
-	# ~4 rad of total bend is a full fist; normalize so pull thresholds sit in 0..1.
-	return clampf(total / 4.0, 0.0, 1.0)
+	# ~3 rad of bend across these knuckles is a full curl.
+	return clampf(total / 3.0, 0.0, 1.0)
 
 
 func _held_by(hand: int) -> Node:
