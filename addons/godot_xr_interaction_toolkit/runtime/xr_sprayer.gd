@@ -33,6 +33,7 @@ var _interactable: Node
 var _nozzle: Node3D
 var _visual: Node3D
 var _spraying := false
+var _exclude: Array[RID] = []
 
 
 func _ready() -> void:
@@ -51,6 +52,11 @@ func _ready() -> void:
 	# tilted. Done once from the grab point's rest orientation - both are rigid on
 	# the can, so the alignment holds when it's picked up.
 	_align_nozzle_to_grip()
+	# Don't let the ray hit the can it's mounted on.
+	if _interactable and _interactable.has_method("get_colliders"):
+		for c in _interactable.get_colliders():
+			if c:
+				_exclude.append((c as CollisionObject3D).get_rid())
 	# Spray while the interactable is held-active (activate_entered/exited comes
 	# from a held controller trigger OR an XRHandActivator in CONTINUOUS mode).
 	if _interactable and _interactable.has_signal("activate_entered"):
@@ -93,6 +99,7 @@ func _physics_process(_delta: float) -> void:
 	var from := _nozzle.global_position
 	var dir := (-basis.z).normalized()
 	var query := PhysicsRayQueryParameters3D.create(from, from + dir * spray_range, collision_mask)
+	query.exclude = _exclude
 	var hit := world.direct_space_state.intersect_ray(query)
 	if hit.is_empty():
 		return

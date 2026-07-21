@@ -33,6 +33,8 @@ var _img_w := 1
 var _img_h := 1
 var _last := {}       # tip instance id -> last pixel (Vector2i)
 var _painted := false
+var _dirty := false
+var _material: StandardMaterial3D
 
 
 func _ready() -> void:
@@ -50,9 +52,9 @@ func _ready() -> void:
 	_image = Image.create(_img_w, _img_h, false, Image.FORMAT_RGBA8)
 	_image.fill(paper_color)
 	_texture = ImageTexture.create_from_image(_image)
-	var material := _BASE_MATERIAL.duplicate() as StandardMaterial3D
-	material.albedo_texture = _texture
-	material_override = material
+	_material = _BASE_MATERIAL.duplicate() as StandardMaterial3D
+	_material.albedo_texture = _texture
+	material_override = _material
 	set_process(true)
 
 
@@ -61,8 +63,18 @@ func clear() -> void:
 	if _image == null:
 		return
 	_image.fill(paper_color)
-	_texture.update(_image)
 	_last.clear()
+	_refresh()
+
+
+## Rebuild the texture from the image and re-point the material at it. In-place
+## ImageTexture.update() does NOT reliably refresh a live material here, so we
+## recreate the texture (a fresh GPU upload) once per frame when something drew.
+func _refresh() -> void:
+	_texture = ImageTexture.create_from_image(_image)
+	if _material:
+		_material.albedo_texture = _texture
+	_dirty = false
 
 
 func _process(_delta: float) -> void:
@@ -87,8 +99,9 @@ func _process(_delta: float) -> void:
 		else:
 			_dot(pixel)
 	_last = active
-	if _painted:
-		_texture.update(_image)
+	# Refresh once per frame if a pen (_painted) or a sprayer (_dirty) drew.
+	if _painted or _dirty:
+		_refresh()
 
 
 ## Paint a soft mark where a world-space point projects onto the surface, for
@@ -103,7 +116,7 @@ func paint_at_world(world_pos: Vector3, radius_px: int, color: Color) -> bool:
 	if u < 0.0 or u > 1.0 or v < 0.0 or v > 1.0:
 		return false
 	_soft_dot(Vector2i(int(u * _img_w), int(v * _img_h)), radius_px, color)
-	_texture.update(_image)
+	_dirty = true
 	return true
 
 
