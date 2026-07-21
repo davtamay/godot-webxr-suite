@@ -48,9 +48,9 @@ func _ready() -> void:
 Or, in the editor: **Instantiate Child Scene → `webxr_rig.tscn`** under your
 scene root, then add `XRGrabInteractable` nodes (each with a `CollisionObject3D`
 child for the ray to hit). Session entry (requesting `immersive-vr`, setting
-`viewport.use_xr`) stays in your project — see `runtime/webxr_bootstrap.gd` or
-`../godot_blender_principled/samples/material_inspect_xr.gd` for a working
-example. The rig has no scene-specific content, so it drops into any project.
+`viewport.use_xr`) stays in your project — see `runtime/webxr_bootstrap.gd` for
+a working example. The rig has no scene-specific content, so it drops into any
+project.
 
 ## Contents
 

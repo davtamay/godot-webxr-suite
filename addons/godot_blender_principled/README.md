@@ -54,9 +54,9 @@ Godot's material import path differs from Unity's URP-Lit:
 
 To validate that a Blender material renders identically in Godot:
 
-1. **Open the parity showcase**:
-   - Load `res://addons/godot_blender_principled/samples/material_parity_showcase.tscn` in Godot.
-   - The scene loads the `MaterialCollection.glb` under **strict-parity lighting** (Linear tonemap, 0.05 ambient, no GI).
+1. **Set up a parity scene**:
+   - Add a `StrictParityEnvironment` (from `runtime/strict_parity_environment.gd`) to a scene and give it a row of spheres using `PrincipledMaterial`.
+   - Load the `MaterialCollection.glb` under **strict-parity lighting** (Linear tonemap, 0.05 ambient, no GI).
 
 2. **Render the Blender original**:
    - In Blender, open the same material collection source.
@@ -162,7 +162,6 @@ mesh_instance.material_override = mat
 
 - `runtime/principled_material.gd` — `PrincipledMaterial` class (Blender-named alias layer).
 - `runtime/strict_parity_environment.gd` — `StrictParityEnvironment` utility (parity + nice-look render modes).
-- `samples/material_parity_showcase.tscn` / `samples/material_parity_showcase.gd` — Test scene (MaterialCollection.glb + Principled sphere row).
 - `samples/assets/MaterialCollection.glb` — glTF material collection (reference from Blender).
 
 ---

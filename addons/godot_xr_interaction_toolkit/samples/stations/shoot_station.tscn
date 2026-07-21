@@ -1,0 +1,122 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/shoot_station.gd" id="1_lwtwv"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/can.tscn" id="2_m7p6k"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_button.gd" id="3_jladc"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/blaster.tscn" id="4_t82e3"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="5_vb4wn"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="6_vfnln"]
+
+[sub_resource type="BoxMesh" id="CounterMesh"]
+size = Vector3(1, 0.9, 0.4)
+
+[sub_resource type="StandardMaterial3D" id="WoodMat"]
+albedo_color = Color(0.28, 0.22, 0.18, 1)
+roughness = 0.8
+
+[sub_resource type="BoxShape3D" id="CounterShape"]
+size = Vector3(1, 0.9, 0.4)
+
+[sub_resource type="BoxMesh" id="ShelfMesh"]
+size = Vector3(1.6, 0.06, 0.25)
+
+[sub_resource type="StandardMaterial3D" id="TrayMat"]
+albedo_color = Color(0.2, 0.23, 0.28, 1)
+roughness = 0.85
+
+[sub_resource type="BoxShape3D" id="ShelfShape"]
+size = Vector3(1.6, 0.06, 0.25)
+
+[sub_resource type="PhysicsMaterial" id="Phys"]
+friction = 0.6
+bounce = 0.15
+
+[node name="ShootStation" type="Node3D" unique_id=63038403]
+script = ExtResource("1_lwtwv")
+
+[node name="Counter" type="StaticBody3D" parent="." unique_id=1114714367]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.45, -1.3)
+
+[node name="Mesh" type="MeshInstance3D" parent="Counter" unique_id=1185736781]
+mesh = SubResource("CounterMesh")
+surface_material_override/0 = SubResource("WoodMat")
+
+[node name="Col" type="CollisionShape3D" parent="Counter" unique_id=1941123790]
+shape = SubResource("CounterShape")
+
+[node name="Shelf" type="StaticBody3D" parent="." unique_id=182132774]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.95, -3.5)
+
+[node name="Mesh" type="MeshInstance3D" parent="Shelf" unique_id=1057757493]
+mesh = SubResource("ShelfMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="Col" type="CollisionShape3D" parent="Shelf" unique_id=779113850]
+shape = SubResource("ShelfShape")
+
+[node name="Cans" type="Node3D" parent="." unique_id=97710705]
+
+[node name="Can1" type="RigidBody3D" parent="Cans" unique_id=667565518 instance=ExtResource("2_m7p6k")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7, 1.04, -3.5)
+mass = 0.12
+physics_material_override = SubResource("Phys")
+continuous_cd = true
+
+[node name="Can2" type="RigidBody3D" parent="Cans" unique_id=1271893599 instance=ExtResource("2_m7p6k")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, 1.04, -3.5)
+mass = 0.12
+physics_material_override = SubResource("Phys")
+continuous_cd = true
+
+[node name="Can3" type="RigidBody3D" parent="Cans" unique_id=1178731648 instance=ExtResource("2_m7p6k")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 1.04, -3.5)
+mass = 0.12
+physics_material_override = SubResource("Phys")
+continuous_cd = true
+
+[node name="Can4" type="RigidBody3D" parent="Cans" unique_id=1047635905 instance=ExtResource("2_m7p6k")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.45, 1.04, -3.5)
+mass = 0.12
+physics_material_override = SubResource("Phys")
+continuous_cd = true
+
+[node name="Can5" type="RigidBody3D" parent="Cans" unique_id=1725267097 instance=ExtResource("2_m7p6k")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7, 1.04, -3.5)
+mass = 0.12
+physics_material_override = SubResource("Phys")
+continuous_cd = true
+
+[node name="ResetButton" type="Node3D" parent="." unique_id=481228367]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.85, 0.92, -1.15)
+script = ExtResource("3_jladc")
+cap_radius = 0.025
+cap_color = Color(0.4, 0.85, 0.5, 1)
+
+[node name="Label" type="Label3D" parent="ResetButton" unique_id=1572044939]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0)
+pixel_size = 0.0006
+billboard = 1
+no_depth_test = true
+render_priority = 3
+text = "RESET"
+font_size = 40
+outline_size = 10
+
+[node name="Blaster" type="Node3D" parent="." unique_id=1056587752 instance=ExtResource("4_t82e3")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.98, -1.2)
+script = ExtResource("5_vb4wn")
+target_path = NodePath("Body")
+hand_grab_style = 1
+track_rotation = true
+throw_on_release = false
+
+[node name="ShootAnchor" type="Node3D" parent="." unique_id=1102650483]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0, -0.5)
+script = ExtResource("6_vfnln")
+
+[node name="Sign" type="Label3D" parent="." unique_id=243509292]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 2.2, -1.3)
+pixel_size = 0.0016
+billboard = 1
+text = "3 · SHOOT"
+font_size = 44

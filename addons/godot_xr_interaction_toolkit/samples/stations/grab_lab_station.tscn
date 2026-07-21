@@ -1,0 +1,301 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/grab_lab_station.gd" id="1_r3lfo"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="2_urr1y"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_socket_interactor.gd" id="3_32s6v"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_socket_affordance.gd" id="4_ccgt4"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="5_aedbt"]
+
+[sub_resource type="BoxMesh" id="GLBenchMesh"]
+size = Vector3(2.4, 0.75, 0.55)
+
+[sub_resource type="StandardMaterial3D" id="GLBenchMat"]
+albedo_color = Color(0.28, 0.3, 0.34, 1)
+roughness = 0.8
+
+[sub_resource type="BoxShape3D" id="GLBenchShape"]
+size = Vector3(2.4, 0.75, 0.55)
+
+[sub_resource type="BoxMesh" id="GLCubeMesh"]
+size = Vector3(0.12, 0.12, 0.12)
+
+[sub_resource type="StandardMaterial3D" id="GLInstantMat"]
+albedo_color = Color(0.3, 0.62, 1, 1)
+roughness = 0.4
+
+[sub_resource type="BoxShape3D" id="GLCubeShape"]
+size = Vector3(0.12, 0.12, 0.12)
+
+[sub_resource type="SphereMesh" id="GLSphereMesh"]
+radius = 0.07
+height = 0.14
+
+[sub_resource type="StandardMaterial3D" id="GLSmoothMat"]
+albedo_color = Color(0.4, 0.9, 0.55, 1)
+roughness = 0.35
+
+[sub_resource type="SphereShape3D" id="GLSphereShape"]
+radius = 0.07
+
+[sub_resource type="CylinderMesh" id="GLCylMesh"]
+top_radius = 0.05
+bottom_radius = 0.05
+height = 0.2
+
+[sub_resource type="StandardMaterial3D" id="GLRotMat"]
+albedo_color = Color(1, 0.7, 0.25, 1)
+roughness = 0.4
+
+[sub_resource type="CylinderShape3D" id="GLCylShape"]
+height = 0.2
+radius = 0.05
+
+[sub_resource type="StandardMaterial3D" id="GLSnapMat"]
+albedo_color = Color(0.85, 0.4, 0.9, 1)
+roughness = 0.4
+
+[sub_resource type="SphereMesh" id="GLGripMarker"]
+radius = 0.02
+height = 0.04
+
+[sub_resource type="StandardMaterial3D" id="GLMarkerMat"]
+albedo_color = Color(1, 0.9, 0.4, 1)
+emission_enabled = true
+emission = Color(1, 0.9, 0.4, 1)
+emission_energy_multiplier = 1.5
+
+[sub_resource type="StandardMaterial3D" id="GLLayerMat"]
+albedo_color = Color(1, 0.35, 0.4, 1)
+roughness = 0.4
+
+[sub_resource type="CylinderMesh" id="GLSocketPad"]
+top_radius = 0.11
+bottom_radius = 0.13
+height = 0.03
+
+[sub_resource type="StandardMaterial3D" id="GLSocketMat"]
+albedo_color = Color(0.2, 0.5, 0.65, 1)
+metallic = 0.3
+roughness = 0.5
+
+[sub_resource type="CylinderMesh" id="GLPegMesh"]
+top_radius = 0.035
+bottom_radius = 0.035
+height = 0.11
+
+[sub_resource type="StandardMaterial3D" id="GLPegMat"]
+albedo_color = Color(0.75, 0.78, 0.85, 1)
+metallic = 0.4
+roughness = 0.4
+
+[sub_resource type="CylinderShape3D" id="GLPegShape"]
+height = 0.11
+radius = 0.035
+
+[node name="GrabLabStation" type="Node3D" unique_id=1744185596]
+script = ExtResource("1_r3lfo")
+
+[node name="Bench" type="StaticBody3D" parent="." unique_id=856210705]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.375, -1.3)
+
+[node name="Mesh" type="MeshInstance3D" parent="Bench" unique_id=1652541573]
+mesh = SubResource("GLBenchMesh")
+surface_material_override/0 = SubResource("GLBenchMat")
+
+[node name="Col" type="CollisionShape3D" parent="Bench" unique_id=2127426671]
+shape = SubResource("GLBenchShape")
+
+[node name="InstantCube" type="Node3D" parent="." unique_id=1499585631]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.35, 0.83, -1.25)
+script = ExtResource("2_urr1y")
+
+[node name="Mesh" type="MeshInstance3D" parent="InstantCube" unique_id=1372779736]
+mesh = SubResource("GLCubeMesh")
+surface_material_override/0 = SubResource("GLInstantMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="InstantCube" unique_id=390814070]
+
+[node name="Col" type="CollisionShape3D" parent="InstantCube/InteractableBody" unique_id=1975122450]
+shape = SubResource("GLCubeShape")
+
+[node name="Label" type="Label3D" parent="InstantCube" unique_id=691252655]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
+pixel_size = 0.0009
+billboard = 1
+text = "INSTANT
+snaps to hand"
+font_size = 22
+outline_size = 6
+
+[node name="SmoothSphere" type="Node3D" parent="." unique_id=720086411]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.75, 0.83, -1.25)
+script = ExtResource("2_urr1y")
+movement_type = 1
+smoothing_speed = 8.0
+
+[node name="Mesh" type="MeshInstance3D" parent="SmoothSphere" unique_id=256997384]
+mesh = SubResource("GLSphereMesh")
+surface_material_override/0 = SubResource("GLSmoothMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="SmoothSphere" unique_id=740566422]
+
+[node name="Col" type="CollisionShape3D" parent="SmoothSphere/InteractableBody" unique_id=845677044]
+shape = SubResource("GLSphereShape")
+
+[node name="Label" type="Label3D" parent="SmoothSphere" unique_id=876008847]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
+pixel_size = 0.0009
+billboard = 1
+text = "SMOOTH
+lags/eases to hand"
+font_size = 22
+outline_size = 6
+
+[node name="RotationCyl" type="Node3D" parent="." unique_id=1733851257]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.15, 0.86, -1.2)
+script = ExtResource("2_urr1y")
+track_rotation = true
+two_hand_grab_enabled = true
+
+[node name="Mesh" type="MeshInstance3D" parent="RotationCyl" unique_id=50833513]
+mesh = SubResource("GLCylMesh")
+surface_material_override/0 = SubResource("GLRotMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="RotationCyl" unique_id=1303909294]
+
+[node name="Col" type="CollisionShape3D" parent="RotationCyl/InteractableBody" unique_id=1937352107]
+shape = SubResource("GLCylShape")
+
+[node name="Label" type="Label3D" parent="RotationCyl" unique_id=736351900]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
+pixel_size = 0.0009
+billboard = 1
+text = "TWO-HAND
+grab with both to turn"
+font_size = 22
+outline_size = 6
+
+[node name="SnapGripCube" type="Node3D" parent="." unique_id=598702641]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6, 0.83, -1.2)
+script = ExtResource("2_urr1y")
+attach_transform_path = NodePath("GripPoint")
+snap_to_attach = true
+
+[node name="Mesh" type="MeshInstance3D" parent="SnapGripCube" unique_id=925530357]
+mesh = SubResource("GLCubeMesh")
+surface_material_override/0 = SubResource("GLSnapMat")
+
+[node name="GripPoint" type="Node3D" parent="SnapGripCube" unique_id=87135835]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.14)
+
+[node name="GripMarker" type="MeshInstance3D" parent="SnapGripCube/GripPoint" unique_id=1946966849]
+mesh = SubResource("GLGripMarker")
+surface_material_override/0 = SubResource("GLMarkerMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="SnapGripCube" unique_id=294443601]
+
+[node name="Col" type="CollisionShape3D" parent="SnapGripCube/InteractableBody" unique_id=624556559]
+shape = SubResource("GLCubeShape")
+
+[node name="Label" type="Label3D" parent="SnapGripCube" unique_id=471155222]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
+pixel_size = 0.0009
+billboard = 1
+text = "SNAP-GRIP
+jumps to a fixed grip"
+font_size = 22
+outline_size = 6
+
+[node name="LayerCube" type="Node3D" parent="." unique_id=1423637475]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.4, 0.83, -1.5)
+script = ExtResource("2_urr1y")
+interaction_layers = 2
+
+[node name="Mesh" type="MeshInstance3D" parent="LayerCube" unique_id=72523734]
+mesh = SubResource("GLCubeMesh")
+surface_material_override/0 = SubResource("GLLayerMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="LayerCube" unique_id=829899744]
+
+[node name="Col" type="CollisionShape3D" parent="LayerCube/InteractableBody" unique_id=220907600]
+shape = SubResource("GLCubeShape")
+
+[node name="Label" type="Label3D" parent="LayerCube" unique_id=522349170]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
+pixel_size = 0.0009
+billboard = 1
+text = "RIGHT HAND ONLY
+interaction layer filter"
+font_size = 22
+outline_size = 6
+
+[node name="Socket" type="Node3D" parent="." unique_id=1767793405]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.7, 0.79, -1.5)
+script = ExtResource("3_32s6v")
+socket_radius = 0.16
+hover_select_delay = 0.15
+
+[node name="Pad" type="MeshInstance3D" parent="Socket" unique_id=1934221728]
+mesh = SubResource("GLSocketPad")
+surface_material_override/0 = SubResource("GLSocketMat")
+
+[node name="SocketAffordance" type="Node" parent="Socket" unique_id=1219265279]
+script = ExtResource("4_ccgt4")
+pad_mesh_path = NodePath("../Pad")
+
+[node name="Label" type="Label3D" parent="Socket" unique_id=2052882811]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22, 0)
+pixel_size = 0.0009
+billboard = 1
+text = "SOCKET
+drop a peg to anchor it"
+font_size = 22
+outline_size = 6
+
+[node name="Peg1" type="Node3D" parent="." unique_id=2144385344]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.4, 0.86, -1.35)
+script = ExtResource("2_urr1y")
+
+[node name="Mesh" type="MeshInstance3D" parent="Peg1" unique_id=1515528224]
+mesh = SubResource("GLPegMesh")
+surface_material_override/0 = SubResource("GLPegMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="Peg1" unique_id=498658896]
+
+[node name="Col" type="CollisionShape3D" parent="Peg1/InteractableBody" unique_id=871403149]
+shape = SubResource("GLPegShape")
+
+[node name="Peg2" type="Node3D" parent="." unique_id=90491510]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0.86, -1.35)
+script = ExtResource("2_urr1y")
+
+[node name="Mesh" type="MeshInstance3D" parent="Peg2" unique_id=1382727903]
+mesh = SubResource("GLPegMesh")
+surface_material_override/0 = SubResource("GLPegMat")
+
+[node name="InteractableBody" type="StaticBody3D" parent="Peg2" unique_id=470485784]
+
+[node name="Col" type="CollisionShape3D" parent="Peg2/InteractableBody" unique_id=253443295]
+shape = SubResource("GLPegShape")
+
+[node name="Sign" type="Label3D" parent="." unique_id=139364800]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 2.2, -1.3)
+pixel_size = 0.0016
+billboard = 1
+text = "5 · GRAB LAB"
+font_size = 44
+
+[node name="Guide" type="Label3D" parent="." unique_id=1366366901]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 1.75, -1.3)
+pixel_size = 0.0011
+billboard = 1
+text = "Grab styles: instant vs smooth follow, two-hand turn, snap-to-grip.
+Drop a peg on the socket to anchor it. The red cube only your RIGHT hand can grab."
+font_size = 24
+outline_size = 7
+autowrap_mode = 2
+width = 1500.0
+
+[node name="GrabLabAnchor" type="Node3D" parent="." unique_id=898503342]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -0.5)
+script = ExtResource("5_aedbt")

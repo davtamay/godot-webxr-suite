@@ -1,0 +1,140 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/throw_station.gd" id="1_cghwf"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/throwable.tscn" id="2_p57io"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="3_qrr1x"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="4_3yiqw"]
+
+[sub_resource type="BoxMesh" id="BenchMesh"]
+size = Vector3(0.9, 0.7, 0.5)
+
+[sub_resource type="StandardMaterial3D" id="WoodMat"]
+albedo_color = Color(0.28, 0.22, 0.18, 1)
+roughness = 0.8
+
+[sub_resource type="BoxShape3D" id="BenchShape"]
+size = Vector3(0.9, 0.7, 0.5)
+
+[sub_resource type="BoxMesh" id="BinFloorMesh"]
+size = Vector3(0.7, 0.04, 0.7)
+
+[sub_resource type="StandardMaterial3D" id="TrayMat"]
+albedo_color = Color(0.2, 0.23, 0.28, 1)
+roughness = 0.85
+
+[sub_resource type="BoxShape3D" id="BinFloorShape"]
+size = Vector3(0.7, 0.04, 0.7)
+
+[sub_resource type="BoxMesh" id="BinWallMesh"]
+size = Vector3(0.7, 0.12, 0.03)
+
+[sub_resource type="BoxShape3D" id="BinWallShape"]
+size = Vector3(0.7, 0.12, 0.03)
+
+[node name="ThrowStation" type="Node3D" unique_id=340468702]
+script = ExtResource("1_cghwf")
+
+[node name="Bench" type="StaticBody3D" parent="." unique_id=479158217]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.35, -1.3)
+
+[node name="Mesh" type="MeshInstance3D" parent="Bench" unique_id=680631470]
+mesh = SubResource("BenchMesh")
+surface_material_override/0 = SubResource("WoodMat")
+
+[node name="Col" type="CollisionShape3D" parent="Bench" unique_id=1721228228]
+shape = SubResource("BenchShape")
+
+[node name="Bin" type="StaticBody3D" parent="." unique_id=1162727884]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.02, -2.5)
+
+[node name="FloorMesh" type="MeshInstance3D" parent="Bin" unique_id=1794955863]
+mesh = SubResource("BinFloorMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="FloorCol" type="CollisionShape3D" parent="Bin" unique_id=530742030]
+shape = SubResource("BinFloorShape")
+
+[node name="WallBack" type="MeshInstance3D" parent="Bin" unique_id=1306988019]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, -0.35)
+mesh = SubResource("BinWallMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="WallBackCol" type="CollisionShape3D" parent="Bin" unique_id=1433861809]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, -0.35)
+shape = SubResource("BinWallShape")
+
+[node name="WallFront" type="MeshInstance3D" parent="Bin" unique_id=921183787]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0.35)
+mesh = SubResource("BinWallMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="WallFrontCol" type="CollisionShape3D" parent="Bin" unique_id=1836432909]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0.35)
+shape = SubResource("BinWallShape")
+
+[node name="WallLeft" type="MeshInstance3D" parent="Bin" unique_id=508183170]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.35, 0.08, 0)
+mesh = SubResource("BinWallMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="WallLeftCol" type="CollisionShape3D" parent="Bin" unique_id=317581176]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.35, 0.08, 0)
+shape = SubResource("BinWallShape")
+
+[node name="WallRight" type="MeshInstance3D" parent="Bin" unique_id=121605924]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.35, 0.08, 0)
+mesh = SubResource("BinWallMesh")
+surface_material_override/0 = SubResource("TrayMat")
+
+[node name="WallRightCol" type="CollisionShape3D" parent="Bin" unique_id=1516586224]
+transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.35, 0.08, 0)
+shape = SubResource("BinWallShape")
+
+[node name="Blocks" type="Node3D" parent="." unique_id=1653073665]
+
+[node name="Block1" type="Node3D" parent="Blocks" unique_id=2107036596 instance=ExtResource("2_p57io")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.78, -1.3)
+script = ExtResource("3_qrr1x")
+target_path = NodePath("Body")
+track_rotation = true
+throw_velocity_scale = 1.7
+max_throw_speed = 24.0
+throw_sample_frames = 3
+
+[node name="Block2" type="Node3D" parent="Blocks" unique_id=636183337 instance=ExtResource("2_p57io")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.78, -1.2)
+script = ExtResource("3_qrr1x")
+target_path = NodePath("Body")
+track_rotation = true
+throw_velocity_scale = 1.7
+max_throw_speed = 24.0
+throw_sample_frames = 3
+
+[node name="Block3" type="Node3D" parent="Blocks" unique_id=1404666856 instance=ExtResource("2_p57io")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.45, 0.78, -1.3)
+script = ExtResource("3_qrr1x")
+target_path = NodePath("Body")
+track_rotation = true
+throw_velocity_scale = 1.7
+max_throw_speed = 24.0
+throw_sample_frames = 3
+
+[node name="Block4" type="Node3D" parent="Blocks" unique_id=1881964691 instance=ExtResource("2_p57io")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.92, -1.3)
+script = ExtResource("3_qrr1x")
+target_path = NodePath("Body")
+track_rotation = true
+throw_velocity_scale = 1.7
+max_throw_speed = 24.0
+throw_sample_frames = 3
+
+[node name="ThrowAnchor" type="Node3D" parent="." unique_id=1390130024]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0, -0.5)
+script = ExtResource("4_3yiqw")
+
+[node name="Sign" type="Label3D" parent="." unique_id=81258220]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 2.2, -1.3)
+pixel_size = 0.0016
+billboard = 1
+text = "1 · THROW"
+font_size = 44

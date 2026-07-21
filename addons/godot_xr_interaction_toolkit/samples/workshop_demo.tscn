@@ -1,107 +1,21 @@
-[gd_scene load_steps=63 format=3]
+[gd_scene format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/workshop_demo.gd" id="2_demo"]
-[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/pen.tscn" id="3_pen"]
-[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/coffee_cup.tscn" id="4_cup"]
-[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/throwable.tscn" id="5_throw"]
-[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/blaster.tscn" id="6_blaster"]
-[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/can.tscn" id="7_can"]
-[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/spray_can.tscn" id="8_spray"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_drawing_surface.gd" id="9_draw"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_button.gd" id="10_poke"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="11_anchor"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_microgesture_locomotion_driver.gd" id="13_micro"]
+[ext_resource type="Material" path="res://addons/godot_webgpu/font_bake_material.tres" id="2_rjtmv"]
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/webxr_prefab.gd" id="6_3h7dy"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/stations/throw_station.tscn" id="7_bjf8r"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/throw_station.gd" id="8_elkrb"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/stations/draw_station.tscn" id="9_dwx8l"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/draw_station.gd" id="10_08hju"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/stations/shoot_station.tscn" id="11_ji0sk"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/shoot_station.gd" id="12_ckbhh"]
 [ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="12_fontbake"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="20_grab"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_socket_interactor.gd" id="21_socket"]
-[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_socket_affordance.gd" id="22_socketaff"]
-
-[sub_resource type="BoxMesh" id="GLBenchMesh"]
-size = Vector3(2.4, 0.75, 0.55)
-
-[sub_resource type="StandardMaterial3D" id="GLBenchMat"]
-albedo_color = Color(0.28, 0.3, 0.34, 1)
-roughness = 0.8
-
-[sub_resource type="BoxShape3D" id="GLBenchShape"]
-size = Vector3(2.4, 0.75, 0.55)
-
-[sub_resource type="BoxMesh" id="GLCubeMesh"]
-size = Vector3(0.12, 0.12, 0.12)
-
-[sub_resource type="BoxShape3D" id="GLCubeShape"]
-size = Vector3(0.12, 0.12, 0.12)
-
-[sub_resource type="SphereMesh" id="GLSphereMesh"]
-radius = 0.07
-height = 0.14
-
-[sub_resource type="SphereShape3D" id="GLSphereShape"]
-radius = 0.07
-
-[sub_resource type="CylinderMesh" id="GLCylMesh"]
-top_radius = 0.05
-bottom_radius = 0.05
-height = 0.2
-
-[sub_resource type="CylinderShape3D" id="GLCylShape"]
-radius = 0.05
-height = 0.2
-
-[sub_resource type="CylinderMesh" id="GLPegMesh"]
-top_radius = 0.035
-bottom_radius = 0.035
-height = 0.11
-
-[sub_resource type="CylinderShape3D" id="GLPegShape"]
-radius = 0.035
-height = 0.11
-
-[sub_resource type="CylinderMesh" id="GLSocketPad"]
-top_radius = 0.11
-bottom_radius = 0.13
-height = 0.03
-
-[sub_resource type="SphereMesh" id="GLGripMarker"]
-radius = 0.02
-height = 0.04
-
-[sub_resource type="StandardMaterial3D" id="GLInstantMat"]
-albedo_color = Color(0.3, 0.62, 1, 1)
-roughness = 0.4
-
-[sub_resource type="StandardMaterial3D" id="GLSmoothMat"]
-albedo_color = Color(0.4, 0.9, 0.55, 1)
-roughness = 0.35
-
-[sub_resource type="StandardMaterial3D" id="GLRotMat"]
-albedo_color = Color(1, 0.7, 0.25, 1)
-roughness = 0.4
-
-[sub_resource type="StandardMaterial3D" id="GLSnapMat"]
-albedo_color = Color(0.85, 0.4, 0.9, 1)
-roughness = 0.4
-
-[sub_resource type="StandardMaterial3D" id="GLLayerMat"]
-albedo_color = Color(1, 0.35, 0.4, 1)
-roughness = 0.4
-
-[sub_resource type="StandardMaterial3D" id="GLPegMat"]
-albedo_color = Color(0.75, 0.78, 0.85, 1)
-metallic = 0.4
-roughness = 0.4
-
-[sub_resource type="StandardMaterial3D" id="GLSocketMat"]
-albedo_color = Color(0.2, 0.5, 0.65, 1)
-metallic = 0.3
-roughness = 0.5
-
-[sub_resource type="StandardMaterial3D" id="GLMarkerMat"]
-albedo_color = Color(1, 0.9, 0.4, 1)
-emission_enabled = true
-emission = Color(1, 0.9, 0.4, 1)
-emission_energy_multiplier = 1.5
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_microgesture_locomotion_driver.gd" id="13_micro"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/stations/spray_station.tscn" id="13_qc86i"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/spray_station.gd" id="14_fuie5"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/stations/grab_lab_station.tscn" id="15_2fspc"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/grab_lab_station.gd" id="16_i5kdl"]
 
 [sub_resource type="Environment" id="Env"]
 background_mode = 1
@@ -120,588 +34,81 @@ roughness = 0.95
 [sub_resource type="BoxShape3D" id="FloorShape"]
 size = Vector3(16, 0.08, 12)
 
-[sub_resource type="StandardMaterial3D" id="WoodMat"]
-albedo_color = Color(0.28, 0.22, 0.18, 1)
-roughness = 0.8
-
-[sub_resource type="StandardMaterial3D" id="TrayMat"]
-albedo_color = Color(0.2, 0.23, 0.28, 1)
-roughness = 0.85
+[sub_resource type="BoxMesh" id="GuideMesh"]
+size = Vector3(13, 0.012, 0.16)
 
 [sub_resource type="StandardMaterial3D" id="GuideMat"]
 albedo_color = Color(0.25, 0.5, 0.75, 1)
 emission_enabled = true
 emission = Color(0.2, 0.45, 0.7, 1)
 emission_energy_multiplier = 0.6
-roughness = 1.0
 
-[sub_resource type="BoxMesh" id="DeskMesh"]
-size = Vector3(1.1, 0.9, 0.5)
-
-[sub_resource type="BoxShape3D" id="DeskShape"]
-size = Vector3(1.1, 0.9, 0.5)
-
-[sub_resource type="PlaneMesh" id="NotepadMesh"]
-size = Vector2(0.3, 0.4)
-
-[sub_resource type="BoxMesh" id="BenchMesh"]
-size = Vector3(0.9, 0.7, 0.5)
-
-[sub_resource type="BoxShape3D" id="BenchShape"]
-size = Vector3(0.9, 0.7, 0.5)
-
-[sub_resource type="BoxMesh" id="BinFloorMesh"]
-size = Vector3(0.7, 0.04, 0.7)
-
-[sub_resource type="BoxShape3D" id="BinFloorShape"]
-size = Vector3(0.7, 0.04, 0.7)
-
-[sub_resource type="BoxMesh" id="BinWallMesh"]
-size = Vector3(0.7, 0.12, 0.03)
-
-[sub_resource type="BoxShape3D" id="BinWallShape"]
-size = Vector3(0.7, 0.12, 0.03)
-
-[sub_resource type="BoxMesh" id="CounterMesh"]
-size = Vector3(1, 0.9, 0.4)
-
-[sub_resource type="BoxShape3D" id="CounterShape"]
-size = Vector3(1, 0.9, 0.4)
-
-[sub_resource type="BoxMesh" id="ShelfMesh"]
-size = Vector3(1.6, 0.06, 0.25)
-
-[sub_resource type="BoxShape3D" id="ShelfShape"]
-size = Vector3(1.6, 0.06, 0.25)
-
-[sub_resource type="PlaneMesh" id="WallMesh"]
-size = Vector2(1.8, 1.3)
-
-[sub_resource type="BoxShape3D" id="WallShape"]
-size = Vector3(1.8, 0.04, 1.3)
-
-[sub_resource type="BoxMesh" id="StandMesh"]
-size = Vector3(0.3, 0.9, 0.3)
-
-[sub_resource type="BoxShape3D" id="StandShape"]
-size = Vector3(0.3, 0.9, 0.3)
-
-[sub_resource type="BoxMesh" id="GuideMesh"]
-size = Vector3(13, 0.012, 0.16)
-
-[node name="WorkshopDemo" type="Node3D"]
+[node name="WorkshopDemo" type="Node3D" unique_id=236656949]
 script = ExtResource("2_demo")
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=90516077]
 environment = SubResource("Env")
 
-[node name="Sun" type="DirectionalLight3D" parent="."]
+[node name="Sun" type="DirectionalLight3D" parent="." unique_id=485000452]
 transform = Transform3D(0.86, -0.35, 0.37, 0, 0.73, 0.69, -0.51, -0.59, 0.62, 0, 3, 0)
 shadow_enabled = true
 
-[node name="Floor" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+[node name="Floor" type="MeshInstance3D" parent="." unique_id=1997414096 groups=["ar_passthrough_hidden"]]
 mesh = SubResource("FloorMesh")
 surface_material_override/0 = SubResource("FloorMat")
 
-[node name="FloorBody" type="StaticBody3D" parent="."]
+[node name="FloorBody" type="StaticBody3D" parent="." unique_id=1283608528]
 
-[node name="FloorCol" type="CollisionShape3D" parent="FloorBody"]
+[node name="FloorCol" type="CollisionShape3D" parent="FloorBody" unique_id=1900781209]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.04, 0)
 shape = SubResource("FloorShape")
 
-[node name="AisleGuide" type="MeshInstance3D" parent="." groups=["ar_passthrough_hidden"]]
+[node name="AisleGuide" type="MeshInstance3D" parent="." unique_id=1926118643 groups=["ar_passthrough_hidden"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.006, -0.5)
 mesh = SubResource("GuideMesh")
 surface_material_override/0 = SubResource("GuideMat")
 
-[node name="ThrowStation" type="Node3D" parent="."]
-
-[node name="Bench" type="StaticBody3D" parent="ThrowStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.35, -1.3)
-
-[node name="Mesh" type="MeshInstance3D" parent="ThrowStation/Bench"]
-mesh = SubResource("BenchMesh")
-surface_material_override/0 = SubResource("WoodMat")
-
-[node name="Col" type="CollisionShape3D" parent="ThrowStation/Bench"]
-shape = SubResource("BenchShape")
-
-[node name="Bin" type="StaticBody3D" parent="ThrowStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.02, -2.5)
-
-[node name="FloorMesh" type="MeshInstance3D" parent="ThrowStation/Bin"]
-mesh = SubResource("BinFloorMesh")
-surface_material_override/0 = SubResource("TrayMat")
-
-[node name="FloorCol" type="CollisionShape3D" parent="ThrowStation/Bin"]
-shape = SubResource("BinFloorShape")
-
-[node name="WallBack" type="MeshInstance3D" parent="ThrowStation/Bin"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, -0.35)
-mesh = SubResource("BinWallMesh")
-surface_material_override/0 = SubResource("TrayMat")
-
-[node name="WallBackCol" type="CollisionShape3D" parent="ThrowStation/Bin"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, -0.35)
-shape = SubResource("BinWallShape")
-
-[node name="WallFront" type="MeshInstance3D" parent="ThrowStation/Bin"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0.35)
-mesh = SubResource("BinWallMesh")
-surface_material_override/0 = SubResource("TrayMat")
-
-[node name="WallFrontCol" type="CollisionShape3D" parent="ThrowStation/Bin"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.08, 0.35)
-shape = SubResource("BinWallShape")
-
-[node name="WallLeft" type="MeshInstance3D" parent="ThrowStation/Bin"]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.35, 0.08, 0)
-mesh = SubResource("BinWallMesh")
-surface_material_override/0 = SubResource("TrayMat")
-
-[node name="WallLeftCol" type="CollisionShape3D" parent="ThrowStation/Bin"]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, -0.35, 0.08, 0)
-shape = SubResource("BinWallShape")
-
-[node name="WallRight" type="MeshInstance3D" parent="ThrowStation/Bin"]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.35, 0.08, 0)
-mesh = SubResource("BinWallMesh")
-surface_material_override/0 = SubResource("TrayMat")
-
-[node name="WallRightCol" type="CollisionShape3D" parent="ThrowStation/Bin"]
-transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.35, 0.08, 0)
-shape = SubResource("BinWallShape")
-
-[node name="Blocks" type="Node3D" parent="ThrowStation"]
-
-[node name="Block1" parent="ThrowStation/Blocks" instance=ExtResource("5_throw")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.78, -1.3)
-
-[node name="Block2" parent="ThrowStation/Blocks" instance=ExtResource("5_throw")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.78, -1.2)
-
-[node name="Block3" parent="ThrowStation/Blocks" instance=ExtResource("5_throw")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.45, 0.78, -1.3)
-
-[node name="Block4" parent="ThrowStation/Blocks" instance=ExtResource("5_throw")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.92, -1.3)
-
-[node name="ThrowAnchor" type="Node3D" parent="ThrowStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0, -0.5)
-script = ExtResource("11_anchor")
-
-[node name="Sign" type="Label3D" parent="ThrowStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 2.2, -1.3)
-pixel_size = 0.0016
-billboard = 1
-text = "1 · THROW"
-font_size = 44
-outline_size = 12
-
-[node name="DrawStation" type="Node3D" parent="."]
-
-[node name="Desk" type="StaticBody3D" parent="DrawStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0.45, -1.3)
-
-[node name="Mesh" type="MeshInstance3D" parent="DrawStation/Desk"]
-mesh = SubResource("DeskMesh")
-surface_material_override/0 = SubResource("WoodMat")
-
-[node name="Col" type="CollisionShape3D" parent="DrawStation/Desk"]
-shape = SubResource("DeskShape")
-
-[node name="Notepad" type="MeshInstance3D" parent="DrawStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 0.905, -1.25)
-mesh = SubResource("NotepadMesh")
-script = ExtResource("9_draw")
-paper_color = Color(0.96, 0.95, 0.92, 1)
-
-[node name="Pen" parent="DrawStation" instance=ExtResource("3_pen")]
-transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.95, 0.909, -1.2)
-
-[node name="CoffeeCup" parent="DrawStation" instance=ExtResource("4_cup")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.45, 0.94, -1.4)
-
-[node name="ClearButton" type="Node3D" parent="DrawStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.55, 0.92, -1.12)
-script = ExtResource("10_poke")
-cap_radius = 0.025
-cap_color = Color(0.4, 0.8, 0.9, 1)
-
-[node name="Label" type="Label3D" parent="DrawStation/ClearButton"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0)
-pixel_size = 0.0006
-billboard = 1
-no_depth_test = true
-render_priority = 3
-text = "CLEAR"
-font_size = 40
-outline_size = 10
-
-[node name="DrawAnchor" type="Node3D" parent="DrawStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0, -0.5)
-script = ExtResource("11_anchor")
-
-[node name="Sign" type="Label3D" parent="DrawStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 2.2, -1.3)
-pixel_size = 0.0016
-billboard = 1
-text = "2 · DRAW"
-font_size = 44
-outline_size = 12
-
-[node name="ShootStation" type="Node3D" parent="."]
-
-[node name="Counter" type="StaticBody3D" parent="ShootStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.45, -1.3)
-
-[node name="Mesh" type="MeshInstance3D" parent="ShootStation/Counter"]
-mesh = SubResource("CounterMesh")
-surface_material_override/0 = SubResource("WoodMat")
-
-[node name="Col" type="CollisionShape3D" parent="ShootStation/Counter"]
-shape = SubResource("CounterShape")
-
-[node name="Shelf" type="StaticBody3D" parent="ShootStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.95, -3.5)
-
-[node name="Mesh" type="MeshInstance3D" parent="ShootStation/Shelf"]
-mesh = SubResource("ShelfMesh")
-surface_material_override/0 = SubResource("TrayMat")
-
-[node name="Col" type="CollisionShape3D" parent="ShootStation/Shelf"]
-shape = SubResource("ShelfShape")
-
-[node name="Cans" type="Node3D" parent="ShootStation"]
-
-[node name="Can1" parent="ShootStation/Cans" instance=ExtResource("7_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7, 1.04, -3.5)
-
-[node name="Can2" parent="ShootStation/Cans" instance=ExtResource("7_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.95, 1.04, -3.5)
-
-[node name="Can3" parent="ShootStation/Cans" instance=ExtResource("7_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 1.04, -3.5)
-
-[node name="Can4" parent="ShootStation/Cans" instance=ExtResource("7_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.45, 1.04, -3.5)
-
-[node name="Can5" parent="ShootStation/Cans" instance=ExtResource("7_can")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.7, 1.04, -3.5)
-
-[node name="ResetButton" type="Node3D" parent="ShootStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.85, 0.92, -1.15)
-script = ExtResource("10_poke")
-cap_radius = 0.025
-cap_color = Color(0.4, 0.85, 0.5, 1)
-
-[node name="Label" type="Label3D" parent="ShootStation/ResetButton"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0)
-pixel_size = 0.0006
-billboard = 1
-no_depth_test = true
-render_priority = 3
-text = "RESET"
-font_size = 40
-outline_size = 10
-
-[node name="Blaster" parent="ShootStation" instance=ExtResource("6_blaster")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.98, -1.2)
-
-[node name="ShootAnchor" type="Node3D" parent="ShootStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0, -0.5)
-script = ExtResource("11_anchor")
-
-[node name="Sign" type="Label3D" parent="ShootStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 2.2, -1.3)
-pixel_size = 0.0016
-billboard = 1
-text = "3 · SHOOT"
-font_size = 44
-outline_size = 12
-
-[node name="SprayStation" type="Node3D" parent="."]
-
-[node name="Wall" type="StaticBody3D" parent="SprayStation"]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 3.6, 1.4, -2.7)
-
-[node name="Surface" type="MeshInstance3D" parent="SprayStation/Wall"]
-mesh = SubResource("WallMesh")
-script = ExtResource("9_draw")
-paper_color = Color(0.93, 0.91, 0.87, 1)
-draw_resolution = 768
-
-[node name="Col" type="CollisionShape3D" parent="SprayStation/Wall"]
-shape = SubResource("WallShape")
-
-[node name="Stand" type="StaticBody3D" parent="SprayStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.45, -1.3)
-
-[node name="Mesh" type="MeshInstance3D" parent="SprayStation/Stand"]
-mesh = SubResource("StandMesh")
-surface_material_override/0 = SubResource("WoodMat")
-
-[node name="Col" type="CollisionShape3D" parent="SprayStation/Stand"]
-shape = SubResource("StandShape")
-
-[node name="SprayCan" parent="SprayStation" instance=ExtResource("8_spray")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.98, -1.3)
-
-[node name="WipeButton" type="Node3D" parent="SprayStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.25, 0.92, -1.2)
-script = ExtResource("10_poke")
-cap_radius = 0.025
-cap_color = Color(0.9, 0.6, 0.3, 1)
-
-[node name="Label" type="Label3D" parent="SprayStation/WipeButton"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0)
-pixel_size = 0.0006
-billboard = 1
-no_depth_test = true
-render_priority = 3
-text = "WIPE"
-font_size = 40
-outline_size = 10
-
-[node name="SprayAnchor" type="Node3D" parent="SprayStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0, -0.5)
-script = ExtResource("11_anchor")
-
-[node name="Sign" type="Label3D" parent="SprayStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 2.2, -2.0)
-pixel_size = 0.0016
-billboard = 1
-text = "4 · SPRAY"
-font_size = 44
-outline_size = 12
-
-[node name="InfoLabel" type="Label3D" parent="."]
+[node name="InfoLabel" type="Label3D" parent="." unique_id=232624410]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, 0.3)
 pixel_size = 0.0011
 billboard = 1
-text = "WORKSHOP - four stations in a row. Aim your teleport at a glowing PAD to
+text = "WORKSHOP - five stations in a row. Aim your teleport at a glowing PAD to
 step up to a station (you'll face it automatically): 1 Throw · 2 Draw · 3 Shoot
-· 4 Spray. Every tool is the same prefab as its own demo. Poke CLEAR / RESET /
+· 4 Spray · 5 Grab Lab. Each station is its own prefab. Poke CLEAR / RESET /
 WIPE to reset a station."
 font_size = 22
 outline_size = 8
-width = 1900.0
 autowrap_mode = 2
+width = 1900.0
 
-[node name="FontBakeAnchor" type="Label3D" parent="."]
+[node name="FontBakeAnchor" type="Label3D" parent="." unique_id=1300994245]
+visible = false
+material_override = ExtResource("2_rjtmv")
+pixel_size = 0.001
+billboard = 1
+text = "ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz 0123456789 +-:/()."
+font_size = 48
+outline_size = 8
 script = ExtResource("12_fontbake")
 
-[node name="MicrogestureLocomotion" type="Node" parent="."]
+[node name="MicrogestureLocomotion" type="Node" parent="." unique_id=612706431]
 script = ExtResource("13_micro")
 
-[node name="GrabLabStation" type="Node3D" parent="."]
-
-[node name="Bench" type="StaticBody3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0, 0.375, -1.3)
-
-[node name="Mesh" type="MeshInstance3D" parent="GrabLabStation/Bench"]
-mesh = SubResource("GLBenchMesh")
-surface_material_override/0 = SubResource("GLBenchMat")
-
-[node name="Col" type="CollisionShape3D" parent="GrabLabStation/Bench"]
-shape = SubResource("GLBenchShape")
-
-[node name="InstantCube" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.35, 0.83, -1.25)
-script = ExtResource("20_grab")
-movement_type = 0
-
-[node name="Mesh" type="MeshInstance3D" parent="GrabLabStation/InstantCube"]
-mesh = SubResource("GLCubeMesh")
-surface_material_override/0 = SubResource("GLInstantMat")
-
-[node name="InteractableBody" type="StaticBody3D" parent="GrabLabStation/InstantCube"]
-
-[node name="Col" type="CollisionShape3D" parent="GrabLabStation/InstantCube/InteractableBody"]
-shape = SubResource("GLCubeShape")
-
-[node name="Label" type="Label3D" parent="GrabLabStation/InstantCube"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
-pixel_size = 0.0009
-billboard = 1
-text = "INSTANT
-snaps to hand"
-font_size = 22
-outline_size = 6
-
-[node name="SmoothSphere" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.75, 0.83, -1.25)
-script = ExtResource("20_grab")
-movement_type = 1
-smoothing_speed = 8.0
-
-[node name="Mesh" type="MeshInstance3D" parent="GrabLabStation/SmoothSphere"]
-mesh = SubResource("GLSphereMesh")
-surface_material_override/0 = SubResource("GLSmoothMat")
-
-[node name="InteractableBody" type="StaticBody3D" parent="GrabLabStation/SmoothSphere"]
-
-[node name="Col" type="CollisionShape3D" parent="GrabLabStation/SmoothSphere/InteractableBody"]
-shape = SubResource("GLSphereShape")
-
-[node name="Label" type="Label3D" parent="GrabLabStation/SmoothSphere"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
-pixel_size = 0.0009
-billboard = 1
-text = "SMOOTH
-lags/eases to hand"
-font_size = 22
-outline_size = 6
-
-[node name="RotationCyl" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.15, 0.86, -1.2)
-script = ExtResource("20_grab")
-track_rotation = true
-two_hand_grab_enabled = true
-
-[node name="Mesh" type="MeshInstance3D" parent="GrabLabStation/RotationCyl"]
-mesh = SubResource("GLCylMesh")
-surface_material_override/0 = SubResource("GLRotMat")
-
-[node name="InteractableBody" type="StaticBody3D" parent="GrabLabStation/RotationCyl"]
-
-[node name="Col" type="CollisionShape3D" parent="GrabLabStation/RotationCyl/InteractableBody"]
-shape = SubResource("GLCylShape")
-
-[node name="Label" type="Label3D" parent="GrabLabStation/RotationCyl"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.2, 0)
-pixel_size = 0.0009
-billboard = 1
-text = "TWO-HAND
-grab with both to turn"
-font_size = 22
-outline_size = 6
-
-[node name="SnapGripCube" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6, 0.83, -1.2)
-script = ExtResource("20_grab")
-attach_transform_path = NodePath("GripPoint")
-snap_to_attach = true
-
-[node name="Mesh" type="MeshInstance3D" parent="GrabLabStation/SnapGripCube"]
-mesh = SubResource("GLCubeMesh")
-surface_material_override/0 = SubResource("GLSnapMat")
-
-[node name="GripPoint" type="Node3D" parent="GrabLabStation/SnapGripCube"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.14)
-
-[node name="GripMarker" type="MeshInstance3D" parent="GrabLabStation/SnapGripCube/GripPoint"]
-mesh = SubResource("GLGripMarker")
-surface_material_override/0 = SubResource("GLMarkerMat")
-
-[node name="InteractableBody" type="StaticBody3D" parent="GrabLabStation/SnapGripCube"]
-
-[node name="Col" type="CollisionShape3D" parent="GrabLabStation/SnapGripCube/InteractableBody"]
-shape = SubResource("GLCubeShape")
-
-[node name="Label" type="Label3D" parent="GrabLabStation/SnapGripCube"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
-pixel_size = 0.0009
-billboard = 1
-text = "SNAP-GRIP
-jumps to a fixed grip"
-font_size = 22
-outline_size = 6
-
-[node name="LayerCube" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.4, 0.83, -1.5)
-script = ExtResource("20_grab")
-interaction_layers = 2
-
-[node name="Mesh" type="MeshInstance3D" parent="GrabLabStation/LayerCube"]
-mesh = SubResource("GLCubeMesh")
-surface_material_override/0 = SubResource("GLLayerMat")
-
-[node name="InteractableBody" type="StaticBody3D" parent="GrabLabStation/LayerCube"]
-
-[node name="Col" type="CollisionShape3D" parent="GrabLabStation/LayerCube/InteractableBody"]
-shape = SubResource("GLCubeShape")
-
-[node name="Label" type="Label3D" parent="GrabLabStation/LayerCube"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.16, 0)
-pixel_size = 0.0009
-billboard = 1
-text = "RIGHT HAND ONLY
-interaction layer filter"
-font_size = 22
-outline_size = 6
-
-[node name="Socket" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.7, 0.79, -1.5)
-script = ExtResource("21_socket")
-socket_radius = 0.16
-hover_select_delay = 0.15
-
-[node name="Pad" type="MeshInstance3D" parent="GrabLabStation/Socket"]
-mesh = SubResource("GLSocketPad")
-surface_material_override/0 = SubResource("GLSocketMat")
-
-[node name="SocketAffordance" type="Node" parent="GrabLabStation/Socket"]
-script = ExtResource("22_socketaff")
-pad_mesh_path = NodePath("../Pad")
-
-[node name="Label" type="Label3D" parent="GrabLabStation/Socket"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.22, 0)
-pixel_size = 0.0009
-billboard = 1
-text = "SOCKET
-drop a peg to anchor it"
-font_size = 22
-outline_size = 6
-
-[node name="Peg1" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.4, 0.86, -1.35)
-script = ExtResource("20_grab")
-
-[node name="Mesh" type="MeshInstance3D" parent="GrabLabStation/Peg1"]
-mesh = SubResource("GLPegMesh")
-surface_material_override/0 = SubResource("GLPegMat")
-
-[node name="InteractableBody" type="StaticBody3D" parent="GrabLabStation/Peg1"]
-
-[node name="Col" type="CollisionShape3D" parent="GrabLabStation/Peg1/InteractableBody"]
-shape = SubResource("GLPegShape")
-
-[node name="Peg2" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7.0, 0.86, -1.35)
-script = ExtResource("20_grab")
-
-[node name="Mesh" type="MeshInstance3D" parent="GrabLabStation/Peg2"]
-mesh = SubResource("GLPegMesh")
-surface_material_override/0 = SubResource("GLPegMat")
-
-[node name="InteractableBody" type="StaticBody3D" parent="GrabLabStation/Peg2"]
-
-[node name="Col" type="CollisionShape3D" parent="GrabLabStation/Peg2/InteractableBody"]
-shape = SubResource("GLPegShape")
-
-[node name="Sign" type="Label3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0, 2.2, -1.3)
-pixel_size = 0.0016
-billboard = 1
-text = "5 · GRAB LAB"
-font_size = 44
-outline_size = 12
-
-[node name="Guide" type="Label3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0, 1.75, -1.3)
-pixel_size = 0.0011
-billboard = 1
-text = "Grab styles: instant vs smooth follow, two-hand turn, snap-to-grip.
-Drop a peg on the socket to anchor it. The red cube only your RIGHT hand can grab."
-font_size = 24
-outline_size = 7
-width = 1500.0
-autowrap_mode = 2
-
-[node name="GrabLabAnchor" type="Node3D" parent="GrabLabStation"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.0, 0, -0.5)
-script = ExtResource("11_anchor")
-
-[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
+[node name="WebXRPrefab" type="Node3D" parent="." unique_id=1932889757 instance=ExtResource("1_prefab")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0, -0.5)
+script = ExtResource("6_3h7dy")
+
+[node name="ThrowStation" type="Node3D" parent="." unique_id=340468702 instance=ExtResource("7_bjf8r")]
+script = ExtResource("8_elkrb")
+
+[node name="DrawStation" type="Node3D" parent="." unique_id=1279467817 instance=ExtResource("9_dwx8l")]
+script = ExtResource("10_08hju")
+
+[node name="ShootStation" type="Node3D" parent="." unique_id=63038403 instance=ExtResource("11_ji0sk")]
+script = ExtResource("12_ckbhh")
+
+[node name="SprayStation" type="Node3D" parent="." unique_id=796283126 instance=ExtResource("13_qc86i")]
+script = ExtResource("14_fuie5")
+
+[node name="GrabLabStation" type="Node3D" parent="." unique_id=1744185596 instance=ExtResource("15_2fspc")]
+script = ExtResource("16_i5kdl")

@@ -1,0 +1,84 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/spray_station.gd" id="1_xrbc6"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_drawing_surface.gd" id="2_lgpnr"]
+[ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/spray_can.tscn" id="3_d7j6l"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="4_q1qcp"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_button.gd" id="5_virr8"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="6_cmwg4"]
+
+[sub_resource type="PlaneMesh" id="WallMesh"]
+size = Vector2(1.8, 1.3)
+
+[sub_resource type="BoxShape3D" id="WallShape"]
+size = Vector3(1.8, 0.04, 1.3)
+
+[sub_resource type="BoxMesh" id="StandMesh"]
+size = Vector3(0.3, 0.9, 0.3)
+
+[sub_resource type="StandardMaterial3D" id="WoodMat"]
+albedo_color = Color(0.28, 0.22, 0.18, 1)
+roughness = 0.8
+
+[sub_resource type="BoxShape3D" id="StandShape"]
+size = Vector3(0.3, 0.9, 0.3)
+
+[node name="SprayStation" type="Node3D" unique_id=796283126]
+script = ExtResource("1_xrbc6")
+
+[node name="Wall" type="StaticBody3D" parent="." unique_id=1404336686]
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 3.6, 1.4, -2.7)
+
+[node name="Surface" type="MeshInstance3D" parent="Wall" unique_id=1900330708]
+mesh = SubResource("WallMesh")
+script = ExtResource("2_lgpnr")
+draw_resolution = 768
+paper_color = Color(0.93, 0.91, 0.87, 1)
+
+[node name="Col" type="CollisionShape3D" parent="Wall" unique_id=1421855156]
+shape = SubResource("WallShape")
+
+[node name="Stand" type="StaticBody3D" parent="." unique_id=1161906079]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.45, -1.3)
+
+[node name="Mesh" type="MeshInstance3D" parent="Stand" unique_id=184758387]
+mesh = SubResource("StandMesh")
+surface_material_override/0 = SubResource("WoodMat")
+
+[node name="Col" type="CollisionShape3D" parent="Stand" unique_id=173194755]
+shape = SubResource("StandShape")
+
+[node name="SprayCan" type="Node3D" parent="." unique_id=1471681355 instance=ExtResource("3_d7j6l")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.98, -1.3)
+script = ExtResource("4_q1qcp")
+target_path = NodePath("Body")
+hand_grab_style = 1
+track_rotation = true
+throw_on_release = false
+
+[node name="WipeButton" type="Node3D" parent="." unique_id=566616196]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.25, 0.92, -1.2)
+script = ExtResource("5_virr8")
+cap_radius = 0.025
+cap_color = Color(0.9, 0.6, 0.3, 1)
+
+[node name="Label" type="Label3D" parent="WipeButton" unique_id=1576194005]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.07, 0)
+pixel_size = 0.0006
+billboard = 1
+no_depth_test = true
+render_priority = 3
+text = "WIPE"
+font_size = 40
+outline_size = 10
+
+[node name="SprayAnchor" type="Node3D" parent="." unique_id=1840310282]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0, -0.5)
+script = ExtResource("6_cmwg4")
+
+[node name="Sign" type="Label3D" parent="." unique_id=1993192176]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 2.2, -2)
+pixel_size = 0.0016
+billboard = 1
+text = "4 · SPRAY"
+font_size = 44
