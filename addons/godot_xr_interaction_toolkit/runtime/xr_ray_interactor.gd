@@ -48,6 +48,14 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd
 ## while you poke. Set > 0 to instead SHRINK the ray to a stub of that length
 ## at the hand (Unity Near-Far look) rather than hiding it fully.
 @export var near_stub_length := 0.0
+## Unity/Meta hand-ray rule: a BARE HAND only shows the ray when it's tracked and
+## in an aim posture (palm facing away from your head). Turn your palm toward your
+## face, drop your hand, or lose tracking and the ray hides. Controllers always
+## show the ray. Off = the hand ray is always on (until near/teleport suppress).
+@export var hand_ray_requires_aim_pose := true
+## How far the palm must turn toward your face before the ray hides (dot of the
+## palm normal with the direction to your head). Higher = harder to hide.
+@export_range(0.0, 1.0, 0.05) var aim_pose_palm_threshold := 0.35
 
 var _ray_state := {"valid": false}
 var _poke_interactor: Node
@@ -77,10 +85,34 @@ func get_ray_state() -> Dictionary:
 func get_attach_pose() -> Transform3D:
     return _attach_pose
 
+## Unity/Meta hand-ray gate: hide a BARE hand's ray unless it's tracked and the
+## palm faces away from the head (an aiming posture). Controllers never gate.
+func _suppressed_by_hand_pose() -> bool:
+    var manager := get_tree().get_first_node_in_group("xr_input_modality_manager")
+    if manager and manager.has_method("get_modality") and int(manager.get_modality(hand)) == 1:
+        return false  # 1 == CONTROLLER: always show the ray
+    if _adapter == null or not _adapter.has_method("get_grip_pose"):
+        return false
+    var grip: Dictionary = _adapter.get_grip_pose(hand)
+    if grip.is_empty():
+        return true  # hand not tracked / not in view -> no ray
+    var cam := get_viewport().get_camera_3d()
+    if cam == null:
+        return false
+    var palm_pos: Vector3 = grip["origin"]
+    # Grip +Y is out of the back of the fist, so the palm faces -Y.
+    var palm_facing := -(grip["basis"] as Basis).y
+    var to_head := (cam.global_position - palm_pos)
+    if to_head.length_squared() < 0.0001:
+        return false
+    # Palm turned toward your face (menu posture) -> not aiming -> hide the ray.
+    return palm_facing.dot(to_head.normalized()) > aim_pose_palm_threshold
+
 func _update_ray(delta := 0.0) -> void:
     var pose: Dictionary = _adapter.get_aim_pose(hand) if _adapter else {}
 
-    if _selected == null and _is_suppressed_by_linked_interactor():
+    if _selected == null and (_is_suppressed_by_linked_interactor() \
+            or (hand_ray_requires_aim_pose and _suppressed_by_hand_pose())):
         # Near-far switch (Unity): don't leave a long ray pointing off-angle
         # during near interaction - SHRINK the line to a short stub at the
         # hand (near_stub_length; 0 = hide fully). No far cursor, no select.

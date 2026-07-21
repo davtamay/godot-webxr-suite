@@ -77,7 +77,12 @@ func _on_gesture(gesture: int, hand: int, _confidence: float) -> void:
 		1:
 			_locomotion.do_snap_turn(-1.0)
 		2:
-			_locomotion.begin_teleport_aim(hand)
+			# Forward TOGGLES the aim, so a second swipe (or a noisy repeat)
+			# dismisses the arc instead of leaving it stuck on.
+			if _locomotion.is_aiming(hand):
+				_locomotion.cancel_teleport(hand)
+			else:
+				_locomotion.begin_teleport_aim(hand)
 		3:
 			_locomotion.commit_teleport(hand)
 		4:

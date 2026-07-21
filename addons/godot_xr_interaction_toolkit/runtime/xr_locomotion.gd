@@ -104,7 +104,7 @@ var _arc_mesh := ImmediateMesh.new()
 var _target_visual: MeshInstance3D
 
 ## External aim that never commits auto-cancels after this long.
-const _INTENT_TIMEOUT := 10.0
+const _INTENT_TIMEOUT := 3.0
 
 
 func _enter_tree() -> void:
