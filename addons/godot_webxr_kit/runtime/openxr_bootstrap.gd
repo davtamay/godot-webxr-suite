@@ -92,11 +92,24 @@ func _on_presented() -> void:
 	_presented = true  # a headset is actually showing the scene - stay in XR.
 
 
+## Is the HMD actually tracking right now? The most reliable "headset is on"
+## signal - the session_visible/focused signal often fires before we connect
+## (the editor inits OpenXR at startup), so we can't rely on the flag alone.
+func _hmd_tracking() -> bool:
+	var head := XRServer.get_tracker(&"head") as XRPositionalTracker
+	if head == null:
+		return false
+	var pose := head.get_pose(&"default")
+	return pose != null and pose.has_tracking_data
+
+
 ## No headset showed up in time: revert to flat/desktop so the XR Simulator can
 ## drive the scene instead of leaving the viewport stuck on a dead XR display.
 func _check_flat_fallback() -> void:
-	if _presented or _xr == null or get_viewport() == null or get_viewport().use_xr == false:
+	if _xr == null or get_viewport() == null or get_viewport().use_xr == false:
 		return
+	if _presented or _hmd_tracking():
+		return  # a headset is on and presenting - stay in XR.
 	get_viewport().use_xr = false
 	_set_group_hidden(false)
 	_xr = null  # released - _exit_tree won't re-toggle
