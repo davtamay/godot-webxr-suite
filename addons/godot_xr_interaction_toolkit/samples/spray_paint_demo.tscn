@@ -35,10 +35,17 @@ roughness = 0.8
 size = Vector3(1, 0.9, 0.4)
 
 [sub_resource type="PlaneMesh" id="BoardMesh"]
-size = Vector2(1.1, 0.8)
+size = Vector2(1.8, 1.3)
 
 [sub_resource type="BoxShape3D" id="BoardShape"]
-size = Vector3(1.1, 0.04, 0.8)
+size = Vector3(1.8, 0.04, 1.3)
+
+[sub_resource type="BoxMesh" id="FrameMesh"]
+size = Vector3(1.95, 0.08, 1.45)
+
+[sub_resource type="StandardMaterial3D" id="FrameMat"]
+albedo_color = Color(0.14, 0.15, 0.18, 1)
+roughness = 0.85
 
 [node name="SprayPaintDemo" type="Node3D"]
 script = ExtResource("2_demo")
@@ -71,13 +78,18 @@ surface_material_override/0 = SubResource("DeskMat")
 shape = SubResource("DeskShape")
 
 [node name="Board" type="StaticBody3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 1.35, -1.15)
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 1.4, -1.4)
+
+[node name="Frame" type="MeshInstance3D" parent="Board"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+mesh = SubResource("FrameMesh")
+surface_material_override/0 = SubResource("FrameMat")
 
 [node name="Surface" type="MeshInstance3D" parent="Board"]
 mesh = SubResource("BoardMesh")
 script = ExtResource("4_surface")
-paper_color = Color(0.92, 0.9, 0.86, 1)
-draw_resolution = 640
+paper_color = Color(0.93, 0.91, 0.87, 1)
+draw_resolution = 768
 
 [node name="Col" type="CollisionShape3D" parent="Board"]
 shape = SubResource("BoardShape")

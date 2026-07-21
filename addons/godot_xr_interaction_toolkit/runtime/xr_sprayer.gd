@@ -14,9 +14,14 @@ extends Node
 @export var nozzle_path: NodePath
 @export var spray_color := Color(0.9, 0.2, 0.28, 0.5)
 ## How far the spray reaches (metres).
-@export_range(0.1, 5.0, 0.05) var spray_range := 1.4
-## Paint splat radius on the surface, in its texture pixels.
-@export_range(1, 40, 1) var spray_radius_px := 8
+@export_range(0.1, 6.0, 0.05) var spray_range := 2.5
+## Spray cone half-angle (degrees): the paint disc widens with distance, like a
+## real can - close up it's tight, farther away it fans out and thins.
+@export_range(0.5, 20.0, 0.5) var spray_cone_deg := 4.5
+## Soft droplets stamped each frame - the grainy spray that builds up on a sweep.
+@export_range(1, 24, 1) var droplets := 8
+## Each droplet's soft radius in the surface's texture pixels.
+@export_range(1, 20, 1) var droplet_radius_px := 4
 @export_flags_3d_physics var collision_mask := 1
 ## Optional mesh/particles shown ONLY while spraying (the visible mist/cone).
 @export var spray_visual_path: NodePath
@@ -67,15 +72,26 @@ func _physics_process(_delta: float) -> void:
 	var world := _nozzle.get_world_3d()
 	if world == null:
 		return
+	var basis := _nozzle.global_transform.basis
 	var from := _nozzle.global_position
-	var dir := (-_nozzle.global_transform.basis.z).normalized()
+	var dir := (-basis.z).normalized()
 	var query := PhysicsRayQueryParameters3D.create(from, from + dir * spray_range, collision_mask)
 	var hit := world.direct_space_state.intersect_ray(query)
 	if hit.is_empty():
 		return
 	var surface := _find_surface(hit.get("collider"))
-	if surface != null:
-		surface.paint_at_world(hit["position"], spray_radius_px, spray_color)
+	if surface == null:
+		return
+	# Scatter soft droplets over a disc that widens with distance (the cone), most
+	# landing near the aim point - a grainy spray that builds up as you sweep,
+	# instead of a single hard splat.
+	var hit_pos: Vector3 = hit["position"]
+	var spread: float = from.distance_to(hit_pos) * tan(deg_to_rad(spray_cone_deg))
+	for i in droplets:
+		var ang := randf() * TAU
+		var rad := randf() * spread  # linear radius -> denser toward the centre
+		var offset := basis.x * (cos(ang) * rad) + basis.y * (sin(ang) * rad)
+		surface.paint_at_world(hit_pos + offset, droplet_radius_px, spray_color)
 
 
 ## Locate an XRDrawingSurface at/around a hit collider (the surface itself, a
