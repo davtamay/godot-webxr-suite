@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_drawing_surface.gd" id="9_draw"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_button.gd" id="10_poke"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="11_anchor"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_microgesture_locomotion_driver.gd" id="13_micro"]
 [ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="12_fontbake"]
 
 [sub_resource type="Environment" id="Env"]
@@ -227,7 +228,7 @@ script = ExtResource("9_draw")
 paper_color = Color(0.96, 0.95, 0.92, 1)
 
 [node name="Pen" parent="DrawStation" instance=ExtResource("3_pen")]
-transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.95, 0.918, -1.2)
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.95, 0.909, -1.2)
 
 [node name="CoffeeCup" parent="DrawStation" instance=ExtResource("4_cup")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.45, 0.94, -1.4)
@@ -401,4 +402,8 @@ autowrap_mode = 2
 [node name="FontBakeAnchor" type="Label3D" parent="."]
 script = ExtResource("12_fontbake")
 
+[node name="MicrogestureLocomotion" type="Node" parent="."]
+script = ExtResource("13_micro")
+
 [node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0, -0.5)

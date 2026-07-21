@@ -48,6 +48,9 @@ const _ARC_MAX_STEPS := 40
 
 @export_group("Teleport")
 @export var teleport_enabled := true
+## Only teleport to XRTeleportAnchor pads - free ground is not a valid target.
+## Use it for guided, station-to-station layouts (a workshop, a gallery).
+@export var anchors_only := false
 ## Initial arc speed; higher = flatter, longer reach (~6 m/s reaches ~4 m).
 @export_range(2.0, 15.0, 0.5) var arc_velocity := 7.0
 ## Surfaces steeper than this (1 = flat floor) are not teleport targets.
@@ -310,7 +313,9 @@ func _project_arc_from(start: Vector3, direction: Vector3) -> void:
 				_target_point = anchor.snap_position()
 				_target_valid = true
 			else:
-				_target_valid = (hit["normal"] as Vector3).y >= min_ground_normal_y
+				# Free ground: valid only if flat enough - and only at all when
+				# not restricted to anchor pads.
+				_target_valid = not anchors_only and (hit["normal"] as Vector3).y >= min_ground_normal_y
 				_target_point = hit["position"]
 			break
 		points.append(next)

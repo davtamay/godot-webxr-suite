@@ -17,6 +17,11 @@ func _ready() -> void:
 	if ResourceLoader.exists("res://scripts/back_to_menu_button.gd"):
 		add_child((load("res://scripts/back_to_menu_button.gd") as GDScript).new())
 
+	# Guided navigation: teleport can ONLY land on the four station pads.
+	for loco in get_tree().get_nodes_in_group("xr_locomotion"):
+		if "anchors_only" in loco:
+			loco.anchors_only = true
+
 	# Throwable blocks + loose tools (pen / cup / spray can): Node3D grab roots
 	# with a Body RigidBody. Cans: RigidBody roots. Track all for respawn.
 	for block in $ThrowStation/Blocks.get_children():
