@@ -51,8 +51,9 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/xr_base_interactor.gd
 ## Unity/Meta hand-ray rule: a BARE HAND only shows the ray when it's tracked and
 ## in an aim posture (palm facing away from your head). Turn your palm toward your
 ## face, drop your hand, or lose tracking and the ray hides. Controllers always
-## show the ray. Off = the hand ray is always on (until near/teleport suppress).
-@export var hand_ray_requires_aim_pose := true
+## show the ray. OFF by default (always-on ray) - the palm-normal sign wants an
+## on-device check before it's trusted as the default; opt in per rig to try it.
+@export var hand_ray_requires_aim_pose := false
 ## How far the palm must turn toward your face before the ray hides (dot of the
 ## palm normal with the direction to your head). Higher = harder to hide.
 @export_range(0.0, 1.0, 0.05) var aim_pose_palm_threshold := 0.35
@@ -88,9 +89,12 @@ func get_attach_pose() -> Transform3D:
 ## Unity/Meta hand-ray gate: hide a BARE hand's ray unless it's tracked and the
 ## palm faces away from the head (an aiming posture). Controllers never gate.
 func _suppressed_by_hand_pose() -> bool:
+    # Only ever gate a REAL bare hand: a controller, an undetected modality, or a
+    # missing manager all keep the ray on (never let this hide a controller ray).
     var manager := get_tree().get_first_node_in_group("xr_input_modality_manager")
-    if manager and manager.has_method("get_modality") and int(manager.get_modality(hand)) == 1:
-        return false  # 1 == CONTROLLER: always show the ray
+    if manager == null or not manager.has_method("get_modality") \
+            or int(manager.get_modality(hand)) != 2:  # 2 == HAND
+        return false
     if _adapter == null or not _adapter.has_method("get_grip_pose"):
         return false
     var grip: Dictionary = _adapter.get_grip_pose(hand)
