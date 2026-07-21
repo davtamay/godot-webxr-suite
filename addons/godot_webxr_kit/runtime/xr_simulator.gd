@@ -63,7 +63,8 @@ var _origin: XROrigin3D
 var _camera: Camera3D
 var _openxr_adapter: Node
 var _webxr_adapter: Node
-var _trackers := {}          # hand -> XRControllerTracker WE registered
+var _trackers := {}          # hand -> XRControllerTracker we drive (borrowed or created)
+var _created_trackers := {}  # hand -> true if WE registered it (so we remove only ours)
 var _repointed: Array = []   # interactors we switched to the OpenXR adapter
 var _screen_rays: Array = [] # ScreenRayInteractors we suspended
 var _active := false
@@ -579,21 +580,30 @@ func _set_mode(mode: SimMode) -> void:
 
 
 func _add_controller_trackers() -> void:
-	# Never clobber real trackers (native editor Play with Link running).
+	# We only reach here when flat (use_xr == false) with no headset presenting,
+	# so any existing left/right_hand tracker is an IDLE platform one (e.g.
+	# SteamVR running with the headset off) that isn't driving a session - borrow
+	# and drive it rather than skipping (which used to leave the sim inert). If
+	# none exists, create our own. We remove only the ones we created.
 	for hand in 2:
 		var tracker_name := &"left_hand" if hand == 0 else &"right_hand"
-		if XRServer.get_tracker(tracker_name) != null:
-			continue
-		var tracker := XRControllerTracker.new()
-		tracker.name = tracker_name
-		XRServer.add_tracker(tracker)
+		var tracker := XRServer.get_tracker(tracker_name) as XRControllerTracker
+		if tracker == null:
+			tracker = XRControllerTracker.new()
+			tracker.name = tracker_name
+			XRServer.add_tracker(tracker)
+			_created_trackers[hand] = true
 		_trackers[hand] = tracker
 
 
 func _remove_controller_trackers() -> void:
+	# Only remove trackers WE created; leave borrowed platform ones in place so a
+	# real session that follows still has them.
 	for hand in _trackers:
-		XRServer.remove_tracker(_trackers[hand])
+		if _created_trackers.get(hand, false):
+			XRServer.remove_tracker(_trackers[hand])
 	_trackers.clear()
+	_created_trackers.clear()
 	_select_down = false
 	_grab_down = false
 
