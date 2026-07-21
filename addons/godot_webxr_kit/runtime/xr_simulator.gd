@@ -93,6 +93,13 @@ func _ready() -> void:
 	if Engine.is_editor_hint():
 		set_process(false)
 		return
+	# Desktop/native flat testing only. On the web the browser runs its own
+	# flat-landing -> Enter-VR flow, and faking trackers there would collide with
+	# WebXR's real ones when you enter a session - so stay out of the browser
+	# entirely (and out of any real XR session; that's gated on use_xr below).
+	if OS.has_feature("web"):
+		set_process(false)
+		return
 	_resolve_rig.call_deferred()
 
 
