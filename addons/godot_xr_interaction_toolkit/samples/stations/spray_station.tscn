@@ -27,7 +27,7 @@ size = Vector3(0.3, 0.9, 0.3)
 script = ExtResource("1_xrbc6")
 
 [node name="Wall" type="StaticBody3D" parent="." unique_id=1404336686]
-transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 3.6, 1.4, -2.7)
+transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 1.4, -2.7)
 
 [node name="Surface" type="MeshInstance3D" parent="Wall" unique_id=1900330708]
 mesh = SubResource("WallMesh")
@@ -39,7 +39,7 @@ paper_color = Color(0.93, 0.91, 0.87, 1)
 shape = SubResource("WallShape")
 
 [node name="Stand" type="StaticBody3D" parent="." unique_id=1161906079]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.45, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, -1.3)
 
 [node name="Mesh" type="MeshInstance3D" parent="Stand" unique_id=184758387]
 mesh = SubResource("StandMesh")
@@ -49,7 +49,7 @@ surface_material_override/0 = SubResource("WoodMat")
 shape = SubResource("StandShape")
 
 [node name="SprayCan" type="Node3D" parent="." unique_id=1471681355 instance=ExtResource("3_d7j6l")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0.98, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.98, -1.3)
 script = ExtResource("4_q1qcp")
 target_path = NodePath("Body")
 hand_grab_style = 1
@@ -57,7 +57,7 @@ track_rotation = true
 throw_on_release = false
 
 [node name="WipeButton" type="Node3D" parent="." unique_id=566616196]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.25, 0.92, -1.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3499999, 0.92, -1.2)
 script = ExtResource("5_virr8")
 cap_radius = 0.025
 cap_color = Color(0.9, 0.6, 0.3, 1)
@@ -73,11 +73,11 @@ font_size = 40
 outline_size = 10
 
 [node name="SprayAnchor" type="Node3D" parent="." unique_id=1840310282]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0, -0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
 script = ExtResource("6_cmwg4")
 
 [node name="Sign" type="Label3D" parent="." unique_id=1993192176]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 2.2, -2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, -2)
 pixel_size = 0.0016
 billboard = 1
 text = "4 · SPRAY"

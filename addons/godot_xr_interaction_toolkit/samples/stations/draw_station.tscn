@@ -25,7 +25,7 @@ size = Vector2(0.3, 0.4)
 script = ExtResource("1_f0qtk")
 
 [node name="Desk" type="StaticBody3D" parent="." unique_id=6239851]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0.45, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, -1.3)
 
 [node name="Mesh" type="MeshInstance3D" parent="Desk" unique_id=721031875]
 mesh = SubResource("DeskMesh")
@@ -35,27 +35,27 @@ surface_material_override/0 = SubResource("WoodMat")
 shape = SubResource("DeskShape")
 
 [node name="Notepad" type="MeshInstance3D" parent="." unique_id=972316992]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.25, 0.905, -1.25)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.049999952, 0.905, -1.25)
 mesh = SubResource("NotepadMesh")
 script = ExtResource("2_ibvsp")
 paper_color = Color(0.96, 0.95, 0.92, 1)
 
 [node name="Pen" type="Node3D" parent="." unique_id=344804858 instance=ExtResource("3_nmo62")]
-transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, -0.95, 0.909, -1.2)
+transform = Transform3D(1, 0, 0, 0, 0, -1, 0, 1, 0, 0.25000006, 0.909, -1.2)
 script = ExtResource("4_ga4hw")
 target_path = NodePath("Body")
 track_rotation = true
 throw_on_release = false
 
 [node name="CoffeeCup" type="Node3D" parent="." unique_id=188555831 instance=ExtResource("5_4co44")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.45, 0.94, -1.4)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.25, 0.94, -1.4)
 script = ExtResource("4_ga4hw")
 target_path = NodePath("Body")
 track_rotation = true
 throw_on_release = false
 
 [node name="ClearButton" type="Node3D" parent="." unique_id=229746728]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.55, 0.92, -1.12)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.3499999, 0.92, -1.12)
 script = ExtResource("6_j2bwe")
 cap_radius = 0.025
 cap_color = Color(0.4, 0.8, 0.9, 1)
@@ -71,11 +71,11 @@ font_size = 40
 outline_size = 10
 
 [node name="DrawAnchor" type="Node3D" parent="." unique_id=453205171]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0, -0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
 script = ExtResource("7_5uuf6")
 
 [node name="Sign" type="Label3D" parent="." unique_id=153131447]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 2.2, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, -1.3)
 pixel_size = 0.0016
 billboard = 1
 text = "2 · DRAW"

@@ -35,7 +35,7 @@ bounce = 0.15
 script = ExtResource("1_lwtwv")
 
 [node name="Counter" type="StaticBody3D" parent="." unique_id=1114714367]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.45, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, -1.3)
 
 [node name="Mesh" type="MeshInstance3D" parent="Counter" unique_id=1185736781]
 mesh = SubResource("CounterMesh")
@@ -45,7 +45,7 @@ surface_material_override/0 = SubResource("WoodMat")
 shape = SubResource("CounterShape")
 
 [node name="Shelf" type="StaticBody3D" parent="." unique_id=182132774]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.95, -3.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.95, -3.5)
 
 [node name="Mesh" type="MeshInstance3D" parent="Shelf" unique_id=1057757493]
 mesh = SubResource("ShelfMesh")
@@ -55,6 +55,7 @@ surface_material_override/0 = SubResource("TrayMat")
 shape = SubResource("ShelfShape")
 
 [node name="Cans" type="Node3D" parent="." unique_id=97710705]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1.2, 0, 0)
 
 [node name="Can1" type="RigidBody3D" parent="Cans" unique_id=667565518 instance=ExtResource("2_m7p6k")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.7, 1.04, -3.5)
@@ -87,7 +88,7 @@ physics_material_override = SubResource("Phys")
 continuous_cd = true
 
 [node name="ResetButton" type="Node3D" parent="." unique_id=481228367]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.85, 0.92, -1.15)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.35000002, 0.92, -1.15)
 script = ExtResource("3_jladc")
 cap_radius = 0.025
 cap_color = Color(0.4, 0.85, 0.5, 1)
@@ -103,7 +104,7 @@ font_size = 40
 outline_size = 10
 
 [node name="Blaster" type="Node3D" parent="." unique_id=1056587752 instance=ExtResource("4_t82e3")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0.98, -1.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.98, -1.2)
 script = ExtResource("5_vb4wn")
 target_path = NodePath("Body")
 hand_grab_style = 1
@@ -111,11 +112,11 @@ track_rotation = true
 throw_on_release = false
 
 [node name="ShootAnchor" type="Node3D" parent="." unique_id=1102650483]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 0, -0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
 script = ExtResource("6_vfnln")
 
 [node name="Sign" type="Label3D" parent="." unique_id=243509292]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1.2, 2.2, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, -1.3)
 pixel_size = 0.0016
 billboard = 1
 text = "3 · SHOOT"

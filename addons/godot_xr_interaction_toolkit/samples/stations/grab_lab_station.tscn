@@ -96,7 +96,7 @@ radius = 0.035
 script = ExtResource("1_r3lfo")
 
 [node name="Bench" type="StaticBody3D" parent="." unique_id=856210705]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0.375, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.375, -1.3)
 
 [node name="Mesh" type="MeshInstance3D" parent="Bench" unique_id=1652541573]
 mesh = SubResource("GLBenchMesh")
@@ -106,7 +106,7 @@ surface_material_override/0 = SubResource("GLBenchMat")
 shape = SubResource("GLBenchShape")
 
 [node name="InstantCube" type="Node3D" parent="." unique_id=1499585631]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.35, 0.83, -1.25)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.6500001, 0.83, -1.25)
 script = ExtResource("2_urr1y")
 
 [node name="Mesh" type="MeshInstance3D" parent="InstantCube" unique_id=1372779736]
@@ -128,7 +128,7 @@ font_size = 22
 outline_size = 6
 
 [node name="SmoothSphere" type="Node3D" parent="." unique_id=720086411]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.75, 0.83, -1.25)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.25, 0.83, -1.25)
 script = ExtResource("2_urr1y")
 movement_type = 1
 smoothing_speed = 8.0
@@ -152,7 +152,7 @@ font_size = 22
 outline_size = 6
 
 [node name="RotationCyl" type="Node3D" parent="." unique_id=1733851257]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.15, 0.86, -1.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.1500001, 0.86, -1.2)
 script = ExtResource("2_urr1y")
 track_rotation = true
 two_hand_grab_enabled = true
@@ -176,7 +176,7 @@ font_size = 22
 outline_size = 6
 
 [node name="SnapGripCube" type="Node3D" parent="." unique_id=598702641]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.6, 0.83, -1.2)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.5999999, 0.83, -1.2)
 script = ExtResource("2_urr1y")
 attach_transform_path = NodePath("GripPoint")
 snap_to_attach = true
@@ -207,7 +207,7 @@ font_size = 22
 outline_size = 6
 
 [node name="LayerCube" type="Node3D" parent="." unique_id=1423637475]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 5.4, 0.83, -1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.5999999, 0.83, -1.5)
 script = ExtResource("2_urr1y")
 interaction_layers = 2
 
@@ -230,7 +230,7 @@ font_size = 22
 outline_size = 6
 
 [node name="Socket" type="Node3D" parent="." unique_id=1767793405]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.7, 0.79, -1.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6999998, 0.79, -1.5)
 script = ExtResource("3_32s6v")
 socket_radius = 0.16
 hover_select_delay = 0.15
@@ -253,7 +253,7 @@ font_size = 22
 outline_size = 6
 
 [node name="Peg1" type="Node3D" parent="." unique_id=2144385344]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6.4, 0.86, -1.35)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.4000001, 0.86, -1.35)
 script = ExtResource("2_urr1y")
 
 [node name="Mesh" type="MeshInstance3D" parent="Peg1" unique_id=1515528224]
@@ -266,7 +266,7 @@ surface_material_override/0 = SubResource("GLPegMat")
 shape = SubResource("GLPegShape")
 
 [node name="Peg2" type="Node3D" parent="." unique_id=90491510]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 7, 0.86, -1.35)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0.86, -1.35)
 script = ExtResource("2_urr1y")
 
 [node name="Mesh" type="MeshInstance3D" parent="Peg2" unique_id=1382727903]
@@ -279,14 +279,14 @@ surface_material_override/0 = SubResource("GLPegMat")
 shape = SubResource("GLPegShape")
 
 [node name="Sign" type="Label3D" parent="." unique_id=139364800]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 2.2, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, -1.3)
 pixel_size = 0.0016
 billboard = 1
 text = "5 · GRAB LAB"
 font_size = 44
 
 [node name="Guide" type="Label3D" parent="." unique_id=1366366901]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 1.75, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.75, -1.3)
 pixel_size = 0.0011
 billboard = 1
 text = "Grab styles: instant vs smooth follow, two-hand turn, snap-to-grip.
@@ -297,5 +297,5 @@ autowrap_mode = 2
 width = 1500.0
 
 [node name="GrabLabAnchor" type="Node3D" parent="." unique_id=898503342]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 0, -0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
 script = ExtResource("5_aedbt")

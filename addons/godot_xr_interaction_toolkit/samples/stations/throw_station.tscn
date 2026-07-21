@@ -35,7 +35,7 @@ size = Vector3(0.7, 0.12, 0.03)
 script = ExtResource("1_cghwf")
 
 [node name="Bench" type="StaticBody3D" parent="." unique_id=479158217]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.35, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.35, -1.3)
 
 [node name="Mesh" type="MeshInstance3D" parent="Bench" unique_id=680631470]
 mesh = SubResource("BenchMesh")
@@ -45,7 +45,7 @@ surface_material_override/0 = SubResource("WoodMat")
 shape = SubResource("BenchShape")
 
 [node name="Bin" type="StaticBody3D" parent="." unique_id=1162727884]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0.02, -2.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -2.5)
 
 [node name="FloorMesh" type="MeshInstance3D" parent="Bin" unique_id=1794955863]
 mesh = SubResource("BinFloorMesh")
@@ -91,6 +91,7 @@ transform = Transform3D(0, 0, 1, 0, 1, 0, -1, 0, 0, 0.35, 0.08, 0)
 shape = SubResource("BinWallShape")
 
 [node name="Blocks" type="Node3D" parent="." unique_id=1653073665]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 3.6, 0, 0)
 
 [node name="Block1" type="Node3D" parent="Blocks" unique_id=2107036596 instance=ExtResource("2_p57io")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.75, 0.78, -1.3)
@@ -129,11 +130,11 @@ max_throw_speed = 24.0
 throw_sample_frames = 3
 
 [node name="ThrowAnchor" type="Node3D" parent="." unique_id=1390130024]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 0, -0.5)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -0.5)
 script = ExtResource("4_3yiqw")
 
 [node name="Sign" type="Label3D" parent="." unique_id=81258220]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -3.6, 2.2, -1.3)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.2, -1.3)
 pixel_size = 0.0016
 billboard = 1
 text = "1 · THROW"
