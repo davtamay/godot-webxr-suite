@@ -80,11 +80,6 @@ shape = SubResource("DeskShape")
 [node name="Board" type="StaticBody3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 0, 1, 0, -1, 0, 0, 1.4, -1.4)
 
-[node name="Frame" type="MeshInstance3D" parent="Board"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
-mesh = SubResource("FrameMesh")
-surface_material_override/0 = SubResource("FrameMat")
-
 [node name="Surface" type="MeshInstance3D" parent="Board"]
 mesh = SubResource("BoardMesh")
 script = ExtResource("4_surface")
