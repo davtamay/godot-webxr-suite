@@ -1,4 +1,4 @@
-[gd_scene load_steps=35 format=3]
+[gd_scene load_steps=37 format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/perception_managers_demo.gd" id="9_demo"]
@@ -13,6 +13,8 @@
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/xr_light_lab.gd" id="13_lightlab"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/light_estimation_controls.gd" id="14_controls"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_teleport_anchor.gd" id="15_anchor"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_scene_understanding/samples/hit_reticle.tscn" id="16_reticle"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_scene_understanding/samples/anchor_marker.tscn" id="17_marker"]
 
 [sub_resource type="QuadMesh" id="PanelQuad"]
 size = Vector2(1.7, 1.25)
@@ -244,6 +246,30 @@ text = "Room Mesh & Live Recon -> mesh-detection. Depth Scan -> depth-sensing (l
 
 [node name="HitTestAnchorManager" type="Node3D" parent="."]
 script = ExtResource("12_hit")
+reticle_scene = ExtResource("16_reticle")
+placed_scene = ExtResource("17_marker")
+
+[node name="AnchorsGuide" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, 1.5, -1.4)
+
+[node name="Title" type="Label3D" parent="AnchorsGuide"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 0)
+modulate = Color(0.76, 0.95, 1, 1)
+pixel_size = 0.0015
+billboard = 1
+text = "HIT TEST + ANCHORS"
+font_size = 32
+outline_size = 8
+
+[node name="Status" type="Label3D" parent="AnchorsGuide"]
+modulate = Color(0.76, 0.95, 1, 1)
+pixel_size = 0.00125
+billboard = 1
+text = "Enter AR. A ring reticle rides the real surface under your hand/controller ray - pinch or select to drop an anchored beacon. Head-view aiming is the automatic fallback."
+font_size = 25
+outline_size = 7
+width = 1100.0
+autowrap_mode = 2
 
 [node name="LightSection" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 0, 0.4)
