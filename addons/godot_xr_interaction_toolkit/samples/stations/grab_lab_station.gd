@@ -5,7 +5,7 @@ extends "res://addons/godot_xr_interaction_toolkit/samples/stations/workshop_sta
 ## nothing to respawn - the only wiring is the interaction-layer conditional.
 
 
-func _ready() -> void:
+func _wire() -> void:
 	_setup_layers.call_deferred()
 
 

@@ -4,7 +4,7 @@ extends "res://addons/godot_xr_interaction_toolkit/samples/stations/workshop_sta
 ## The can respawns if it falls.
 
 
-func _ready() -> void:
+func _wire() -> void:
 	if $SprayCan:
 		_track($SprayCan.get_node_or_null("Body"))
 	var surface := $Wall/Surface

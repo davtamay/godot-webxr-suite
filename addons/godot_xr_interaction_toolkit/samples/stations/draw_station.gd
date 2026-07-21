@@ -4,7 +4,7 @@ extends "res://addons/godot_xr_interaction_toolkit/samples/stations/workshop_sta
 ## Pen and cup respawn on the desk if they fall.
 
 
-func _ready() -> void:
+func _wire() -> void:
 	for tool_root in [$Pen, $CoffeeCup]:
 		if tool_root:
 			_track(tool_root.get_node_or_null("Body"))

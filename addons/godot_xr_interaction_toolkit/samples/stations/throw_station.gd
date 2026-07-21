@@ -4,6 +4,6 @@ extends "res://addons/godot_xr_interaction_toolkit/samples/stations/workshop_sta
 ## they fall off the world.
 
 
-func _ready() -> void:
+func _wire() -> void:
 	for block in $Blocks.get_children():
 		_track(block.get_node_or_null("Body"))
