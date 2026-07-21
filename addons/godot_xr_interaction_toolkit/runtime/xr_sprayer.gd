@@ -46,12 +46,29 @@ func _ready() -> void:
 	_visual = get_node_or_null(spray_visual_path) as Node3D
 	if _visual:
 		_visual.visible = false
+	# Aim the nozzle (and its mist) along the GRIP forward, not the can's own axis,
+	# so the spray goes where the hand points no matter how the grab is tuned or
+	# tilted. Done once from the grab point's rest orientation - both are rigid on
+	# the can, so the alignment holds when it's picked up.
+	_align_nozzle_to_grip()
 	# Spray while the interactable is held-active (activate_entered/exited comes
 	# from a held controller trigger OR an XRHandActivator in CONTINUOUS mode).
 	if _interactable and _interactable.has_signal("activate_entered"):
 		_interactable.activate_entered.connect(func(_i): _set_spraying(true))
 		_interactable.activate_exited.connect(func(_i): _set_spraying(false))
 	set_physics_process(true)
+
+
+func _align_nozzle_to_grip() -> void:
+	if _nozzle == null or _interactable == null:
+		return
+	for node in _interactable.find_children("*", "Node3D", true, false):
+		var script := node.get_script()
+		if script and (script as Resource).resource_path.ends_with("xr_grab_point.gd"):
+			var t := _nozzle.global_transform
+			t.basis = (node as Node3D).global_transform.basis.orthonormalized()
+			_nozzle.global_transform = t
+			return
 
 
 func _set_spraying(on: bool) -> void:
