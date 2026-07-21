@@ -1,6 +1,7 @@
-[gd_scene load_steps=17 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/perception_managers_demo.gd" id="9_demo"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="2_grab"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/environment_depth_manager.gd" id="3_depth"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/scene_mesh_manager.gd" id="4_mesh"]
@@ -48,6 +49,7 @@ roughness = 0.12
 radius = 0.14
 
 [node name="PerceptionManagersDemo" type="Node3D"]
+script = ExtResource("9_demo")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Env")
