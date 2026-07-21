@@ -35,6 +35,8 @@ func _ready() -> void:
 			_cans.append(body)
 			_can_homes.append(body.global_transform)
 
+	_setup_grab_lab.call_deferred()
+
 	# Station reset buttons.
 	_wire_button($ShootStation/ResetButton, _reset_cans)
 	var notepad := $DrawStation/Notepad
@@ -43,6 +45,23 @@ func _ready() -> void:
 	var wall := $SprayStation/Wall/Surface
 	if wall and wall.has_method("clear"):
 		_wire_button($SprayStation/WipeButton, wall.clear)
+
+
+## The Grab Lab's red cube is on interaction layer 2, so only an interactor that
+## includes layer 2 can grab it. Give the RIGHT hand's interactors layer 2 (they
+## keep layer 1 too, so they still grab everything) - the left hand can't. If no
+## right-hand interactor is found, drop the cube back to layer 1 so it never
+## looks broken.
+func _setup_grab_lab() -> void:
+	var right_found := false
+	for node in get_tree().root.find_children("*", "Node3D", true, false):
+		if "hand" in node and "interaction_layers" in node and int(node.hand) == 1:
+			node.interaction_layers = int(node.interaction_layers) | 2
+			right_found = true
+	if not right_found:
+		var cube := get_node_or_null("GrabLabStation/LayerCube")
+		if cube:
+			cube.interaction_layers = 1
 
 
 func _track(body: Node) -> void:
