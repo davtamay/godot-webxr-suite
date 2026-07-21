@@ -28,9 +28,16 @@ extends Node
 ## platforms keep their own all-or-nothing hands<->controllers transition.
 @export var simultaneous_hands_and_controllers := true
 
+## Seconds to wait for the headset to actually present before falling back to
+## flat/desktop mode. SteamVR / Quest Link can leave OpenXR "initialized" with
+## the headset idle; without this, the viewport would sit frozen on an XR display
+## that never shows. When it falls back, the XR Simulator takes over the scene.
+@export_range(0.5, 10.0, 0.5) var headset_present_timeout := 2.5
+
 const _MULTIMODAL_CLASS := &"OpenXRMetaSimultaneousHandsAndControllersExtension"
 
 var _xr: XRInterface
+var _presented := false
 
 
 func _ready() -> void:
@@ -48,6 +55,14 @@ func _ready() -> void:
 
 	_set_group_hidden(true)
 	get_viewport().use_xr = true
+
+	# Only KEEP XR if a headset actually presents; otherwise this is a desktop
+	# run with a runtime idling in the background - go flat so the simulator runs.
+	if _xr.has_signal("session_visible"):
+		_xr.session_visible.connect(_on_presented)
+	if _xr.has_signal("session_focused"):
+		_xr.session_focused.connect(_on_presented)
+	get_tree().create_timer(headset_present_timeout).timeout.connect(_check_flat_fallback)
 
 	if simultaneous_hands_and_controllers:
 		# The session may already be running (editor Play initializes OpenXR at
@@ -71,6 +86,21 @@ func _resume_multimodal() -> void:
 		return
 	wrapper.resume_simultaneous_hands_and_controllers_tracking()
 	print("OpenXRBootstrap: simultaneous hands+controllers tracking resumed.")
+
+
+func _on_presented() -> void:
+	_presented = true  # a headset is actually showing the scene - stay in XR.
+
+
+## No headset showed up in time: revert to flat/desktop so the XR Simulator can
+## drive the scene instead of leaving the viewport stuck on a dead XR display.
+func _check_flat_fallback() -> void:
+	if _presented or _xr == null or get_viewport() == null or get_viewport().use_xr == false:
+		return
+	get_viewport().use_xr = false
+	_set_group_hidden(false)
+	_xr = null  # released - _exit_tree won't re-toggle
+	print("OpenXRBootstrap: no headset presented; running flat with the XR Simulator.")
 
 
 func _exit_tree() -> void:
