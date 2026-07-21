@@ -53,6 +53,11 @@ func _wire_manager() -> void:
 func _on_interactable_registered(interactable) -> void:
 	if not enabled or interactable == null or _wired.has(interactable):
 		return
+	# A UI canvas panel forwards hover/click to the 2D buttons on its surface -
+	# those highlight themselves. Glowing the whole panel (and ticking on hover)
+	# is wrong, so skip the auto-feedback for it entirely.
+	if _is_ui_canvas(interactable):
+		return
 	if respect_object_affordances and _has_own_affordance(interactable):
 		return
 	_wired[interactable] = true
@@ -69,6 +74,17 @@ func _on_interactable_registered(interactable) -> void:
 	if theme.audio_enabled or theme.haptics_enabled:
 		interactable.hover_entered.connect(_on_hover.bind(interactable))
 		interactable.select_entered.connect(_on_select.bind(interactable))
+
+
+## A UI canvas panel (XRUICanvasInteractable, incl. subclasses) whose surface has
+## its own interactive controls - no whole-object highlight.
+func _is_ui_canvas(interactable: Node) -> bool:
+	var script: Script = interactable.get_script()
+	while script:
+		if script.get_global_name() == &"XRUICanvasInteractable":
+			return true
+		script = script.get_base_script()
+	return false
 
 
 func _has_own_affordance(interactable: Node) -> bool:
