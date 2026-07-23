@@ -1,4 +1,4 @@
-# One-command setup for the Godot WebXR suite.
+# One-command setup for the Godot XR suite.
 #
 #   .\setup.ps1 -Project C:\path\to\your\project [-Engine C:\path\to\fork\bin]
 #

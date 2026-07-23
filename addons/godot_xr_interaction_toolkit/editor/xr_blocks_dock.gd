@@ -11,8 +11,8 @@ extends VBoxContainer
 ## with the script attached. Paths are existence-checked at refresh.
 const CATEGORIES := [
 	{"name": "Start Here", "blocks": [
-		{"name": "WebXR Prefab", "desc": "Everything XR in one drop: rig + sessions (WebXR + OpenXR) + hands + auto UI.", "kind": "scene", "path": "res://addons/godot_webxr_kit/webxr_prefab.tscn", "icon": "res://addons/godot_webxr_kit/icons/webxr_bootstrap.svg"},
-		{"name": "WebXR Rig", "desc": "The pre-wired XR rig alone (origin, camera, controllers, interactors) - for custom-HUD scenes.", "kind": "scene", "path": "res://addons/godot_webxr_kit/rig/webxr_rig.tscn", "icon": "res://addons/godot_webxr_kit/icons/openxr_input_adapter.svg"},
+		{"name": "XR Prefab", "desc": "Everything XR in one drop: shared rig + conditional WebXR/OpenXR sessions + hands + browser entry UI.", "kind": "scene", "path": "res://addons/godot_webxr_kit/xr_prefab.tscn", "icon": "res://addons/godot_webxr_kit/icons/webxr_bootstrap.svg"},
+		{"name": "XR Rig", "desc": "The runtime-neutral rig alone (origin, camera, controllers, interactors) - for custom-HUD scenes.", "kind": "scene", "path": "res://addons/godot_webxr_kit/rig/webxr_rig.tscn", "icon": "res://addons/godot_webxr_kit/icons/openxr_input_adapter.svg"},
 		{"name": "Session UI", "desc": "Enter VR/AR buttons + status HUD; the WebXR bootstrap adopts it automatically.", "kind": "scene", "path": "res://addons/godot_webxr_kit/xr_session_ui.tscn", "icon": "res://addons/godot_webxr_kit/icons/xr_session_ui.svg"},
 		{"name": "WebXR Bootstrap", "desc": "Browser session lifecycle (VR/AR entry, passthrough, feature requests).", "kind": "node", "base": "Node3D", "path": "res://addons/godot_webxr_kit/runtime/webxr_bootstrap.gd", "icon": "res://addons/godot_webxr_kit/icons/webxr_bootstrap.svg"},
 		{"name": "OpenXR Bootstrap", "desc": "Play straight to a headset from the editor (Quest Link / SteamVR). Inert on web.", "kind": "node", "base": "Node", "path": "res://addons/godot_webxr_kit/runtime/openxr_bootstrap.gd", "icon": "res://addons/godot_webxr_kit/icons/openxr_bootstrap.svg"},

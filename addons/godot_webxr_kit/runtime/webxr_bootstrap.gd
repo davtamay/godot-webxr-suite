@@ -12,6 +12,10 @@ signal session_started(mode: String)
 signal session_ended
 signal session_failed(message: String)
 
+## Runtime-configurable master switch. This node is always inert in native
+## builds, even when enabled, so it is safe to ship beside OpenXRBootstrap.
+@export var enabled := true
+
 ## The groups this bootstrap acts on, as constants so consumers never typo the
 ## magic strings (a misspelled group fails SILENTLY - e.g. a HUD outside
 ## GROUP_SESSION_HIDDEN renders into both eyes).
@@ -76,6 +80,13 @@ var _ar_hidden_node_visibility := {}
 var _session_hidden_node_visibility := {}
 
 func _ready() -> void:
+    # Check the platform before building browser entry UI or touching the
+    # WebXR interface. Native exports carry this node but pay no runtime/UI
+    # cost; OpenXRBootstrap exclusively owns their session.
+    if not enabled or not OS.has_feature("web"):
+        set_process(false)
+        return
+
     _vr_button = get_node_or_null(enter_vr_button_path) as Button
     if _vr_button == null:
         _vr_button = get_node_or_null(enter_xr_button_path) as Button
@@ -122,10 +133,6 @@ func _ready() -> void:
         _highlight_material.emission = Color(0.25, 0.95, 0.68, 1.0)
         _highlight_material.emission_energy_multiplier = 1.2
     # No inspect object is fine - it is an optional legacy demo feature.
-
-    if not OS.has_feature("web"):
-        _set_status("Not a web export. WebXRInterface is available only in web builds.")
-        return
 
     _webxr = XRServer.find_interface("WebXR")
     if not _webxr:

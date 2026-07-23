@@ -15,13 +15,22 @@ static func find_origin(from: Node) -> XROrigin3D:
 		cursor = cursor.get_parent()
 	if not from.is_inside_tree():
 		return null
-	var root := from.get_tree().current_scene
-	if root == null:
-		return null
+	# XRSceneRouter briefly overlaps the outgoing and incoming scene. A block in
+	# the incoming scene can enter/ready while SceneTree.current_scene still
+	# points at the outgoing launcher, so search the scene that owns `from`.
+	var root := _own_scene_root(from)
 	if root is XROrigin3D:
 		return root
 	var found := root.find_children("*", "XROrigin3D", true, false)
 	return found[0] if not found.is_empty() else null
+
+
+static func _own_scene_root(from: Node) -> Node:
+	var node := from
+	var tree_root := from.get_tree().root
+	while node.get_parent() != null and node.get_parent() != tree_root:
+		node = node.get_parent()
+	return node
 
 
 static func find_camera(from: Node) -> XRCamera3D:

@@ -1,6 +1,6 @@
 extends Node3D
 
-## WebXRPrefab - the one-drop-in XR setup. Instance this scene under any scene's
+## XRPrefab - the one-drop-in XR setup. Instance this scene under any scene's
 ## root and you get WebXR (browser) AND OpenXR (Quest Link / SteamVR / Android XR):
 ## controllers, hands, grab, and an auto-built VR/AR entry UI, with zero wiring.
 ##
@@ -18,6 +18,18 @@ extends Node3D
 var _xr_cam: XRCamera3D
 var _flat_cam: Camera3D
 var _was_xr := false
+
+const DEFAULT_RUNTIME_CONFIG := preload(
+	"res://addons/godot_webxr_kit/runtime/default_xr_runtime_config.tres"
+)
+
+## Edit the shared default resource for a project-wide policy, or assign a
+## duplicated XRRuntimeConfig here for a per-scene override.
+@export var runtime_config: XRRuntimeConfig = DEFAULT_RUNTIME_CONFIG
+
+
+func _enter_tree() -> void:
+	_apply_runtime_config()
 
 
 func _ready() -> void:
@@ -46,11 +58,46 @@ func _process(_delta: float) -> void:
 	_was_xr = xr
 
 
+func _apply_runtime_config() -> void:
+	if runtime_config == null:
+		return
+	var web_bootstrap := get_node_or_null("WebXRBootstrap")
+	if web_bootstrap:
+		web_bootstrap.set("enabled", runtime_config.webxr_enabled)
+		web_bootstrap.set("require_hand_tracking", runtime_config.webxr_require_hand_tracking)
+	var openxr_bootstrap := get_node_or_null("OpenXRBootstrap")
+	if openxr_bootstrap:
+		openxr_bootstrap.set("enabled", runtime_config.openxr_enabled)
+		openxr_bootstrap.set(
+			"start_in_passthrough",
+			runtime_config.openxr_start_in_passthrough
+		)
+		openxr_bootstrap.set(
+			"simultaneous_hands_and_controllers",
+			runtime_config.openxr_simultaneous_hands_and_controllers
+		)
+		openxr_bootstrap.set(
+			"headset_present_timeout",
+			runtime_config.native_headset_present_timeout
+		)
+
+
 func _find_scene_camera(exclude: Camera3D) -> Camera3D:
-	var scene := get_tree().current_scene
+	# XRSceneRouter briefly overlaps incoming and outgoing scenes. During the
+	# incoming prefab's _ready(), current_scene can still be the outgoing one,
+	# so search only the scene that actually owns this prefab.
+	var scene := _own_scene_root()
 	if scene == null:
 		return null
 	for cam in scene.find_children("*", "Camera3D", true, false):
 		if cam != exclude:
 			return cam as Camera3D
 	return null
+
+
+func _own_scene_root() -> Node:
+	var node: Node = self
+	var tree_root := get_tree().root
+	while node.get_parent() != null and node.get_parent() != tree_root:
+		node = node.get_parent()
+	return node

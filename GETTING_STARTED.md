@@ -33,8 +33,10 @@ Or copy the `addons/` folder in by hand. The suite is:
 | `godot_webxr_kit` | VR/AR session bootstrap, the XR rig, the WebXR shell |
 | `godot_xr_interaction_toolkit` | grab / hover / ray-pointer / socket / UI-raycast |
 | `godot_xr_hands` | hand-tracking gestures + gesture locomotion |
-| `godot_webxr_scene_understanding` | room mesh, planes, depth, occlusion, hit-test, anchors, light estimation |
+| `godot_xr_scene_understanding` | cross-runtime room mesh and depth/occlusion |
+| `godot_webxr_scene_understanding` | WebXR compatibility, hit-test, anchors, and light estimation |
 | `godot_webgpu` | one-checkbox WebGPU export (optional) |
+| `godot_universal_xr_apk` | one arm64 OpenXR APK for Quest 3 and Android XR |
 
 Every node in these is a `class_name` script, so they show up directly in
 **Add Node** — no plugin toggling required.

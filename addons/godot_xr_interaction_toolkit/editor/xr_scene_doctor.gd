@@ -91,7 +91,7 @@ func _apply_scene_fix(id: String) -> void:
 		return
 	match id:
 		_Setup.CHECK_RIG:
-			_add_scene_node((load(_Setup.KIT_PREFAB) as PackedScene).instantiate(), root, "Add WebXR Prefab")
+			_add_scene_node((load(_Setup.KIT_PREFAB) as PackedScene).instantiate(), root, "Add XR Prefab")
 		_Setup.CHECK_LIGHT:
 			var sun := DirectionalLight3D.new()
 			sun.name = "Sun"

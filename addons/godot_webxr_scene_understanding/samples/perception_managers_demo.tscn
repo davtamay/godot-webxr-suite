@@ -1,10 +1,10 @@
 [gd_scene load_steps=37 format=3]
 
-[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/xr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/perception_managers_demo.gd" id="9_demo"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_grab_interactable.gd" id="2_grab"]
-[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/environment_depth_manager.gd" id="3_depth"]
-[ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/scene_mesh_manager.gd" id="4_mesh"]
+[ext_resource type="Script" path="res://addons/godot_xr_scene_understanding/shared/environment_depth_manager.gd" id="3_depth"]
+[ext_resource type="Script" path="res://addons/godot_xr_scene_understanding/shared/scene_mesh_manager.gd" id="4_mesh"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/light_estimation_manager.gd" id="5_light"]
 [ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="6_fontbake"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_canvas_interactable.gd" id="10_uicanvas"]
@@ -152,6 +152,7 @@ occludees = Array[NodePath]([NodePath("../GrabCube"), NodePath("../GrabSphere")]
 
 [node name="SceneMeshManager" type="Node3D" parent="."]
 script = ExtResource("4_mesh")
+request_scene_capture_if_missing = true
 
 [node name="LightEstimationManager" type="Node3D" parent="."]
 script = ExtResource("5_light")
@@ -416,4 +417,4 @@ autowrap_mode = 2
 [node name="FontBakeAnchor" type="Label3D" parent="."]
 script = ExtResource("6_fontbake")
 
-[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
+[node name="XRPrefab" parent="." instance=ExtResource("1_prefab")]

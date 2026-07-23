@@ -1,6 +1,6 @@
 [gd_scene load_steps=7 format=3 uid="uid://cssqrflshfrxp"]
 
-[ext_resource type="PackedScene" uid="uid://crdc24h6y3686" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_xr"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/xr_prefab.tscn" id="1_xr"]
 [ext_resource type="PackedScene" uid="uid://bwrn3q4s5qp63" path="res://addons/godot_xr_interaction_toolkit/grabbable.tscn" id="2_grabbable"]
 
 [sub_resource type="Environment" id="Env"]
@@ -42,4 +42,4 @@ shape = SubResource("FloorShape")
 [node name="GrabCube" parent="." instance=ExtResource("2_grabbable")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, -0.6)
 
-[node name="WebXRPrefab" parent="." instance=ExtResource("1_xr")]
+[node name="XRPrefab" parent="." instance=ExtResource("1_xr")]

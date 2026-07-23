@@ -13,13 +13,14 @@ extends RefCounted
 
 const KIT_ACTION_MAP := "res://addons/godot_webxr_kit/openxr/default_action_map.tres"
 const KIT_SHELL := "res://addons/godot_webxr_kit/web/adaptable_shell.html"
-const KIT_PREFAB := "res://addons/godot_webxr_kit/webxr_prefab.tscn"
+const KIT_PREFAB := "res://addons/godot_webxr_kit/xr_prefab.tscn"
 const TOOLKIT_FLOOR := "res://addons/godot_xr_interaction_toolkit/xr_floor.tscn"
 const TOOLKIT_GRABBABLE := "res://addons/godot_xr_interaction_toolkit/grabbable.tscn"
 const PRESETS_PATH := "res://export_presets.cfg"
 
 ## Check ids (stable API for fix routing).
 const CHECK_OPENXR := "openxr_enabled"
+const CHECK_REFERENCE_SPACE := "openxr_reference_space"
 const CHECK_ACTION_MAP := "action_map"
 const CHECK_RENDERER := "renderer"
 const CHECK_WEB_PRESET := "web_preset"
@@ -38,6 +39,14 @@ static func run_project_checks() -> Array:
 		"label": "OpenXR enabled (headset Play via Link/SteamVR)",
 		"detail": "Without it, pressing Play renders flat on the monitor - the headset is never asked.",
 		"fix": "Enable OpenXR + hand tracking",
+	})
+
+	var local_floor := int(ProjectSettings.get_setting("xr/openxr/reference_space", 1)) == 2
+	checks.append({
+		"id": CHECK_REFERENCE_SPACE, "ok": local_floor,
+		"label": "OpenXR uses Local Floor",
+		"detail": "Matches WebXR local-floor. Stage can use an invalid or stale room boundary, changing user height and placing forward UI behind the startup view.",
+		"fix": "Use Local Floor reference space",
 	})
 
 	if ResourceLoader.exists(KIT_ACTION_MAP):
@@ -83,8 +92,8 @@ static func run_scene_checks(root: Node) -> Array:
 	checks.append({
 		"id": CHECK_RIG, "ok": has_rig,
 		"label": "XR rig in the scene",
-		"detail": "Drop WebXR Prefab (rig + sessions + hands + VR/AR entry UI) - the one required block.",
-		"fix": "Add WebXR Prefab" if ResourceLoader.exists(KIT_PREFAB) else "",
+		"detail": "Drop XR Prefab (shared rig + conditional WebXR/OpenXR sessions + hands) - the one required block.",
+		"fix": "Add XR Prefab" if ResourceLoader.exists(KIT_PREFAB) else "",
 	})
 
 	var has_light := not root.find_children("*", "DirectionalLight3D", true, false).is_empty() \
@@ -153,6 +162,10 @@ static func apply_project_fix(id: String) -> String:
 			ProjectSettings.set_setting("xr/openxr/extensions/hand_tracking", true)
 			ProjectSettings.save()
 			return "xr/openxr/enabled = true, hand tracking on."
+		CHECK_REFERENCE_SPACE:
+			ProjectSettings.set_setting("xr/openxr/reference_space", 2)
+			ProjectSettings.save()
+			return "OpenXR reference space -> Local Floor (matches WebXR)."
 		CHECK_ACTION_MAP:
 			ProjectSettings.set_setting("xr/openxr/default_action_map", KIT_ACTION_MAP)
 			ProjectSettings.save()

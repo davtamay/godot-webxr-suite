@@ -1,7 +1,8 @@
-# godot-webxr-suite
+# godot-xr-suite
 
-**XR building blocks for Godot 4.x** — browser-first (WebXR), editor-testable
-on a headset (Quest Link / SteamVR), drag-and-drop by design. Think Meta's
+**Cross-platform XR building blocks for Godot 4.x** — WebXR in browsers,
+native OpenXR APKs on headsets, and editor testing through Quest Link /
+SteamVR, drag-and-drop by design. Think Meta's
 Building Blocks or Unity's XRI + XR Hands, but easier: most blocks wire
 themselves the moment you drop them in.
 
@@ -15,7 +16,7 @@ themselves the moment you drop them in.
    editor if it switched the renderer.
 3. Click **New XR Scene** — you get a ready playground: rig + sessions +
    hands + teleportable floor + sun + sky + a grabbable in reach. (Or build
-   it yourself: drop **WebXR Prefab** and **Floor (teleportable)** from the
+   it yourself: drop **XR Prefab** and **Floor (teleportable)** from the
    catalog and add a light.)
 
 That's a working scene: look around, teleport, grab, poke, pinch — in the
@@ -44,9 +45,11 @@ interaction (grabs, teleports, sockets, gestures) for on-device debugging.
 | `godot_webxr_kit` | Platform & embodiment | Session bootstraps (WebXR browser + OpenXR editor/native), the pre-wired rig, input adapters, per-hand input modality, profile-matched controller models, export shell. |
 | `godot_xr_hands` | Hands provider | Hand visualization, the **Gesture Studio** (data-driven poses, record-first authoring, ghost-hand preview), thumb microgesture recognition. |
 | `godot_xr_interaction_toolkit` | Interaction (consumer) | Interactors (ray, direct, poke, socket), interactables + affordances, locomotion, in-world UI panels + keyboard, the XR Blocks dock. |
-| `godot_webxr_scene_understanding` | Perception | Room mesh, live depth occlusion, scene labels, light estimation, hit-test + anchors — as drag-drop managers. |
+| `godot_xr_scene_understanding` | Perception | Shared depth/scene-mesh managers with capability-selected WebXR, Meta OpenXR, and Android XR providers. |
+| `godot_webxr_scene_understanding` | Perception compatibility | Existing WebXR bridges plus light estimation and hit-test/anchors; old depth/mesh paths forward to the shared managers. |
 | `godot_blender_principled` | Materials | Blender Principled BSDF parity helpers + benchmark sample. |
 | `godot_webgpu` | Export | WebGPU web-export toggle + shader bake anchors (see Renderers below). |
+| `godot_universal_xr_apk` | Export | One arm64 OpenXR development APK for Quest 3 + Android XR, with an idempotent setup command and manifest validator. |
 
 **Layering rule:** providers produce input data (hands, platform events);
 consumers turn input into interaction. Consumers may depend softly downward
@@ -61,8 +64,8 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 ### Sessions & rig (`godot_webxr_kit`)
 | Block | What you get |
 |---|---|
-| **WebXR Prefab** | Everything XR in one drop: rig + both session bootstraps + hands + auto-built VR/AR entry UI. |
-| **WebXR Rig** | The rig alone (origin, camera, controllers, interactors, modality, locomotion, poke) — for scenes with their own HUD. |
+| **XR Prefab** | Everything XR in one drop: runtime-neutral rig + conditional WebXR/OpenXR bootstraps + hands. Browser entry UI exists only in web exports. |
+| **XR Rig** | The shared rig alone (origin, camera, controllers, interactors, modality, locomotion, poke) — for scenes with their own HUD. |
 | **Session UI** | Enter VR/AR buttons + status HUD; the WebXR bootstrap adopts it automatically. |
 | **WebXR / OpenXR Bootstrap** | Session lifecycle per platform; each is inert on the other's platform, so ship both. |
 | **Hands Mount** | Procedural or realistic tracked hands (`hand_style`); virtual meshes hide per hand while it drives a controller. |
@@ -105,7 +108,7 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 | **Gesture Recorder** | Hold a pose, get a gesture — targets from your recorded means, tolerances from your own jitter. See persistence below. |
 | Sequences (`XRHandSequence`) | Motion gestures as staged data (conditions + feature deltas + time windows) — the authored-swipe framework. |
 
-### Perception (`godot_webxr_scene_understanding`)
+### Perception (`godot_xr_scene_understanding`)
 | Block | What you get |
 |---|---|
 | **Occlusion / Depth** | Real-world occlusion (hard/soft) with a drag-in occludees list. |
@@ -157,7 +160,7 @@ which renderer is active.
 so every project sees edits instantly:
 
 ```powershell
-foreach ($a in @("godot_webxr_kit","godot_xr_hands","godot_xr_interaction_toolkit","godot_webxr_scene_understanding","godot_webgpu","godot_blender_principled")) {
+foreach ($a in @("godot_webxr_kit","godot_xr_hands","godot_xr_interaction_toolkit","godot_xr_scene_understanding","godot_webxr_scene_understanding","godot_webgpu","godot_universal_xr_apk","godot_blender_principled")) {
   New-Item -ItemType Junction -Path "<project>\addons\$a" -Target "<this repo>\addons\$a"
 }
 ```
@@ -166,4 +169,5 @@ foreach ($a in @("godot_webxr_kit","godot_xr_hands","godot_xr_interaction_toolki
 snapshot of `addons/*`.
 
 Design docs and standing decisions live in [`docs/`](docs/) — start with
-`architecture-decision-2026-07-17.md` and `gesture-authoring-design.md`.
+[`cross-platform-xr.md`](docs/cross-platform-xr.md),
+`architecture-decision-2026-07-17.md`, and `gesture-authoring-design.md`.

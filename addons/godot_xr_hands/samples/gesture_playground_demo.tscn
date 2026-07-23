@@ -1,6 +1,6 @@
 [gd_scene load_steps=9 format=3]
 
-[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/xr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_hands/samples/gesture_playground_demo.gd" id="2_demo"]
 [ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_recognizer.gd" id="3_recognizer"]
 [ext_resource type="Script" path="res://addons/godot_xr_hands/runtime/gesture_studio/xr_gesture_recorder.gd" id="9_recorder"]
@@ -99,4 +99,4 @@ autowrap_mode = 2
 [node name="FontBakeAnchor" type="Label3D" parent="."]
 script = ExtResource("8_fontbake")
 
-[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
+[node name="XRPrefab" parent="." instance=ExtResource("1_prefab")]

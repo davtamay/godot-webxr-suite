@@ -1,0 +1,6 @@
+[gd_resource type="Resource" script_class="XRRuntimeConfig" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_webxr_kit/runtime/xr_runtime_config.gd" id="1_config"]
+
+[resource]
+script = ExtResource("1_config")

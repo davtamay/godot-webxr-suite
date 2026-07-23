@@ -109,7 +109,7 @@ func _resolve_rig() -> void:
 	var origins := search_root.find_children("*", "XROrigin3D", true, false)
 	_origin = origins[0] as XROrigin3D if not origins.is_empty() else null
 	if _origin == null:
-		push_warning("XRSimulator: no XROrigin3D found - drop a WebXR Prefab/Rig first.")
+		push_warning("XRSimulator: no XROrigin3D found - drop an XR Prefab/Rig first.")
 		set_process(false)
 		return
 	var cameras := _origin.find_children("*", "XRCamera3D", true, false)

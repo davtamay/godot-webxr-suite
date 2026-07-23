@@ -36,6 +36,7 @@ var _labels_btn: Button
 ## Depth-occlude technique: false = working hard mesh punch, true = experimental
 ## per-pixel soft (feathered) occlusion.
 var _depth_soft := false
+var _depth_mode_initialized := false
 
 func _ready() -> void:
 	_build_ui()
@@ -246,19 +247,30 @@ func _on_res_pressed() -> void:
 	var b = _depth_bridge()
 	if b == null:
 		return
-	var count: int = b.RES_LEVELS.size()
-	b.set_resolution_level((b.res_level + 1) % count)
+	var count: int
+	var current: int
+	if b.has_method("resolution_level_count"):
+		count = b.resolution_level_count()
+		current = b.get_resolution_level()
+	else:
+		count = b.RES_LEVELS.size()
+		current = b.res_level
+	b.set_resolution_level((current + 1) % count)
 	_state_label.text = "Depth resolution: %s. Higher = sharper but heavier (esp. the CPU-depth path)." % b.resolution_label()
 	_sync()
 
 ## ---- helpers ----
 
 func _mesh_bridge():
-	var nodes := get_tree().get_nodes_in_group("webxr_mesh_bridge")
+	var nodes := get_tree().get_nodes_in_group("xr_scene_mesh_manager")
+	if nodes.is_empty():
+		nodes = get_tree().get_nodes_in_group("webxr_mesh_bridge")
 	return null if nodes.is_empty() else nodes[0]
 
 func _depth_bridge():
-	var nodes := get_tree().get_nodes_in_group("webxr_depth_bridge")
+	var nodes := get_tree().get_nodes_in_group("xr_environment_depth_manager")
+	if nodes.is_empty():
+		nodes = get_tree().get_nodes_in_group("webxr_depth_bridge")
 	return null if nodes.is_empty() else nodes[0]
 
 func _is_dynamic(bridge) -> bool:
@@ -271,6 +283,12 @@ func _session_features() -> String:
 		return ""
 	return str(webxr.get("enabled_features"))
 
+func _session_active() -> bool:
+	if not _session_features().is_empty():
+		return true
+	var openxr := XRServer.find_interface("OpenXR")
+	return openxr != null and openxr.is_initialized() and get_viewport().use_xr
+
 # The behavioural static/dynamic classifier can transiently flip (Quest's
 # re-localization bursts read as dynamic for a moment), which would flap the
 # active mesh row. Latch the verdict once per session so Room Mesh / Live Recon
@@ -278,7 +296,7 @@ func _session_features() -> String:
 var _dyn_latched := false
 var _dyn_value := false
 func _device_is_dynamic(mb) -> bool:
-	if _session_features().is_empty():
+	if not _session_active():
 		_dyn_latched = false
 		return _is_dynamic(mb)
 	if not _dyn_latched:
@@ -293,7 +311,7 @@ func _process(delta: float) -> void:
 	_refresh_accum += delta
 	if _refresh_accum >= 2.0:
 		_refresh_accum = 0.0
-		if not _session_features().is_empty():
+		if _session_active():
 			_sync()
 
 ## Reflect one toggle button: pressed state + a strong colour (the theme's
@@ -318,7 +336,7 @@ func _disable_row(lbl: Label, base_name: String, show_b: Button, occ_b: Button) 
 
 func _sync() -> void:
 	var feats := _session_features()
-	var in_session := not feats.is_empty()
+	var in_session := _session_active()
 	var mb = _mesh_bridge()
 	var dynamic := _device_is_dynamic(mb)
 	# Room Mesh applies on stored-scan (static) devices; Live Recon on live
@@ -329,13 +347,13 @@ func _sync() -> void:
 	elif dynamic:
 		_disable_row(_mesh_lbl, "Room Mesh", _mesh_show, _mesh_occ)
 		_live_lbl.text = "Live Recon"
-		_reflect(_live_show, mb.auto_visualize)
-		_reflect(_live_occ, mb.occlusion_enabled)
+		_reflect(_live_show, mb.is_visualizing() if mb.has_method("is_visualizing") else mb.auto_visualize)
+		_reflect(_live_occ, mb.is_occluding() if mb.has_method("is_occluding") else mb.occlusion_enabled)
 	else:
 		_disable_row(_live_lbl, "Live Recon", _live_show, _live_occ)
 		_mesh_lbl.text = "Room Mesh"
-		_reflect(_mesh_show, mb.auto_visualize)
-		_reflect(_mesh_occ, mb.occlusion_enabled)
+		_reflect(_mesh_show, mb.is_visualizing() if mb.has_method("is_visualizing") else mb.auto_visualize)
+		_reflect(_mesh_occ, mb.is_occluding() if mb.has_method("is_occluding") else mb.occlusion_enabled)
 
 	var db = _depth_bridge()
 	if db == null:
@@ -344,8 +362,11 @@ func _sync() -> void:
 			b.self_modulate = NA_COLOR
 		_res_btn.text = "      Resolution: -"
 	else:
-		_reflect(_depth_show, db.auto_visualize)
-		_reflect(_depth_occ, db.is_soft_occluding() if _depth_soft else db.occlude_enabled)
+		if not _depth_mode_initialized:
+			_depth_soft = db.is_soft_occluding()
+			_depth_mode_initialized = true
+		_reflect(_depth_show, db.is_visualizing() if db.has_method("is_visualizing") else db.auto_visualize)
+		_reflect(_depth_occ, db.is_soft_occluding() if _depth_soft else (db.is_occluding() if db.has_method("is_occluding") else db.occlude_enabled))
 		_occ_mode_btn.text = "      Occlude: %s" % ("Soft" if _depth_soft else "Hard")
 		# The edge-softness slider only makes sense in Soft mode.
 		_edge_row.visible = _depth_soft
@@ -355,4 +376,4 @@ func _sync() -> void:
 		_res_btn.text = "      Resolution: %s%s" % [db.resolution_label(), res_note]
 
 	if mb != null:
-		_reflect(_labels_btn, mb.show_labels)
+		_reflect(_labels_btn, mb.is_showing_labels() if mb.has_method("is_showing_labels") else mb.show_labels)
