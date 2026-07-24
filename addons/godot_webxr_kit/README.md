@@ -13,8 +13,9 @@ abstract `XRInputAdapter` and `XRHandTracker` helpers). Install both.
 ## Quick start: drop in the prefab (recommended)
 
 Instance **one** scene under your scene's root and you have WebXR (browser) AND
-OpenXR (Quest Link / SteamVR / Android XR) — controllers, hands, grab, and an
-auto-built VR/AR entry UI, with **zero wiring**:
+OpenXR (Quest Link / SteamVR / Android XR) — controllers, hands, and grab with
+**zero wiring**. On Web, the prefab automatically creates the browser Enter
+VR/AR UI. Native OpenXR starts directly without that browser UI:
 
 > **Instantiate Child Scene → `xr_prefab.tscn`** under your scene root. Done.
 
@@ -30,11 +31,13 @@ native headset timeout. The safe defaults are shared in
   only in-session.
 - Make an object grabbable: add an `XRGrabInteractable` (with a `CollisionObject3D`
   child) anywhere in your scene.
-- No session UI to build, no NodePaths to wire, no per-scene setup.
+- No browser session UI to build, no NodePaths to wire, no per-scene setup.
 
-The prefab bundles the rig + both session bootstraps (auto-built UI) + procedural
-hands. The one-time *project* setup for each runtime (OpenXR toggle for in-editor
-testing, custom HTML shell for the WebXR export) is documented below.
+The prefab bundles the rig + both session bootstraps + procedural hands. Its
+WebXR bootstrap auto-builds the browser UI; its OpenXR bootstrap starts the
+native session directly. The one-time *project* setup for each runtime (OpenXR
+toggle for in-editor testing, custom HTML shell for the WebXR export) is
+documented below.
 
 ## Advanced: the rig only
 

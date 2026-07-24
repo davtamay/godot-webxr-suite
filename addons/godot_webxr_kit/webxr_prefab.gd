@@ -2,7 +2,9 @@ extends Node3D
 
 ## XRPrefab - the one-drop-in XR setup. Instance this scene under any scene's
 ## root and you get WebXR (browser) AND OpenXR (Quest Link / SteamVR / Android XR):
-## controllers, hands, grab, and an auto-built VR/AR entry UI, with zero wiring.
+## controllers, hands, and grab with zero wiring. On Web, the prefab
+## automatically creates the browser Enter VR/AR UI. Native OpenXR starts
+## directly without that browser UI.
 ##
 ## Drops into EXISTING scenes without fighting your camera - if the scene already
 ## has a Camera3D it stays the flat view, and the XR camera takes over only
