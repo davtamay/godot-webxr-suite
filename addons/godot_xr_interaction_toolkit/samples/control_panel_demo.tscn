@@ -1,11 +1,11 @@
 [gd_scene load_steps=46 format=3]
 
-[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/webxr_prefab.tscn" id="1_prefab"]
+[ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/xr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/control_panel_demo.gd" id="2_demo"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_dial.gd" id="3_dial"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_lever.gd" id="4_lever"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_drawer.gd" id="5_drawer"]
-[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="6_fontbake"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_font_bake_anchor.gd" id="6_fontbake"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_surface_draggable.gd" id="7_surf"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_station.gd" id="20_pokestation"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_poke_button.gd" id="21_pokebutton"]
@@ -432,4 +432,4 @@ autowrap_mode = 2
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0.3)
 script = ExtResource("23_anchor")
 
-[node name="WebXRPrefab" parent="." instance=ExtResource("1_prefab")]
+[node name="XRPrefab" parent="." instance=ExtResource("1_prefab")]

@@ -11,10 +11,11 @@ extends RefCounted
 ## browser, and save a preference + reload to switch to the other.
 ##
 ## The preference is a localStorage key the export's HTML shell reads before
-## engine start-up and turns into GODOT_CONFIG.experimentalWebGPU
-## ("webgpu" keeps it on; anything else forces WebGL). Pure GDScript +
-## JavaScriptBridge; every call is safe off-web (returns sensible defaults so a
-## menu still builds in the editor).
+## engine start-up and turns into GODOT_CONFIG.experimentalWebGPU. With no
+## preference, the shell selects WebGPU for flat desktop and WebGL when an
+## immersive WebXR runtime is available. Pure GDScript + JavaScriptBridge; every
+## call is safe off-web (returns sensible defaults so a menu still builds in the
+## editor).
 ##
 ## Why a user would switch: today the only WebGPU gap is depth sensing - Quest's
 ## XRGPUBinding has no getDepthInformation - so depth scan and occlusion need
@@ -47,10 +48,11 @@ static func webgpu_supported() -> bool:
     if js == null:
         return false
     # __godotWebGPUCapable is stamped by a WebGPU-aware HTML shell as
-    # (this export baked the WebGPU driver) AND (the browser can render XR
-    # through WebGPU). Absent on stock Godot, on gl_compatibility exports, and on
-    # browsers without WebGPU-XR (no XRGPUBinding, e.g. Galaxy today) -> the menu
-    # stays WebGL-only there rather than showing a dead WebGPU button.
+    # (this export baked the WebGPU driver) AND (the browser exposes WebGPU).
+    # The separate __godotWebXRWebGPUCapable flag reports XRGPUBinding support;
+    # flat desktop WebGPU remains useful even when immersive XR cannot use it.
+    # Absent on stock Godot and gl_compatibility exports, so those builds stay
+    # WebGL-only instead of showing a dead WebGPU button.
     return bool(js.eval("(!!window.__godotWebGPUCapable)", true))
 
 ## Does the WebGPU XR path expose real-world depth on THIS browser? Feature-
@@ -75,6 +77,51 @@ static func preference() -> String:
         return ""
     var v = js.eval("(function(){try{return localStorage.getItem('%s')||'';}catch(e){return '';}})()" % PREF_KEY, true)
     return str(v) if v != null else ""
+
+## Compact browser/runtime status for an in-app diagnostics label. This makes
+## insecure LAN URLs obvious on the headset instead of leaving a disabled
+## "Enter VR" button unexplained.
+static func runtime_summary() -> String:
+    if not OS.has_feature("web"):
+        return "Desktop preview | WebXR requires a web export"
+    var js = _js()
+    if js == null:
+        return "Browser status unavailable"
+    var probe := """(function () {
+        try {
+            return JSON.stringify({
+                protocol: location.protocol,
+                host: location.host,
+                secure: window.isSecureContext === true,
+                webxr: !!navigator.xr,
+                width: window.innerWidth || 0,
+                height: window.innerHeight || 0,
+                dpr: window.devicePixelRatio || 1
+            });
+        } catch (e) {
+            return "{}";
+        }
+    })()"""
+    var raw = js.eval(probe, true)
+    var info = JSON.parse_string(str(raw))
+    if typeof(info) != TYPE_DICTIONARY:
+        return "Browser status unavailable"
+
+    var protocol := str(info.get("protocol", "")).trim_suffix(":").to_upper()
+    var host := str(info.get("host", "unknown host"))
+    var secure := bool(info.get("secure", false))
+    var webxr := bool(info.get("webxr", false))
+    var security_note := "secure context" if secure else "INSECURE: immersive WebXR blocked"
+    var xr_note := "WebXR API ready" if webxr else "WebXR API unavailable"
+    return "%s %s | %s | %s\nViewport %dx%d @ %.2fx" % [
+        protocol,
+        host,
+        security_note,
+        xr_note,
+        int(info.get("width", 0)),
+        int(info.get("height", 0)),
+        float(info.get("dpr", 1.0)),
+    ]
 
 ## Save a renderer preference ("webgl" or "webgpu") and reload the page so the
 ## shell boots the chosen backend. No-op off-web or for an unknown mode.

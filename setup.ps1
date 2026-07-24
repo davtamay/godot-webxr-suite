@@ -1,8 +1,11 @@
-# One-command setup for the Godot WebXR suite.
+# One-command setup for the Godot XR suite.
 #
 #   .\setup.ps1 -Project C:\path\to\your\project [-Engine C:\path\to\fork\bin]
 #
 # - Copies every addon into <Project>\addons\ (self-contained, no junctions).
+#   XR Suite then resolves which addons each project target needs; Web/APK
+#   export filters strip authoring metadata and opposite-platform providers.
+#   Re-running this command later is the easiest way to add new capabilities.
 # - If -Engine is given (the fork's bin folder with the built web templates),
 #   installs web_release.zip + web_nothreads_release.zip into Godot's export
 #   templates folder so the Web export "just works" (no custom_template path).
@@ -52,5 +55,6 @@ if ($Engine -ne "") {
 Write-Output ""
 Write-Output "Done. In the fork's Godot editor:"
 Write-Output "  1. Open $projRoot"
-Write-Output "  2. Play addons/godot_webxr_kit/samples/webxr_starter.tscn"
-Write-Output "  3. Export the Web preset (GL by default; tick WebGPU in the godot_webgpu addon for the WebGPU backend)"
+Write-Output "  2. Enable godot_xr_interaction_toolkit to open XR Suite"
+Write-Output "  3. Choose WebXR, Universal APK, or Both + features"
+Write-Output "  4. Click Configure Selected Targets, then create or open an XR scene"

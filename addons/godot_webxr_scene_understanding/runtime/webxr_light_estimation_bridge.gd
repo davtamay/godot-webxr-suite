@@ -41,6 +41,8 @@ func _ready() -> void:
 		_webxr.session_ended.connect(_on_session_ended)
 	_install_js_hook()
 	set_process(false)
+	if _webxr and _webxr.is_initialized():
+		_on_session_started()
 
 
 func _install_js_hook() -> void:

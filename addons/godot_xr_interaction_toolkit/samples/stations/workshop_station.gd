@@ -8,7 +8,7 @@ extends Node3D
 ## wiring in _wire().
 
 ## The rig used when a station is played on its own.
-const _DEBUG_RIG := preload("res://addons/godot_webxr_kit/webxr_prefab.tscn")
+const _DEBUG_RIG := preload("res://addons/godot_webxr_kit/xr_prefab.tscn")
 
 ## Objects below this height are stood back up at their home transform.
 var _floor_y := 0.2

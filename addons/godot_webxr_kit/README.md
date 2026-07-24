@@ -16,7 +16,14 @@ Instance **one** scene under your scene's root and you have WebXR (browser) AND
 OpenXR (Quest Link / SteamVR / Android XR) — controllers, hands, grab, and an
 auto-built VR/AR entry UI, with **zero wiring**:
 
-> **Instantiate Child Scene → `webxr_prefab.tscn`** under your scene root. Done.
+> **Instantiate Child Scene → `xr_prefab.tscn`** under your scene root. Done.
+
+`webxr_prefab.tscn` remains as a compatibility alias for existing projects.
+The root's `runtime_config` is the single user-facing policy surface. Assign an
+`XRRuntimeConfig` resource to enable/disable either adapter, make browser hand
+tracking required, opt into Meta simultaneous hands/controllers, or tune the
+native headset timeout. The safe defaults are shared in
+`runtime/default_xr_runtime_config.tres`.
 
 - Works in new scenes and **drops into existing ones without fighting your
   camera** — your scene's `Camera3D` stays the flat view; the XR camera takes over
@@ -56,7 +63,8 @@ project.
 
 ```text
 addons/godot_webxr_kit/
-  webxr_prefab.tscn / .gd         # THE drop-in: WebXR + OpenXR + hands + auto-UI, zero wiring
+  xr_prefab.tscn                   # canonical drop-in: WebXR + OpenXR + hands
+  webxr_prefab.tscn / .gd          # compatibility alias + shared prefab behavior
   plugin.cfg / plugin.gd
   rig/
     webxr_rig.tscn                # the pre-wired XR rig (used by the prefab)
@@ -112,6 +120,11 @@ browser path), so leave both bootstraps in every scene and each activates on its
 own platform. Because everything sits on the standard XR nodes, hands,
 controllers, and interaction behave identically to the WebXR path — so you
 iterate fast in-editor, then export to WebXR for the browser.
+
+The reverse boundary is equally strict: `WebXRBootstrap` exits before creating
+UI or touching browser APIs in native builds. `OpenXRBootstrap` exits on web.
+Gameplay blocks therefore do not branch on platform; only the two session
+adapters and optional capability providers do.
 
 ## WebGPU builds
 

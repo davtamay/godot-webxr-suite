@@ -13,7 +13,7 @@ extends Node3D
 ## - your own lines: get_tree().call_group("xr_debug_panel", "log_line", msg)
 ##
 ## Self-building (no scene deps), bake-safe materials. Label3D on WebGPU
-## exports needs a FontBakeAnchor (godot_webgpu addon); WebGL needs nothing.
+## exports need an XRFontBakeAnchor; WebGL needs nothing.
 
 const GROUP := "xr_debug_panel"
 ## OPAQUE on purpose: a transparent backdrop sorts against the (transparent)

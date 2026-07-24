@@ -12,14 +12,19 @@ On a stock Godot it's a harmless no-op.
 
 ## Select WebGPU / WebXR / both
 
-Selection lives in the **Web export preset** — everything's in the export panel,
-no menu items:
+Selection always lives in each individual Web export preset, whether or not
+XR Suite is installed. This lets one project keep a conservative WebGL preset
+and a separate WebGPU preset without synchronized duplicate controls.
+
+Project Validator reads those choices for validation but never changes them.
+WebGPU options are registered only for Web presets and never appear in Android
+profiles.
 
 - **`WebGPU`** (this addon) → the WebGPU rendering backend. Turning it on bakes
   shaders automatically (the raw `Shader Baker` toggle is hidden - it's plumbing),
   points the web build at WebGPU, and shows an in-panel **status line**:
-  `✓ Configured` once the project is ready, or a warning + one-click setup popup
-  if it isn't.
+  `✓ WebGPU preset enabled` once the project is ready, or a warning +
+  one-click setup popup if it isn't.
 - **`Uses WebXR`** (Godot's own) → build an immersive **WebXR** app (also makes
   the WebGPU adapter XR-compatible when both are on).
 
@@ -36,8 +41,9 @@ startup). That's the one fiddly bit, so **ticking `WebGPU` on an unconfigured
 project pops a one-click dialog**: it sets `rendering_method = mobile`,
 `rendering_method.web = mobile`, `driver.web = webgpu`, disables multiview XR
 shaders, and **restarts the editor**. After the restart, tick `WebGPU` again — it
-sticks, and the status line reads **✓ Configured**. "Configured" reflects the
-*actually running* renderer, so it never claims ready when it isn't.
+sticks, and the status line reads **✓ WebGPU preset enabled**. The status is
+shown only when the editor is actually running the required renderer, so it
+never claims ready before a needed restart.
 
 ## Runtime-built materials on WebGPU: declare-and-bake
 

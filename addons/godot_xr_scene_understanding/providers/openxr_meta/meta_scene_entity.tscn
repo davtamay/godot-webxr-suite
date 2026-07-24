@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/godot_xr_scene_understanding/providers/openxr_meta/meta_scene_entity.gd" id="1"]
+
+[node name="XRSceneEntity" type="Node3D"]
+script = ExtResource("1")

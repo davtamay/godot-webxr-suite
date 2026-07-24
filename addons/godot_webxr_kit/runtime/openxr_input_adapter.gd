@@ -25,6 +25,10 @@ extends "res://addons/godot_xr_interaction_toolkit/runtime/input/xr_controller_h
 @export var activate_action := "select"
 
 
+func _enter_tree() -> void:
+	add_to_group("xr_openxr_input_adapter")
+
+
 func _ready() -> void:
 	_resolve_rig()
 	if OS.has_feature("web"):

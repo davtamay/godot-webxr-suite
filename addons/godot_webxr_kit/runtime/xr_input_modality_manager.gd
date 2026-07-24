@@ -61,6 +61,14 @@ const _DEBOUNCE_SECONDS := 0.25
 ## built-in stylized primitives.
 @export var use_profile_models := true
 
+## Prefer real optical hand joints over a controller-like aim tracker when both
+## are reported for one side. Quest can keep a stale Touch interaction profile
+## bound while a bare hand points; without this, pointing swaps the hand mesh
+## for a controller model. When the optical hand disappears, the live controller
+## pose takes over normally. Turn off only for an intentionally simultaneous
+## hands+controllers experience where physical controllers must always win.
+@export var prefer_optically_tracked_hands := true
+
 ## Fetch device-specific models at runtime from the registry repository and
 ## cache them in user:// (downloads once per device). Off = only bundled
 ## models (the generic fallback ships in controller_models/).
@@ -183,13 +191,31 @@ func _detect(hand: int) -> Modality:
 			# bare-hand sources read hand profiles or none. Trackers that are
 			# live but carry no profile (plain WebXR without the hook) keep the
 			# old hand-first behavior.
-			if controller_live and _profile_is_controller(controller_tracker.profile):
-				return Modality.CONTROLLER
-			if hand_live:
-				return Modality.HAND
-			if controller_live:
-				return Modality.CONTROLLER
-			return Modality.NONE
+			return choose_auto_modality(
+				hand_live,
+				controller_live,
+				controller_tracker.profile if controller_tracker else "",
+				prefer_optically_tracked_hands
+			)
+
+
+## Pure arbitration helper kept separate so the runtime edge cases are unit
+## tested without needing a physical XRServer tracker in the test process.
+static func choose_auto_modality(
+	hand_live: bool,
+	controller_live: bool,
+	controller_profile: String,
+	prefer_hand: bool = true
+) -> Modality:
+	if prefer_hand and hand_live:
+		return Modality.HAND
+	if controller_live and _profile_is_controller(controller_profile):
+		return Modality.CONTROLLER
+	if hand_live:
+		return Modality.HAND
+	if controller_live:
+		return Modality.CONTROLLER
+	return Modality.NONE
 
 
 ## True when a tracker's bound interaction profile identifies a physical

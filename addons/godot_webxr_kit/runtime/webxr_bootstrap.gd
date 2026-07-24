@@ -12,6 +12,10 @@ signal session_started(mode: String)
 signal session_ended
 signal session_failed(message: String)
 
+## Runtime-configurable master switch. This node is always inert in native
+## builds, even when enabled, so it is safe to ship beside OpenXRBootstrap.
+@export var enabled := true
+
 ## The groups this bootstrap acts on, as constants so consumers never typo the
 ## magic strings (a misspelled group fails SILENTLY - e.g. a HUD outside
 ## GROUP_SESSION_HIDDEN renders into both eyes).
@@ -76,6 +80,13 @@ var _ar_hidden_node_visibility := {}
 var _session_hidden_node_visibility := {}
 
 func _ready() -> void:
+    # Check the platform before building browser entry UI or touching the
+    # WebXR interface. Native exports carry this node but pay no runtime/UI
+    # cost; OpenXRBootstrap exclusively owns their session.
+    if not enabled or not OS.has_feature("web"):
+        set_process(false)
+        return
+
     _vr_button = get_node_or_null(enter_vr_button_path) as Button
     if _vr_button == null:
         _vr_button = get_node_or_null(enter_xr_button_path) as Button
@@ -123,10 +134,6 @@ func _ready() -> void:
         _highlight_material.emission_energy_multiplier = 1.2
     # No inspect object is fine - it is an optional legacy demo feature.
 
-    if not OS.has_feature("web"):
-        _set_status("Not a web export. WebXRInterface is available only in web builds.")
-        return
-
     _webxr = XRServer.find_interface("WebXR")
     if not _webxr:
         _set_status("WebXR interface not found.")
@@ -139,6 +146,15 @@ func _ready() -> void:
     _connect_webxr_input_signal("select", _on_webxr_select)
     _connect_webxr_input_signal("selectstart", _on_webxr_select_start)
     _connect_webxr_input_signal("selectend", _on_webxr_select_end)
+
+    # Scene routers can replace one XR scene with another without ending the
+    # browser session. A bootstrap joining that hand-off has already missed
+    # session_started, so adopt the active interface immediately and apply the
+    # same viewport/UI state idempotently.
+    if _webxr.is_initialized():
+        _requested_session_mode = str(_webxr.session_mode)
+        _on_session_started()
+        return
 
     _set_status("Checking WebXR VR/AR support...")
     _webxr.is_session_supported("immersive-vr")

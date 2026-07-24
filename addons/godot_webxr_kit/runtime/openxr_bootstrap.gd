@@ -20,13 +20,27 @@ extends Node
 ## bootstrap so 2D HUDs don't composite into both eyes).
 @export var session_hide_group := "xr_session_hidden"
 
+## Runtime-configurable master switch. This node is always inert in web
+## exports, even when enabled, so it is safe to ship beside WebXRBootstrap.
+@export var enabled := true
+
+## Start native OpenXR in passthrough AR. Capability-based: Quest and Android
+## XR use alpha-blended composition; runtimes without it stay in opaque VR.
+## WebXR session mode remains owned by WebXRBootstrap and is unaffected.
+@export var start_in_passthrough := true
+
 ## Ask the runtime to track hands AND controllers at the same time, so each
 ## hand can hold a controller or go bare independently (Unity-XRI-style
 ## multimodal). Needs the godot_openxr_vendors plugin in the project AND a
 ## runtime that ships XR_META_simultaneous_hands_and_controllers (Quest 3 /
 ## Touch Pro, incl. over Link). Silently no-ops everywhere else - without it,
 ## platforms keep their own all-or-nothing hands<->controllers transition.
-@export var simultaneous_hands_and_controllers := true
+##
+## Off by default for the portable Quest + Android XR baseline. Some runtimes
+## keep a controller-like aim source alive while a bare hand points, causing
+## controller models to replace the tracked hand. Enable this only for a scene
+## that intentionally needs mixed per-hand input and has been tested per device.
+@export var simultaneous_hands_and_controllers := false
 
 ## Seconds to wait for the headset to actually present before falling back to
 ## flat/desktop mode. SteamVR / Quest Link can leave OpenXR "initialized" with
@@ -35,14 +49,30 @@ extends Node
 @export_range(0.5, 10.0, 0.5) var headset_present_timeout := 2.5
 
 const _MULTIMODAL_CLASS := &"OpenXRMetaSimultaneousHandsAndControllersExtension"
+const _META_PASSTHROUGH_CLASS := &"OpenXRFbPassthroughExtension"
+const _ACTIVE_BOOTSTRAP_GROUP := &"openxr_active_bootstrap"
+const _PASSTHROUGH_CLAIM_GROUP := &"xr_native_passthrough_provider"
+const _AUTO_PERMISSION_SETTING := "xr/openxr/extensions/automatically_request_runtime_permissions"
+const _PASSTHROUGH_RETRY_LIMIT := 20
 
 var _xr: XRInterface
 var _presented := false
+var _passthrough_claimed := false
+var _passthrough_retry_count := 0
+var _passthrough_retry_pending := false
+static var _android_permissions_requested := false
+
+
+func _enter_tree() -> void:
+	add_to_group(_ACTIVE_BOOTSTRAP_GROUP)
 
 
 func _ready() -> void:
-	if OS.has_feature("web"):
+	if not enabled or OS.has_feature("web"):
+		set_process(false)
 		return  # WebXR bootstrap handles the browser path.
+
+	_request_android_runtime_permissions()
 
 	_xr = XRServer.find_interface("OpenXR")
 	if _xr == null:
@@ -53,6 +83,13 @@ func _ready() -> void:
 		_xr = null
 		return
 
+	if start_in_passthrough:
+		if _xr.has_signal("session_begun"):
+			_xr.session_begun.connect(_on_native_session_begun)
+		if not _claim_native_passthrough():
+			_schedule_passthrough_retry()
+	else:
+		_set_native_opaque()
 	_set_group_hidden(true)
 	get_viewport().use_xr = true
 
@@ -70,6 +107,100 @@ func _ready() -> void:
 		_resume_multimodal()
 		if _xr.has_signal("session_begun"):
 			_xr.session_begun.connect(_resume_multimodal)
+
+
+## The official vendors AAR normally performs this step. Universal XR exports
+## deliberately avoid that vendor-specific loader, so use Godot's built-in
+## Android permission API instead. Android filters this to dangerous permissions
+## declared by the app and defined by the current device: Meta-only names are
+## ignored on Android XR and Android-XR-only names are ignored on Quest.
+func _request_android_runtime_permissions() -> void:
+	if not OS.has_feature("android"):
+		return
+	if not bool(ProjectSettings.get_setting(_AUTO_PERMISSION_SETTING, true)):
+		return
+	if _android_permissions_requested:
+		return
+	_android_permissions_requested = true
+	var already_granted := OS.request_permissions()
+	if already_granted:
+		print("OpenXRBootstrap: Android XR runtime permissions already granted.")
+	else:
+		print("OpenXRBootstrap: requested Android XR runtime permissions.")
+
+
+func _claim_native_passthrough() -> bool:
+	if _xr == null or _passthrough_claimed:
+		return _passthrough_claimed
+	var modes: Array = _xr.get_supported_environment_blend_modes()
+	var alpha_supported := XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND in modes
+	if not alpha_supported and Engine.has_singleton(_META_PASSTHROUGH_CLASS):
+		var meta_wrapper := Engine.get_singleton(_META_PASSTHROUGH_CLASS)
+		if (
+			meta_wrapper != null
+			and meta_wrapper.has_method("is_passthrough_supported")
+			and meta_wrapper.is_passthrough_supported()
+		):
+			# Quest exposes passthrough through XR_FB_passthrough and Godot's
+			# vendors extension emulates alpha composition after session setup.
+			if meta_wrapper.has_method("start_passthrough"):
+				meta_wrapper.start_passthrough()
+			alpha_supported = true
+	if not alpha_supported:
+		return false
+	if not _xr.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_ALPHA_BLEND):
+		return false
+	get_viewport().transparent_bg = true
+	add_to_group(_PASSTHROUGH_CLAIM_GROUP)
+	_passthrough_claimed = true
+	print("OpenXRBootstrap: native passthrough AR enabled.")
+	return true
+
+
+func _on_native_session_begun() -> void:
+	if not start_in_passthrough or _passthrough_claimed:
+		return
+	_passthrough_retry_count = 0
+	if not _claim_native_passthrough():
+		_schedule_passthrough_retry()
+
+
+func _schedule_passthrough_retry() -> void:
+	if _passthrough_retry_pending or _passthrough_claimed:
+		return
+	if _passthrough_retry_count >= _PASSTHROUGH_RETRY_LIMIT:
+		print("OpenXRBootstrap: passthrough is unavailable; staying in opaque VR.")
+		return
+	_passthrough_retry_pending = true
+	get_tree().create_timer(0.1).timeout.connect(_retry_native_passthrough)
+
+
+func _retry_native_passthrough() -> void:
+	_passthrough_retry_pending = false
+	if not is_inside_tree() or not start_in_passthrough or _passthrough_claimed:
+		return
+	_passthrough_retry_count += 1
+	if not _claim_native_passthrough():
+		_schedule_passthrough_retry()
+
+
+func _release_native_passthrough() -> void:
+	if not _passthrough_claimed:
+		return
+	remove_from_group(_PASSTHROUGH_CLAIM_GROUP)
+	_passthrough_claimed = false
+	if get_tree() and not get_tree().get_nodes_in_group(_PASSTHROUGH_CLAIM_GROUP).is_empty():
+		return
+	_set_native_opaque()
+
+
+func _set_native_opaque() -> void:
+	if _xr:
+		var modes: Array = _xr.get_supported_environment_blend_modes()
+		if XRInterface.XR_ENV_BLEND_MODE_OPAQUE in modes:
+			_xr.set_environment_blend_mode(XRInterface.XR_ENV_BLEND_MODE_OPAQUE)
+	if get_viewport():
+		get_viewport().transparent_bg = false
 
 
 ## Turn on simultaneous hands + controllers via the vendors plugin's extension
@@ -110,6 +241,7 @@ func _check_flat_fallback() -> void:
 		return
 	if _presented or _hmd_tracking():
 		return  # a headset is on and presenting - stay in XR.
+	_release_native_passthrough()
 	get_viewport().use_xr = false
 	_set_group_hidden(false)
 	_xr = null  # released - _exit_tree won't re-toggle
@@ -118,8 +250,18 @@ func _check_flat_fallback() -> void:
 
 func _exit_tree() -> void:
 	if _xr != null and get_viewport() != null:
-		get_viewport().use_xr = false
-		_set_group_hidden(false)
+		_release_native_passthrough()
+		# XRSceneRouter adds the incoming scene before releasing this one. Do
+		# not drop viewport.use_xr when another initialized bootstrap has
+		# already claimed it, or the compositor flashes its previous frame.
+		var replacement_is_active := false
+		for bootstrap in get_tree().get_nodes_in_group(_ACTIVE_BOOTSTRAP_GROUP):
+			if bootstrap != self and bootstrap.get("_xr") != null:
+				replacement_is_active = true
+				break
+		if not replacement_is_active:
+			get_viewport().use_xr = false
+			_set_group_hidden(false)
 
 
 func _set_group_hidden(hidden: bool) -> void:

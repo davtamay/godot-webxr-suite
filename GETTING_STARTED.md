@@ -1,7 +1,7 @@
-# Getting Started — WebXR in Godot (the 5-minute path)
+# Getting Started — Godot XR Suite
 
-Build a WebXR app that runs in the browser and on a headset, using **the same XR
-nodes you'd use for OpenXR** — nothing to reinvent.
+Build for WebXR, a universal Quest/Android XR APK, or both with the **same XR
+scene graph**.
 
 ---
 
@@ -33,11 +33,27 @@ Or copy the `addons/` folder in by hand. The suite is:
 | `godot_webxr_kit` | VR/AR session bootstrap, the XR rig, the WebXR shell |
 | `godot_xr_interaction_toolkit` | grab / hover / ray-pointer / socket / UI-raycast |
 | `godot_xr_hands` | hand-tracking gestures + gesture locomotion |
-| `godot_webxr_scene_understanding` | room mesh, planes, depth, occlusion, hit-test, anchors, light estimation |
+| `godot_xr_scene_understanding` | cross-runtime room mesh and depth/occlusion |
+| `godot_webxr_scene_understanding` | Optional WebXR perception provider, hit-test, anchors, and light estimation |
 | `godot_webgpu` | one-checkbox WebGPU export (optional) |
+| `godot_universal_xr_apk` | one arm64 OpenXR APK for Quest 3 and Android XR |
 
-Every node in these is a `class_name` script, so they show up directly in
-**Add Node** — no plugin toggling required.
+Enable `godot_xr_interaction_toolkit` to open **XR Suite**. Add the Web and/or
+Android presets you intend to ship under **Project > Export**, then run
+**Project Validator**. The presets are the source of truth: WebGPU is selected in
+each Web preset and Universal XR APK in each Android preset. Hands and Scene
+Understanding are inferred from project scene/script references. The Required
+Addons list shows
+what is available, what is missing, why it is needed, and its export
+footprint. Add a missing addon later and reopen **Project Validator**; opening the
+dialog always performs a fresh recheck. Addons installed for another platform are shown
+separately as available locally but not required. Changing presets never
+deletes project files; automatic export-time cleanup keeps opposite-platform
+and editor-only code out of the artifact. You do not need to run Repair before
+each build.
+
+Runtime nodes remain `class_name` scripts, so they also show up directly in
+**Add Node**.
 
 ## 3. Run the starter scene
 

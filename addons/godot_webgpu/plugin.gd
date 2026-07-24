@@ -46,7 +46,7 @@ func show_setup_popup() -> void:
 		+ "• Web build → WebGPU (falls back to WebGL where unsupported)\n"
 		+ "• Restarts the editor to apply the renderer\n\n"
 		+ "One-time setup. After the restart, tick WebGPU again in the export "
-		+ "preset - it will stick, and the status line will read Configured ✓.")
+		+ "preset - it will stick, and the status line will read WebGPU preset enabled.")
 	_dialog.popup_centered()
 
 
@@ -64,6 +64,5 @@ func _apply() -> void:
 
 
 func _base_ok() -> bool:
-	# "Configured" = the editor is actually running a RenderingDevice renderer (so
-	# the shader baker runs), not merely that the saved setting says so.
+	# Check the renderer that is actually running, not merely the saved setting.
 	return RenderingServer.get_rendering_device() != null
