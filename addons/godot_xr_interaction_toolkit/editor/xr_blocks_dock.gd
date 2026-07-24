@@ -1,11 +1,9 @@
 @tool
 extends VBoxContainer
 
-## The "XR Blocks" dock: every drop-in block across the suite's addons,
-## grouped by what you're building, with an icon and a one-line description -
-## double-click (or Add) to drop one into the edited scene, undo-aware.
-## Blocks from addons that are not installed are hidden automatically, so the
-## catalog always matches the project.
+## The "XR Suite" dock has two deliberately separate authoring jobs:
+## export-preset/addon validation at the top, and scene blocks below.
+## "Block" means only a node or scene authors can add to the edited scene.
 
 ## kind "scene" = instantiate a .tscn; "node" = create the script's node type
 ## with the script attached. Paths are existence-checked at refresh.
@@ -64,58 +62,54 @@ const CATEGORIES := [
 		{"name": "Keyboard (XR)", "desc": "In-world keyboard: open(initial, prompt) -> text_submitted/cancelled. Letters, digits, space, underscore.", "kind": "scene", "path": "res://addons/godot_xr_interaction_toolkit/xr_keyboard.tscn", "icon": "res://addons/godot_xr_interaction_toolkit/icons/xr_ui_canvas_interactable.svg"},
 	]},
 	{"name": "Perception (AR)", "blocks": [
-		{"name": "Occlusion / Depth", "desc": "Real-world occlusion (hard/soft) + depth debug. Occludees are a drag-in list.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_webxr_scene_understanding/runtime/environment_depth_manager.gd", "icon": "res://addons/godot_webxr_scene_understanding/icons/environment_depth_manager.svg"},
-		{"name": "Scene Mesh", "desc": "The device's room geometry: visualize, occlude, labels, collision.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_webxr_scene_understanding/runtime/scene_mesh_manager.gd", "icon": "res://addons/godot_webxr_scene_understanding/icons/scene_mesh_manager.svg"},
+		{"name": "Occlusion / Depth", "desc": "Runtime-neutral real-world occlusion (hard/soft) + depth debug. Uses the best installed WebXR or OpenXR provider.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_xr_scene_understanding/shared/environment_depth_manager.gd", "icon": "res://addons/godot_xr_scene_understanding/icons/environment_depth_manager.svg"},
+		{"name": "Scene Mesh", "desc": "Runtime-neutral room geometry: visualize, occlude, labels, collision. Uses the best installed WebXR or OpenXR provider.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_xr_scene_understanding/shared/scene_mesh_manager.gd", "icon": "res://addons/godot_xr_scene_understanding/icons/scene_mesh_manager.svg"},
 		{"name": "Light Estimation", "desc": "Objects lit by (and reflecting) the real room. Android XR / ARCore.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_webxr_scene_understanding/runtime/light_estimation_manager.gd", "icon": "res://addons/godot_webxr_scene_understanding/icons/light_estimation_manager.svg"},
 		{"name": "Hit Test + Anchors", "desc": "Surface reticle + pinch-to-place spatial anchors with your scene instanced at them.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_webxr_scene_understanding/runtime/hit_test_anchor_manager.gd", "icon": "res://addons/godot_webxr_scene_understanding/icons/hit_test_anchor_manager.svg"},
 	]},
 	{"name": "WebGPU Export", "blocks": [
 		{"name": "Bake Anchor", "desc": "Declare runtime-built materials so their shaders bake for WebGPU exports.", "kind": "node", "base": "Node3D", "path": "res://addons/godot_webgpu/bake_anchor.gd", "icon": "res://addons/godot_webgpu/icons/bake_anchor.svg"},
-		{"name": "Font Bake Anchor", "desc": "Makes 3D text render on WebGPU exports (bakes the Label3D shader).", "kind": "node", "base": "Label3D", "path": "res://addons/godot_webgpu/font_bake_anchor.gd", "icon": "res://addons/godot_webgpu/icons/font_bake_anchor.svg"},
+		{"name": "XR Font Bake Anchor", "desc": "Makes 3D text available to ahead-of-time shader baking across exports.", "kind": "node", "base": "Label3D", "path": "res://addons/godot_xr_interaction_toolkit/runtime/xr_font_bake_anchor.gd", "icon": "res://addons/godot_xr_interaction_toolkit/icons/xr_font_bake_anchor.svg"},
 	]},
 ]
 
 const _Setup := preload("res://addons/godot_xr_interaction_toolkit/editor/xr_project_setup.gd")
 const _DoctorScript := preload("res://addons/godot_xr_interaction_toolkit/editor/xr_scene_doctor.gd")
+const _ProjectDoctorScript := preload("res://addons/godot_xr_interaction_toolkit/editor/xr_project_doctor.gd")
 
 var _list: ItemList
 var _desc: Label
 var _add_button: Button
 var _visible_blocks := []  # parallel to list rows; null = category header row
 var _doctor: AcceptDialog
+var _project_doctor: AcceptDialog
 var _new_scene_dialog: EditorFileDialog
 var _search: LineEdit
 
 
+
 func _ready() -> void:
-	name = "XR Blocks"
-	var project_row := HBoxContainer.new()
-	add_child(project_row)
-	var setup_button := Button.new()
-	setup_button.text = "Set Up XR Project"
-	setup_button.tooltip_text = "Writes the project settings and Web export preset an XR project needs (OpenXR + action map + renderer + WebXR export). Reports every change."
-	setup_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	setup_button.pressed.connect(_on_setup_project)
-	project_row.add_child(setup_button)
-	var doctor_button := Button.new()
-	doctor_button.text = "Scene Doctor"
-	doctor_button.tooltip_text = "Checks the open scene + project for everything that fails silently on a headset, with one-click fixes."
-	doctor_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	doctor_button.pressed.connect(_on_open_doctor)
-	project_row.add_child(doctor_button)
+	name = "XR Suite"
+	_build_package_setup()
 
 	if ResourceLoader.exists(_Setup.KIT_PREFAB):
 		var new_scene_button := Button.new()
 		new_scene_button.text = "New XR Scene"
-		new_scene_button.tooltip_text = "Creates a ready playground scene: rig + sessions + hands + teleportable floor + sun + sky + a grabbable. Press Play to a headset or export for the browser."
+		new_scene_button.tooltip_text = "Creates a ready XR playground."
 		new_scene_button.pressed.connect(_on_new_scene)
 		add_child(new_scene_button)
 
-	var hint := Label.new()
-	hint.text = "Double-click a block to add it to the scene."
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.add_theme_font_size_override("font_size", 12)
-	add_child(hint)
+	var scene_title := Label.new()
+	scene_title.text = "SCENE BLOCKS"
+	scene_title.tooltip_text = "Reusable nodes and scenes you can add to the open scene."
+	scene_title.add_theme_color_override("font_color", Color(0.62, 0.78, 1.0))
+	add_child(scene_title)
+
+	var scene_hint := Label.new()
+	scene_hint.text = "Double-click a block to add it to the scene."
+	scene_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	scene_hint.add_theme_font_size_override("font_size", 12)
+	add_child(scene_hint)
 	_search = LineEdit.new()
 	_search.placeholder_text = "Search blocks..."
 	_search.clear_button_enabled = true
@@ -137,11 +131,48 @@ func _ready() -> void:
 	refresh()
 
 
-func _on_setup_project() -> void:
-	var lines := _Setup.setup_project()
-	for line in lines:
-		print("XR Setup: ", line)
-	_desc.text = "\n".join(lines)
+func _build_package_setup() -> void:
+	var title := Label.new()
+	title.text = "XR SUITE VALIDATOR"
+	title.tooltip_text = "Project-wide export and scene validation."
+	title.add_theme_color_override("font_color", Color(0.62, 0.78, 1.0))
+	add_child(title)
+
+	var hint := Label.new()
+	hint.text = (
+		"Export presets are the source of truth. Project Validator rechecks "
+		+ "presets, addons, configuration, and package footprint."
+	)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hint.add_theme_font_size_override("font_size", 12)
+	add_child(hint)
+
+	var project_doctor_button := Button.new()
+	project_doctor_button.text = "Project Validator"
+	project_doctor_button.tooltip_text = (
+		"Freshly validates export presets, required addons, XR settings, "
+		+ "and automatic export package cleanup; offers preset-scoped repair "
+		+ "only for missing project configuration."
+	)
+	project_doctor_button.pressed.connect(_on_open_project_doctor)
+	project_doctor_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+
+	var scene_doctor_button := Button.new()
+	scene_doctor_button.text = "Scene Validator"
+	scene_doctor_button.tooltip_text = (
+		"Checks the open scene for XR rig, lighting, collision, and "
+		+ "interaction problems."
+	)
+	scene_doctor_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scene_doctor_button.pressed.connect(_on_open_doctor)
+
+	var doctor_actions := HBoxContainer.new()
+	doctor_actions.add_child(project_doctor_button)
+	doctor_actions.add_child(scene_doctor_button)
+	add_child(doctor_actions)
+
+	var separator := HSeparator.new()
+	add_child(separator)
 
 
 func _on_new_scene() -> void:
@@ -170,6 +201,43 @@ func _on_open_doctor() -> void:
 		_doctor = _DoctorScript.new()
 		add_child(_doctor)
 	_doctor.popup_centered()
+
+
+func _on_open_project_doctor() -> void:
+	if _project_doctor == null:
+		_project_doctor = _ProjectDoctorScript.new()
+		add_child(_project_doctor)
+	_project_doctor.call(
+		"open_for_export_preset",
+		_current_export_preset_name()
+	)
+
+
+func _current_export_preset_name() -> String:
+	var pending: Array[Node] = [EditorInterface.get_base_control()]
+	while not pending.is_empty():
+		var node := pending.pop_back()
+		if node.has_method("get_current_preset"):
+			# Calling get_current_preset() before Godot's Export dialog has
+			# populated its ItemList emits an engine error. Check selection
+			# state first; the fallback below matches Godot's default.
+			var has_selection := false
+			for candidate in node.find_children("*", "ItemList", true, false):
+				var item_list := candidate as ItemList
+				if item_list != null and not item_list.get_selected_items().is_empty():
+					has_selection = true
+					break
+			if has_selection:
+				var preset: Variant = node.call("get_current_preset")
+				if (
+					preset is Object
+					and (preset as Object).has_method("get_preset_name")
+				):
+					return str((preset as Object).call("get_preset_name"))
+		for child in node.get_children():
+			if child is Node:
+				pending.append(child)
+	return _Setup.get_default_export_preset_name()
 
 
 func refresh() -> void:

@@ -1,11 +1,24 @@
-# Godot WebXR Scene Understanding
+# Godot WebXR Scene Understanding Provider
 
-Real-world awareness for WebXR sessions, as drop-in nodes.
+Optional browser acquisition for the runtime-neutral
+`godot_xr_scene_understanding` blocks, plus WebXR light estimation and
+compatibility paths. Hit Test + Anchors selects this addon's browser bridge on
+Web and the neutral room-surface provider on native OpenXR.
 
-## Quick start: the three managers (recommended)
+## Package boundary
 
-Drag-and-drop scene perception, mirroring the Unity / Meta component shape
-(`EnvironmentDepthManager`, `ARMeshManager`, light estimation). Add a node,
+- Requires `godot_xr_scene_understanding`.
+- Owns WebXR provider adapters and browser API bridges.
+- Does not own the shared depth/mesh manager API or its neutral resources.
+- Can be omitted from native-only projects and native exports.
+- Existing scenes using this addon's old manager paths remain compatible.
+
+## Quick start: the managers
+
+Drag-and-drop scene perception, mirroring the Unity / Meta component shape.
+Add the canonical neutral `EnvironmentDepthManager` or `SceneMeshManager`
+from `godot_xr_scene_understanding/shared/`, or add this provider's WebXR-only
+light estimation and anchor managers. Add a node,
 set a property, done — each manager requests its own session feature, reports
 per-device availability via `get_status()`, and shows editor configuration
 warnings when something is mis-wired. `samples/perception_managers_demo.tscn`
@@ -13,17 +26,16 @@ is the whole thing working with **zero code**.
 
 | Manager node | What you get | Key properties |
 |---|---|---|
-| `EnvironmentDepthManager` | Real-world **occlusion** (Meta parity): HARD = crisp depth-mesh punch over everything; SOFT = listed objects fade behind real surfaces (feathered, per-object). Occlusion materials are generated automatically from the pre-baked shader. Also the live depth debug view. | `occlusion_mode`, `occludees` (drag objects in; or mark objects with the `webxr_occludable` group; or `add_occludee()` at runtime), `edge_softness`, `debug_depth_visualization`, `depth_resolution` |
+| `EnvironmentDepthManager` | Real-world **occlusion** (Meta parity): HARD = crisp depth-mesh punch over everything; SOFT = listed objects fade behind real surfaces (feathered, per-object). Occlusion materials are generated automatically from the pre-baked shader. Also the live depth debug view. | `occlusion_mode`, `occludees` (drag objects in; or mark objects with the neutral `xr_occludable` group; legacy `webxr_occludable` remains supported), `edge_softness`, `debug_depth_visualization`, `depth_resolution` |
 | `SceneMeshManager` | The device's **room geometry**, device-adaptive: stored Space-Setup mesh on Quest, live reconstruction on Android XR. | `visualize`, `occlude` (static room occlusion), `scene_labels`, `generate_collision`, `mesh_color` |
 | `LightEstimationManager` | Virtual objects **lit by the real room**: SH environment sky (ambient + reflections) + a primary directional light with the room's colour/intensity/direction. Finds your WorldEnvironment automatically. | `affect_ambient`, `affect_reflections`, `create_primary_light`, `sky_intensity`, `responsiveness` |
-| `HitTestAnchorManager` | **Surface placement + spatial anchors** (ARRaycastManager/ARAnchorManager): a reticle tracks real surfaces along the viewer ray; pinch/select places a platform-tracked anchor there, and your scene is instanced at it automatically. Anchors are standard `XRAnchor3D` trackers. | `show_reticle`, `reticle_scene`, `place_on_select`, `placed_scene`, `maximum_anchors`, `place_anchor()`, `clear_anchors()` |
+| `HitTestAnchorManager` | **Surface placement + anchors** (ARRaycastManager/ARAnchorManager): WebXR uses browser hit-test/platform anchors; native OpenXR raycasts Quest/Android XR room geometry and creates world-locked in-session anchors. Anchors are standard `XRAnchor3D` trackers. | `show_reticle`, `reticle_scene`, `place_on_select`, `placed_scene`, `maximum_anchors`, `place_anchor()`, `clear_anchors()` |
 
 Platform notes: depth + light estimation are Android XR strengths (Quest
 serves gpu-only depth and no light estimation at all — see
 `samples/LIGHT_ESTIMATION_NOTES.md`); room mesh is a Quest strength (Android
 XR needs chrome://flags). The managers stay drop-in-safe everywhere —
-unsupported features report themselves honestly instead of breaking, and
-everything is inert outside a web export.
+unsupported features report themselves honestly instead of breaking.
 
 ## The acquisition bridges (advanced)
 
@@ -33,7 +45,7 @@ custom behavior:
 | Node | Feature | WebXR API | Works out of the box on |
 |---|---|---|---|
 | `webxr_mesh_bridge.gd` | Room mesh + semantic scene labels + static room-mesh occlusion | `mesh-detection` (`frame.detectedMeshes`) + `plane-detection` for labels on platforms whose meshes are untagged (Quest) | Quest (Space Setup). Android XR requires chrome://flags → WebXR Incubations. |
-| `webxr_depth_bridge.gd` | Live depth sensing → world-anchored depth mesh + **real-world occlusion** (Hard: live depth-mesh punch; Soft: per-object feathered `occlusion_object.gdshader`) | `depth-sensing` CPU path (`frame.getDepthInformation`) | Android XR (WebGL sessions). Quest grants **gpu-optimized only**, decoded via a grid-sized readback shader. |
+| `webxr_depth_bridge.gd` | Live depth sensing → world-anchored depth mesh + **real-world occlusion** (Hard: live depth-mesh punch; Soft: the neutral core's per-object feathered occlusion material) | `depth-sensing` CPU path (`frame.getDepthInformation`) | Android XR (WebGL sessions). Quest grants **gpu-optimized only**, decoded via a grid-sized readback shader. |
 
 Every node reports an honest `get_status()` for its path on the current
 device, including "behind browser flags" and "upcoming browser feature"
@@ -57,6 +69,12 @@ Browser-owned reflection cubemaps are detected and reported, but importing
 their native GPU texture into Godot remains a separate renderer-interop slice.
 
 ## Hit testing and anchors
+
+`HitTestAnchorManager` is target-adaptive. On Quest it automatically requests
+colliders from the stored Space Setup Scene Model; on Android XR it uses the
+live reconstruction mesh. A tracked hand/controller ray wins, with head view as
+the fallback. Native anchors are stable for the current session; persistent
+cross-session anchors remain a future vendor-provider capability.
 
 `webxr_hit_test_anchor_bridge.gd` publishes viewer-ray surface hits and stable
 anchor transforms using the optional `hit-test` and `anchors` features. The

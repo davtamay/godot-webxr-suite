@@ -24,6 +24,10 @@ func _supports_platform(platform: EditorExportPlatform) -> bool:
 
 
 func _get_export_options(platform: EditorExportPlatform) -> Array[Dictionary]:
+	# Godot requests plugin options while constructing every platform preset.
+	# Guard here too so Universal APK fields never appear in Web profiles.
+	if not _supports_platform(platform):
+		return []
 	return [
 		{
 			"option": {"name": ENABLED, "type": TYPE_BOOL},
@@ -42,6 +46,8 @@ func _get_export_options(platform: EditorExportPlatform) -> Array[Dictionary]:
 
 
 func _get_export_option_visibility(platform: EditorExportPlatform, option: String) -> bool:
+	if not _supports_platform(platform):
+		return false
 	if option == STATUS:
 		return _is_enabled()
 	return true

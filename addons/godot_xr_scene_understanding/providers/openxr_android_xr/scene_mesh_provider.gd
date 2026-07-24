@@ -8,6 +8,7 @@ const _OCCLUSION_MATERIAL := preload(
 const _QUERY_INTERVAL := 0.25
 const _STATE_UNCHANGED := 1
 const _STATE_DELETED := 3
+const _SURFACE_COLLISION_LAYER := 1 << 30
 
 var _extension: Object
 var _scene_meshing: Object
@@ -126,6 +127,8 @@ func _update_entry_geometry(entry: Dictionary, data: Object) -> void:
 		if old_body:
 			old_body.queue_free()
 		var body := StaticBody3D.new()
+		body.collision_layer = _SURFACE_COLLISION_LAYER
+		body.collision_mask = 0
 		var shape := CollisionShape3D.new()
 		shape.shape = mesh.create_trimesh_shape()
 		body.add_child(shape)

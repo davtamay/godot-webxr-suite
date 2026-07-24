@@ -103,6 +103,8 @@ func _ready() -> void:
 	_merged_punch.visible = false
 	add_child(_merged_punch)
 	_install_js_hook()
+	if _webxr and _webxr.is_initialized():
+		_on_session_started()
 
 func _install_js_hook() -> void:
 	if _installed:

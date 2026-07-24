@@ -17,6 +17,9 @@ session bootstraps remain in `godot_webxr_kit`.
   a device-specific AAR loader. The vendor addon itself remains unchanged.
 - Adds **Project > Tools > Set Up Universal XR APK Export**, which creates
   or repairs an idempotent `UniversalXRAPK` preset.
+- Registers the Universal XR APK choice only on Android presets. Project Validator
+  reads and validates that preset-local choice; there is no duplicate target
+  checkbox in the XR Suite dock.
 - Enforces arm64, Gradle, OpenXR, minimum Android API 34, and Godot's
   recommended Compatibility/OpenGL renderer override for standalone Android
   headsets.

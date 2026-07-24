@@ -5,9 +5,11 @@ Managers own the public API; providers own platform-specific acquisition:
 
 ```text
 godot_xr_scene_understanding/
+  icons/
+  runtime/
   shared/
   providers/
-    webxr/
+    openxr_common/
     openxr_meta/
     openxr_android_xr/
 ```
@@ -16,9 +18,25 @@ The router selects providers from runtime capabilities, never from device names.
 Quest and Android XR extensions are both requested as optional OpenXR
 extensions, following the same pattern proven by the universal Unreal APK.
 
-The former `godot_webxr_scene_understanding` paths remain compatibility
-wrappers. Existing scenes keep loading while new scenes can use this addon's
-canonical paths.
+## Building-block contract
+
+This addon owns the runtime-neutral managers, icons, shaders, and materials.
+It has no resource dependency on a browser-specific addon.
+
+- `EnvironmentDepthManager` and `SceneMeshManager` are the public blocks.
+- Native OpenXR providers are included here and selected by capability. The
+  common hit-test provider raycasts their neutral room-mesh collision layer and
+  creates session-local `XRAnchor3D` trackers.
+- The WebXR provider is optional and lives entirely in
+  `godot_webxr_scene_understanding`. When installed, the router discovers its
+  provider adapter and bridge on web. Without it, the neutral managers still
+  load and report `WebXR provider is not installed`.
+- The former `godot_webxr_scene_understanding` manager paths remain thin
+  compatibility wrappers, so existing scenes keep loading.
+
+Use the canonical `godot_xr_scene_understanding/shared/` paths in new scenes.
+Install `godot_webxr_scene_understanding` only when browser scene perception,
+browser hit testing/anchors, or WebXR light estimation are needed.
 
 ## Native dependency
 

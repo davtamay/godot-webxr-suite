@@ -33,6 +33,7 @@ var _edge_row: HBoxContainer
 var _edge_slider: HSlider
 var _edge_value_lbl: Label
 var _labels_btn: Button
+var _hit_test_btn: Button
 ## Depth-occlude technique: false = working hard mesh punch, true = experimental
 ## per-pixel soft (feathered) occlusion.
 var _depth_soft := false
@@ -113,6 +114,24 @@ func _build_ui() -> void:
 	lab_row.add_child(_labels_btn)
 	_rows.add_child(lab_row)
 
+	var hit_row := HBoxContainer.new()
+	hit_row.add_theme_constant_override("separation", 8)
+	var hit_name := Label.new()
+	hit_name.text = "Hit Test + Anchors"
+	hit_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hit_name.add_theme_font_size_override("font_size", 26)
+	_hit_test_btn = _toggle("Enable")
+	hit_row.add_child(hit_name)
+	hit_row.add_child(_hit_test_btn)
+	_rows.add_child(hit_row)
+
+	var hit_help := Label.new()
+	hit_help.text = "      Shows a surface target; pinch/select to place anchored beacons."
+	hit_help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	hit_help.add_theme_font_size_override("font_size", 18)
+	hit_help.modulate = Color(0.68, 0.72, 0.78)
+	_rows.add_child(hit_help)
+
 	# Wiring. Room Mesh and Live Recon drive the SAME mesh bridge; only the
 	# enabled row can fire, so both point at the same handlers.
 	_mesh_show.toggled.connect(_on_mesh_show)
@@ -125,6 +144,7 @@ func _build_ui() -> void:
 	_occ_mode_btn.pressed.connect(_on_occ_mode_pressed)
 	_edge_slider.value_changed.connect(_on_edge_changed)
 	_labels_btn.toggled.connect(_on_labels_toggled)
+	_hit_test_btn.toggled.connect(_on_hit_test_toggled)
 
 ## Live soft-occlusion edge softness (0 = crispest .. 1 = softest).
 func _on_edge_changed(v: float) -> void:
@@ -241,6 +261,16 @@ func _on_labels_toggled(pressed: bool) -> void:
 	_state_label.text = b.get_status()
 	_sync()
 
+
+func _on_hit_test_toggled(pressed: bool) -> void:
+	var manager = _hit_test_manager()
+	if manager == null:
+		_state_label.text = "Hit Test + Anchors manager missing."
+		return
+	manager.set_enabled(pressed)
+	_state_label.text = manager.get_status()
+	_sync()
+
 ## Cycle the depth sensor grid Low -> ... -> Max -> Low. Higher = sharper
 ## Depth Scan/occlusion up to the sensor's own resolution, but heavier.
 func _on_res_pressed() -> void:
@@ -271,6 +301,11 @@ func _depth_bridge():
 	var nodes := get_tree().get_nodes_in_group("xr_environment_depth_manager")
 	if nodes.is_empty():
 		nodes = get_tree().get_nodes_in_group("webxr_depth_bridge")
+	return null if nodes.is_empty() else nodes[0]
+
+
+func _hit_test_manager():
+	var nodes := get_tree().get_nodes_in_group("xr_hit_test_anchor_manager")
 	return null if nodes.is_empty() else nodes[0]
 
 func _is_dynamic(bridge) -> bool:
@@ -377,3 +412,12 @@ func _sync() -> void:
 
 	if mb != null:
 		_reflect(_labels_btn, mb.is_showing_labels() if mb.has_method("is_showing_labels") else mb.show_labels)
+
+	var hit_manager = _hit_test_manager()
+	if hit_manager == null:
+		_hit_test_btn.set_pressed_no_signal(false)
+		_hit_test_btn.disabled = true
+		_hit_test_btn.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_hit_test_btn.self_modulate = NA_COLOR
+	else:
+		_reflect(_hit_test_btn, hit_manager.is_enabled())

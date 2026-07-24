@@ -68,13 +68,13 @@ func _provider_paths() -> PackedStringArray:
 	var paths := PackedStringArray()
 	if feature == "environment_depth":
 		if OS.has_feature("web"):
-			paths.append(_provider_path("webxr", "environment_depth_provider.gd"))
+			paths.append(_optional_webxr_provider_path("environment_depth_provider.gd"))
 		else:
 			paths.append(_provider_path("openxr_meta", "environment_depth_provider.gd"))
 			paths.append(_provider_path("openxr_android_xr", "environment_depth_provider.gd"))
 	elif feature == "scene_mesh":
 		if OS.has_feature("web"):
-			paths.append(_provider_path("webxr", "scene_mesh_provider.gd"))
+			paths.append(_optional_webxr_provider_path("scene_mesh_provider.gd"))
 		else:
 			# Android has an explicit support probe. Try it first, then Meta's
 			# stored Scene Model.
@@ -95,6 +95,16 @@ func _provider_path(provider: String, file_name: String) -> String:
 	)
 
 
+func _optional_webxr_provider_path(file_name: String) -> String:
+	# The browser acquisition package depends on this neutral core, never the
+	# other way around. Constructing the path keeps it a soft, strippable edge.
+	return (
+		"res:"
+		+ "//addons/godot_webxr_scene_understanding/providers/"
+		+ file_name
+	)
+
+
 func get_provider_id() -> String:
 	return _active.provider_id if _active else "detecting"
 
@@ -103,6 +113,8 @@ func get_status() -> String:
 	if _active:
 		return _active.get_status()
 	if OS.has_feature("web"):
+		if not _has_webxr_provider():
+			return "%s: WebXR provider is not installed." % _feature_label()
 		return "%s: waiting for WebXR session." % _feature_label()
 	if _attempts < 2:
 		return "%s: waiting for OpenXR capabilities." % _feature_label()
@@ -153,6 +165,29 @@ func _set_option_and_forward(key: String, value: Variant, method: String) -> voi
 
 func _feature_label() -> String:
 	return "Environment depth" if feature == "environment_depth" else "Scene mesh"
+
+
+func _has_webxr_provider() -> bool:
+	var provider_file := (
+		"environment_depth_provider.gd"
+		if feature == "environment_depth"
+		else "scene_mesh_provider.gd"
+	)
+	var bridge_file := (
+		"webxr_depth_bridge.gd"
+		if feature == "environment_depth"
+		else "webxr_mesh_bridge.gd"
+	)
+	var provider_path := _optional_webxr_provider_path(provider_file)
+	var bridge_path := (
+		"res:"
+		+ "//addons/godot_webxr_scene_understanding/runtime/"
+		+ bridge_file
+	)
+	return (
+		ResourceLoader.exists(provider_path, "Script")
+		and ResourceLoader.exists(bridge_path, "Script")
+	)
 
 
 func _on_provider_status_changed() -> void:

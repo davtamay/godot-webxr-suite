@@ -8,6 +8,7 @@ const _ENTITY_SCENE := preload(
 const _OCCLUSION_MATERIAL := preload(
 	"res://addons/godot_xr_scene_understanding/runtime/native_mesh_occlusion_material.tres"
 )
+const _SURFACE_COLLISION_LAYER := 1 << 30
 
 var _manager: Node
 var _entities: Array[Node] = []
@@ -87,6 +88,8 @@ func _on_scene_anchor_created(scene_node: Object, spatial_entity: Object) -> voi
 			if shape:
 				var body := StaticBody3D.new()
 				body.name = "RoomCollision"
+				body.collision_layer = _SURFACE_COLLISION_LAYER
+				body.collision_mask = 0
 				body.add_child(shape)
 				node.add_child(body)
 		_configure_entity(node)

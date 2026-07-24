@@ -6,7 +6,7 @@
 [ext_resource type="Script" path="res://addons/godot_xr_scene_understanding/shared/environment_depth_manager.gd" id="3_depth"]
 [ext_resource type="Script" path="res://addons/godot_xr_scene_understanding/shared/scene_mesh_manager.gd" id="4_mesh"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/light_estimation_manager.gd" id="5_light"]
-[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="6_fontbake"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_font_bake_anchor.gd" id="6_fontbake"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_ui_canvas_interactable.gd" id="10_uicanvas"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/samples/feature_panel.gd" id="11_feature"]
 [ext_resource type="Script" path="res://addons/godot_webxr_scene_understanding/runtime/hit_test_anchor_manager.gd" id="12_hit"]
@@ -17,10 +17,10 @@
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_scene_understanding/samples/anchor_marker.tscn" id="17_marker"]
 
 [sub_resource type="QuadMesh" id="PanelQuad"]
-size = Vector2(1.7, 1.25)
+size = Vector2(1.7, 1.55)
 
 [sub_resource type="BoxShape3D" id="PanelShape"]
-size = Vector3(1.7, 1.25, 0.08)
+size = Vector3(1.7, 1.55, 0.08)
 
 [sub_resource type="BoxMesh" id="StageMesh"]
 size = Vector3(3.35, 0.06, 0.62)
@@ -147,7 +147,6 @@ shape = SubResource("SphereShape")
 
 [node name="EnvironmentDepthManager" type="Node3D" parent="."]
 script = ExtResource("3_depth")
-occlusion_mode = 2
 occludees = Array[NodePath]([NodePath("../GrabCube"), NodePath("../GrabSphere")])
 
 [node name="SceneMeshManager" type="Node3D" parent="."]
@@ -162,8 +161,8 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.4, -2.2)
 script = ExtResource("10_uicanvas")
 viewport_path = NodePath("Viewport")
 panel_mesh_path = NodePath("PanelMesh")
-panel_size = Vector2(1.7, 1.25)
-viewport_pixel_size = Vector2i(1000, 736)
+panel_size = Vector2(1.7, 1.55)
+viewport_pixel_size = Vector2i(1000, 920)
 
 [node name="PanelMesh" type="MeshInstance3D" parent="FeaturePanel"]
 mesh = SubResource("PanelQuad")
@@ -176,7 +175,7 @@ shape = SubResource("PanelShape")
 [node name="Viewport" type="SubViewport" parent="FeaturePanel"]
 disable_3d = true
 render_target_update_mode = 4
-size = Vector2i(1000, 736)
+size = Vector2i(1000, 920)
 
 [node name="Root" type="Control" parent="FeaturePanel/Viewport"]
 layout_mode = 3
@@ -243,34 +242,12 @@ layout_mode = 2
 theme_override_font_sizes/font_size = 18
 theme_override_colors/font_color = Color(0.62, 0.66, 0.72, 1)
 autowrap_mode = 3
-text = "Room Mesh & Live Recon -> mesh-detection. Depth Scan -> depth-sensing (live per-frame depth, even a moving hand). Scene Labels -> plane-detection. Show = draw it; Occlude = hide virtual content behind it."
+text = "Show draws perception data; Occlude hides virtual content behind it. Hit Test + Anchors is opt-in so ordinary pinches never place content."
 
 [node name="HitTestAnchorManager" type="Node3D" parent="."]
 script = ExtResource("12_hit")
 reticle_scene = ExtResource("16_reticle")
 placed_scene = ExtResource("17_marker")
-
-[node name="AnchorsGuide" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2.4, 1.5, -1.4)
-
-[node name="Title" type="Label3D" parent="AnchorsGuide"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.18, 0)
-modulate = Color(0.76, 0.95, 1, 1)
-pixel_size = 0.0015
-billboard = 1
-text = "HIT TEST + ANCHORS"
-font_size = 32
-outline_size = 8
-
-[node name="Status" type="Label3D" parent="AnchorsGuide"]
-modulate = Color(0.76, 0.95, 1, 1)
-pixel_size = 0.00125
-billboard = 1
-text = "Enter AR. A ring reticle rides the real surface under your hand/controller ray - pinch or select to drop an anchored beacon. Head-view aiming is the automatic fallback."
-font_size = 25
-outline_size = 7
-width = 1100.0
-autowrap_mode = 2
 
 [node name="LightSection" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.6, 0, 0.4)
@@ -408,7 +385,7 @@ text = "SCENE PERCEPTION SHOWCASE
 DEPTH / OCCLUSION: toggle it on the panel; put your hand in front of the cube or sphere
 SCENE MESH & LABELS: Room Mesh / Live Recon / Scene Labels on the panel
 LIGHT LAB: teleport to the pad on your right - grab the sphere, tune its material
-ANCHORS: point at the floor and select to drop an anchor"
+HIT TEST + ANCHORS: enable it on the panel, then pinch/select to place"
 font_size = 26
 outline_size = 8
 width = 1600.0

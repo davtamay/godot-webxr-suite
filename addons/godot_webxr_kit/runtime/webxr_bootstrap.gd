@@ -147,6 +147,15 @@ func _ready() -> void:
     _connect_webxr_input_signal("selectstart", _on_webxr_select_start)
     _connect_webxr_input_signal("selectend", _on_webxr_select_end)
 
+    # Scene routers can replace one XR scene with another without ending the
+    # browser session. A bootstrap joining that hand-off has already missed
+    # session_started, so adopt the active interface immediately and apply the
+    # same viewport/UI state idempotently.
+    if _webxr.is_initialized():
+        _requested_session_mode = str(_webxr.session_mode)
+        _on_session_started()
+        return
+
     _set_status("Checking WebXR VR/AR support...")
     _webxr.is_session_supported("immersive-vr")
     _webxr.is_session_supported("immersive-ar")

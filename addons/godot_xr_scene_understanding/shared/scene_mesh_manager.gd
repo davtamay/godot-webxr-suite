@@ -1,5 +1,5 @@
 @tool
-@icon("res://addons/godot_webxr_scene_understanding/icons/scene_mesh_manager.svg")
+@icon("res://addons/godot_xr_scene_understanding/icons/scene_mesh_manager.svg")
 class_name SceneMeshManager
 extends Node3D
 
@@ -69,6 +69,11 @@ func _enter_tree() -> void:
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
+	# A surface-placement manager needs real-room physics even when visualization
+	# and occlusion are off. Resolve this automatically so adding the block is
+	# enough; authors do not need to discover a second collision checkbox.
+	if not get_tree().get_nodes_in_group("xr_hit_test_anchor_manager").is_empty():
+		generate_collision = true
 	_provider = _ROUTER_SCRIPT.new()
 	_provider.name = "SceneMeshProvider"
 	_provider.configure("scene_mesh", {

@@ -42,8 +42,8 @@ extends Node3D
 ##     mesh drawn with a subtract-blend punch (_punch_instance). Crisp, cheap,
 ##     reliable - the default.
 ##   SOFT (set_ext_harvest): the depth grid is uploaded as a per-eye texture
-##     array and PUSHED onto occludable objects' occlusion_object.gdshader
-##     (group 'webxr_occludable'), which fades each object to passthrough where
+##     array and PUSHED onto occludable objects' neutral occlusion shader
+##     (group 'xr_occludable'), which fades each object to passthrough where
 ##     the real world is in front, with a feathered edge (the Meta/Unity
 ##     per-object technique). No fullscreen quad, no scene DEPTH_TEXTURE.
 ## The old FULLSCREEN sensor occluder (webxr_occluder + webxr_occlusion*.gdshader)
@@ -159,11 +159,13 @@ func _ready() -> void:
 	_scan_instance.material_override = SCAN_MATERIAL.duplicate()
 	add_child(_scan_instance)
 	_install_js_hook()
+	if _webxr and _webxr.is_initialized():
+		_on_session_started()
 
-## Push a shader parameter onto every occludable object's material (group
-## 'webxr_occludable'; their ShaderMaterial drives the per-object soft occlusion).
+## Push a shader parameter onto every occludable object's material. The neutral
+## group is canonical; the old WebXR group remains a compatibility input.
 func _push_occlusion(param: StringName, value: Variant) -> void:
-	for node in get_tree().get_nodes_in_group("webxr_occludable"):
+	for node in _occludable_nodes():
 		if node is MeshInstance3D:
 			var mat: Material = node.get_surface_override_material(0)
 			if mat == null:
@@ -834,7 +836,7 @@ func get_status() -> String:
 	var usage := str(js.eval("window.GodotWebXRDepthBridge ? window.GodotWebXRDepthBridge.usage : '';", true))
 	var status := str(js.eval("window.GodotWebXRDepthBridge ? window.GodotWebXRDepthBridge.status : '';", true))
 	var size := str(js.eval("window.GodotWebXRDepthBridge ? window.GodotWebXRDepthBridge.size : '';", true))
-	if not auto_visualize:
+	if not (auto_visualize or occlude_enabled or _ext_harvest):
 		return "Depth sensing: granted (usage: %s). Toggle on to harvest." % (usage if not usage.is_empty() else "pending")
 	var path := str(js.eval("window.GodotWebXRDepthBridge ? String(window.GodotWebXRDepthBridge.path || '') : '';", true))
 	match status:
@@ -999,7 +1001,7 @@ func set_occ_softness(v: float) -> void:
 ## back to opaque otherwise. An OPAQUE object writes depth so the Hard mesh punch
 ## respects it; the transparent occlusion shader would let the punch through.
 func _swap_occlusion_materials(on: bool) -> void:
-	for node in get_tree().get_nodes_in_group("webxr_occludable"):
+	for node in _occludable_nodes():
 		if not (node is MeshInstance3D):
 			continue
 		if on:
@@ -1008,6 +1010,15 @@ func _swap_occlusion_materials(on: bool) -> void:
 				node.set_surface_override_material(0, node.get_meta("occ_material"))
 		elif node.has_meta("opaque_material"):
 			node.set_surface_override_material(0, node.get_meta("opaque_material"))
+
+
+func _occludable_nodes() -> Array[Node]:
+	var nodes: Array[Node] = []
+	for group: StringName in [&"xr_occludable", &"webxr_occludable"]:
+		for node: Node in get_tree().get_nodes_in_group(group):
+			if not nodes.has(node):
+				nodes.append(node)
+	return nodes
 
 
 ## Bucket this harvest's connected triangles into world chunks by centroid

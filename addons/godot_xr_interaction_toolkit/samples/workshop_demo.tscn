@@ -2,7 +2,7 @@
 
 [ext_resource type="PackedScene" path="res://addons/godot_webxr_kit/xr_prefab.tscn" id="1_prefab"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/workshop_demo.gd" id="2_demo"]
-[ext_resource type="Material" path="res://addons/godot_webgpu/font_bake_material.tres" id="2_rjtmv"]
+[ext_resource type="Material" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_font_bake_material.tres" id="2_rjtmv"]
 [ext_resource type="Script" path="res://addons/godot_webxr_kit/webxr_prefab.gd" id="6_3h7dy"]
 [ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/stations/throw_station.tscn" id="7_bjf8r"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/throw_station.gd" id="8_elkrb"]
@@ -10,7 +10,7 @@
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/draw_station.gd" id="10_08hju"]
 [ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/stations/shoot_station.tscn" id="11_ji0sk"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/shoot_station.gd" id="12_ckbhh"]
-[ext_resource type="Script" path="res://addons/godot_webgpu/font_bake_anchor.gd" id="12_fontbake"]
+[ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_font_bake_anchor.gd" id="12_fontbake"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/runtime/xr_microgesture_locomotion_driver.gd" id="13_micro"]
 [ext_resource type="PackedScene" path="res://addons/godot_xr_interaction_toolkit/samples/stations/spray_station.tscn" id="13_qc86i"]
 [ext_resource type="Script" path="res://addons/godot_xr_interaction_toolkit/samples/stations/spray_station.gd" id="14_fuie5"]

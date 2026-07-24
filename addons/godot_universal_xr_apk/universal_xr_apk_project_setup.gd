@@ -8,6 +8,40 @@ const LEGACY_PRESET_NAME := "UniversalAndroidXR"
 const PRESET_PATH := "res://export_presets.cfg"
 const DEFAULT_EXPORT_PATH := "build/android/universal/GodotXR-universal-debug.apk"
 const DEFAULT_ACTION_MAP := "res://addons/godot_webxr_kit/openxr/default_action_map.tres"
+const DEFAULT_EXCLUDE_FILTERS := [
+	"tests/*",
+	"build/**/*",
+	"web/*",
+	"web/**/*",
+	"addons/godot_webxr_kit/web/*",
+	"addons/godot_webxr_kit/web/**/*",
+	"addons/godot_webgpu/*",
+	"addons/godot_webgpu/**/*",
+	"addons/godot_webxr_scene_understanding/providers/*",
+	"addons/godot_webxr_scene_understanding/providers/**/*",
+	"addons/godot_webxr_scene_understanding/runtime/webxr_depth_bridge.gd*",
+	"addons/godot_webxr_scene_understanding/runtime/webxr_mesh_bridge.gd*",
+	"addons/godot_webxr_scene_understanding/runtime/webxr_hit_test_anchor_bridge.gd*",
+	"addons/godot_webxr_scene_understanding/runtime/webxr_light_estimation_bridge.gd*",
+	"addons/godotopenxrvendors/.bin/windows/**/*",
+	"addons/godotopenxrvendors/.bin/linux/**/*",
+	"addons/godotopenxrvendors/.bin/macos/**/*",
+	"addons/godotopenxrvendors/.bin/android/debug/*",
+	"addons/godotopenxrvendors/.bin/android/debug/**/*",
+	"addons/godotopenxrvendors/.bin/android/release/*",
+	"addons/godotopenxrvendors/.bin/android/release/**/*",
+	"addons/godotopenxrvendors/.bin/android/template_debug/x86_64/*",
+	"addons/godotopenxrvendors/.bin/android/template_release/x86_64/*",
+	"addons/godot_universal_xr_apk/**/*",
+	"addons/*/editor/*",
+	"addons/*/editor/**/*",
+	"addons/*/tests/*",
+	"addons/*/tests/**/*",
+	"addons/*/plugin.gd*",
+	"addons/*/plugin.cfg",
+	"addons/*/README.md",
+	"addons/*/xr_package.cfg",
+]
 
 
 static func apply() -> Dictionary:
@@ -61,31 +95,35 @@ static func apply() -> Dictionary:
 		}
 
 	var preset_index := _find_preset(config, PRESET_NAME)
+	var manage_name := preset_index >= 0
 	if preset_index < 0:
 		preset_index = _find_preset(config, LEGACY_PRESET_NAME)
 		if preset_index >= 0:
+			manage_name = true
 			changes.append("Renamed %s to %s" % [LEGACY_PRESET_NAME, PRESET_NAME])
 		else:
-			preset_index = _next_preset_index(config)
-			changes.append("Created the %s export preset" % PRESET_NAME)
+			preset_index = _find_enabled_universal_preset(config)
+			if preset_index >= 0:
+				changes.append(
+					"Repaired the existing Universal XR-enabled Android preset"
+				)
+			else:
+				preset_index = _next_preset_index(config)
+				manage_name = true
+				changes.append("Created the %s export preset" % PRESET_NAME)
 
 	var section := "preset.%d" % preset_index
 	var options := "%s.options" % section
 
-	_set_config(config, section, "name", PRESET_NAME, changes)
+	if manage_name:
+		_set_config(config, section, "name", PRESET_NAME, changes)
 	_set_config(config, section, "platform", "Android", changes)
 	_set_config(config, section, "dedicated_server", false, changes)
 	_set_config(config, section, "custom_features", "universal_xr_apk", changes)
 	_set_config(config, section, "export_filter", "exclude", changes)
 	_set_config(config, section, "export_files", PackedStringArray(), changes)
 	_set_config(config, section, "include_filter", "", changes)
-	_set_config(
-		config,
-		section,
-		"exclude_filter",
-		"tests/*,build/**/*,web/**/*,addons/godot_webxr_kit/web/**/*,addons/godot_webgpu/**/*,addons/godot_xr_scene_understanding/providers/webxr/*,addons/godot_xr_scene_understanding/providers/webxr/**/*,addons/godot_webxr_scene_understanding/runtime/webxr_depth_bridge.gd*,addons/godot_webxr_scene_understanding/runtime/webxr_mesh_bridge.gd*,addons/godot_webxr_scene_understanding/runtime/webxr_hit_test_anchor_bridge.gd*,addons/godot_webxr_scene_understanding/runtime/webxr_light_estimation_bridge.gd*,addons/godotopenxrvendors/.bin/windows/**/*,addons/godotopenxrvendors/.bin/linux/**/*,addons/godotopenxrvendors/.bin/macos/**/*,addons/godotopenxrvendors/.bin/android/debug/*,addons/godotopenxrvendors/.bin/android/debug/**/*,addons/godotopenxrvendors/.bin/android/release/*,addons/godotopenxrvendors/.bin/android/release/**/*,addons/godotopenxrvendors/.bin/android/template_debug/x86_64/*,addons/godotopenxrvendors/.bin/android/template_release/x86_64/*,addons/godot_universal_xr_apk/**/*,addons/*/editor/**/*,addons/godot_blender_principled/samples/assets/MaterialCollection.glb",
-		changes
-	)
+	_merge_exclude_filters(config, section, DEFAULT_EXCLUDE_FILTERS, changes)
 	_set_config(config, section, "export_path", DEFAULT_EXPORT_PATH, changes)
 	_set_config(config, section, "patches", PackedStringArray(), changes)
 	_set_config(config, section, "encryption_include_filters", "", changes)
@@ -155,11 +193,51 @@ static func _set_config(
 	changes.append("Set %s/%s" % [section, key])
 
 
+static func _merge_exclude_filters(
+	config: ConfigFile,
+	section: String,
+	required_filters: Array,
+	changes: PackedStringArray
+) -> void:
+	var filters := PackedStringArray()
+	for raw_filter in str(
+		config.get_value(section, "exclude_filter", "")
+	).split(",", false):
+		var filter := raw_filter.strip_edges()
+		if not filter.is_empty() and not filters.has(filter):
+			filters.append(filter)
+	var changed := false
+	for required_filter in required_filters:
+		if not filters.has(str(required_filter)):
+			filters.append(str(required_filter))
+			changed = true
+	if changed:
+		config.set_value(section, "exclude_filter", ",".join(filters))
+		changes.append("Merged platform export exclusions into %s" % section)
+
+
 static func _find_preset(config: ConfigFile, preset_name: String) -> int:
 	for section in config.get_sections():
 		if not section.begins_with("preset.") or section.ends_with(".options"):
 			continue
 		if str(config.get_value(section, "name", "")) == preset_name:
+			return int(section.trim_prefix("preset."))
+	return -1
+
+
+static func _find_enabled_universal_preset(config: ConfigFile) -> int:
+	for section in config.get_sections():
+		if not section.begins_with("preset.") or section.ends_with(".options"):
+			continue
+		if str(config.get_value(section, "platform", "")) != "Android":
+			continue
+		if bool(
+			config.get_value(
+				section + ".options",
+				"universal_xr_apk/enabled",
+				false
+			)
+		):
 			return int(section.trim_prefix("preset."))
 	return -1
 

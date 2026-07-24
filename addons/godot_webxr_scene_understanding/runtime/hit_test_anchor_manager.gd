@@ -9,18 +9,19 @@ extends Node3D
 ## Add this node anywhere in your scene and, in AR, a reticle tracks real
 ## surfaces along the viewer ray; a pinch/select places a spatial anchor there
 ## - and if [member placed_scene] is set, your scene is instanced at the anchor
-## automatically. Content stays world-locked by the platform (anchors are
-## standard XRAnchor3D trackers, updated across tracking corrections).
+## automatically. Anchors are standard XRAnchor3D trackers: browser anchors are
+## platform-tracked; native room-surface anchors are world-locked for the
+## current OpenXR session.
 ##
 ## Zero wiring: the reticle is auto-built (or bring your own via
 ## [member reticle_scene]), placement is one property, and the node requests
 ## the 'hit-test' + 'anchors' session features by itself. [method get_status]
-## reports per-device availability honestly. Inert outside a web export.
+## reports per-device availability honestly. WebXR uses the browser hit-test
+## provider; native OpenXR raycasts the neutral Quest/Android XR room mesh.
 ##
-## NOTE on place_on_select: the browser's select event fires for EVERY pinch,
-## including ones aimed at UI panels or grabbables - in scenes with heavy
-## interaction, prefer place_on_select = false and call [method place_anchor]
-## from your own gesture/button.
+## NOTE on place_on_select: UI-canvas pinches are filtered automatically. For
+## more specialized gameplay arbitration, set place_on_select = false and call
+## [method place_anchor] from your own gesture/button.
 
 ## The live surface hit under the viewer ray moved (world transform, Y = the
 ## surface normal).
@@ -35,9 +36,21 @@ signal anchor_removed(anchor_id: int)
 ## Anchor creation failed (limit reached, platform refusal...).
 signal anchor_failed(message: String)
 
-const _BRIDGE_SCRIPT := "res://addons/godot_webxr_scene_understanding/runtime/webxr_hit_test_anchor_bridge.gd"
+const _WEB_BRIDGE_SCRIPT := "res://addons/godot_webxr_scene_understanding/runtime/webxr_hit_test_anchor_bridge.gd"
+const _NATIVE_BRIDGE_SCRIPT := "res://addons/godot_xr_scene_understanding/providers/openxr_common/native_hit_test_anchor_provider.gd"
 ## Pre-baked reticle material (WebGPU-export safe).
 const _RETICLE_MATERIAL := preload("res://addons/godot_webxr_scene_understanding/runtime/hit_reticle_material.tres")
+
+## Master switch for targeting and placement. Keep this off until the user
+## explicitly enters placement mode so ordinary UI pinches never create
+## anchors unexpectedly.
+@export var enabled := false:
+	set(value):
+		var was_enabled := enabled
+		enabled = value
+		if enabled and not was_enabled:
+			_enabled_at_msec = Time.get_ticks_msec()
+		_sync_enabled_state()
 
 ## Show a reticle on the surface under the viewer ray.
 @export var show_reticle := true
@@ -64,13 +77,16 @@ const _RETICLE_MATERIAL := preload("res://addons/godot_webxr_scene_understanding
 var _bridge: Node
 var _reticle: Node3D
 var _anchor_root: Node3D
+var _enabled_at_msec := 0
+
+
+func _enter_tree() -> void:
+	add_to_group("xr_hit_test_anchor_manager")
 
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
-	if not OS.has_feature("web"):
-		return  # WebXR-only feature; harmless no-op on desktop preview / OpenXR.
 	# Anchored content is world-space; never let this manager's own transform
 	# offset it, wherever the user parked the node.
 	_anchor_root = Node3D.new()
@@ -79,10 +95,13 @@ func _ready() -> void:
 	_anchor_root.top_level = true
 	_anchor_root.global_transform = Transform3D.IDENTITY
 
-	var script := load(_BRIDGE_SCRIPT)
-	_bridge = Node.new()
+	var bridge_path := _WEB_BRIDGE_SCRIPT if OS.has_feature("web") else _NATIVE_BRIDGE_SCRIPT
+	if not ResourceLoader.exists(bridge_path):
+		push_warning("Hit Test + Anchors provider missing: %s" % bridge_path)
+		return
+	var script := load(bridge_path)
+	_bridge = script.new()
 	_bridge.name = "HitTestAnchorBridge"
-	_bridge.set_script(script)
 	_bridge.maximum_anchors = maximum_anchors
 	add_child(_bridge)
 	_bridge.anchor_node_root = _bridge.get_path_to(_anchor_root)
@@ -91,6 +110,8 @@ func _ready() -> void:
 	_bridge.anchor_node_added.connect(_on_anchor_node_added)
 	_bridge.anchor_removed.connect(func(anchor_id: int) -> void: anchor_removed.emit(anchor_id))
 	_bridge.anchor_failed.connect(func(message: String) -> void: anchor_failed.emit(message))
+	if _bridge.has_signal("select_pressed"):
+		_bridge.select_pressed.connect(_on_native_select)
 
 	if show_reticle:
 		_build_reticle()
@@ -99,12 +120,22 @@ func _ready() -> void:
 		var webxr := XRServer.find_interface("WebXR")
 		if webxr and webxr.has_signal("select"):
 			webxr.select.connect(_on_select)
+	_sync_enabled_state()
 
 
-## Place an anchor at the current surface hit. False when nothing is hit (or
-## off-web); the result arrives via [signal anchor_placed] / [signal anchor_failed].
+## Enable or disable visible targeting and pinch/select placement.
+func set_enabled(value: bool) -> void:
+	enabled = value
+
+
+func is_enabled() -> bool:
+	return enabled
+
+
+## Place an anchor at the current surface hit. False when nothing is hit; the
+## result arrives via [signal anchor_placed] / [signal anchor_failed].
 func place_anchor() -> bool:
-	if _bridge == null or not _bridge.has_hit():
+	if not enabled or _bridge == null or not _bridge.has_hit():
 		return false
 	return _bridge.request_anchor()
 
@@ -117,7 +148,7 @@ func clear_anchors() -> void:
 
 ## True while a real surface sits under the viewer ray.
 func has_hit() -> bool:
-	return _bridge.has_hit() if _bridge else false
+	return enabled and _bridge != null and _bridge.has_hit()
 
 
 ## World transform of the current surface hit (origin on the surface, +Y along
@@ -132,7 +163,9 @@ func get_anchor_count() -> int:
 
 ## The bridge's honest per-device availability line, for status displays.
 func get_status() -> String:
-	return str(_bridge.get_status()) if _bridge else "Hit test / anchors: web export required."
+	if not enabled:
+		return "Hit Test + Anchors: off. Enable to show a surface target and pinch to place."
+	return str(_bridge.get_status()) if _bridge else "Hit Test + Anchors: provider unavailable."
 
 
 ## Human label for what is aiming the hit ray ("your gaze", a hand...), for
@@ -142,6 +175,10 @@ func get_hit_aim_label() -> String:
 
 
 func _on_hit_pose_updated(hit_transform: Transform3D) -> void:
+	if not enabled:
+		if _reticle:
+			_reticle.visible = false
+		return
 	if _reticle:
 		_reticle.visible = true
 		_reticle.global_transform = hit_transform
@@ -162,7 +199,39 @@ func _on_anchor_node_added(anchor_id: int, anchor_node: XRAnchor3D) -> void:
 
 
 func _on_select(_input_source_id: int) -> void:
+	if not enabled:
+		return
+	# The select event that toggles placement on can arrive after the Button's
+	# toggled signal. Ignore that gesture, and any later gesture currently
+	# targeting an XR UI canvas, so controls never spawn anchors.
+	if Time.get_ticks_msec() - _enabled_at_msec < 350:
+		return
+	if _pointer_over_ui():
+		return
 	place_anchor()
+
+
+func _on_native_select(hand: int) -> void:
+	if _bridge and _bridge.has_method("set_preferred_hand"):
+		_bridge.set_preferred_hand(hand)
+	_on_select(hand)
+
+
+func _sync_enabled_state() -> void:
+	if _bridge and _bridge.has_method("set_enabled"):
+		_bridge.set_enabled(enabled)
+	if not enabled and _reticle:
+		_reticle.visible = false
+
+
+func _pointer_over_ui() -> bool:
+	for node in get_tree().get_nodes_in_group("xr_ui_canvas"):
+		if (
+			(node.has_method("is_hovered") and bool(node.call("is_hovered")))
+			or (node.has_method("is_selected") and bool(node.call("is_selected")))
+		):
+			return true
+	return false
 
 
 func _build_reticle() -> void:

@@ -6,15 +6,19 @@ SteamVR, drag-and-drop by design. Think Meta's
 Building Blocks or Unity's XRI + XR Hands, but easier: most blocks wire
 themselves the moment you drop them in.
 
-## Quick start: a working XR scene in three clicks
+## Quick start: define exports, then build
 
-1. Enable the `godot_xr_interaction_toolkit` plugin → the **XR Blocks** dock
-   appears with the full catalog (double-click adds to the scene, undo-aware).
-2. Click **Set Up XR Project** in the dock — it writes the project settings
-   and Web export preset an XR project needs (OpenXR + the kit's action map +
-   renderer + WebXR-ready export) and reports every change. Restart the
-   editor if it switched the renderer.
-3. Click **New XR Scene** — you get a ready playground: rig + sessions +
+1. Enable the `godot_xr_interaction_toolkit` plugin → the **XR Suite** dock
+   appears with the full catalog.
+2. Add the Web and/or Android presets you want under **Project > Export**.
+   WebGPU lives in each Web preset; Universal XR APK lives in each Android
+   preset. There is no second target selector.
+3. Run **Project Validator** in the XR Suite Validator dock. It reads those presets, shows
+   the exact required addons and repairs missing XR configuration. Package
+   cleanup runs automatically before every export. Hands and Scene
+   Understanding are inferred from project references, with advanced
+   include/strip overrides.
+4. Click **New XR Scene** — you get a ready playground: rig + sessions +
    hands + teleportable floor + sun + sky + a grabbable in reach. (Or build
    it yourself: drop **XR Prefab** and **Floor (teleportable)** from the
    catalog and add a light.)
@@ -22,8 +26,9 @@ themselves the moment you drop them in.
 That's a working scene: look around, teleport, grab, poke, pinch — in the
 browser via WebXR, or press Play straight to a headset over Quest Link (the
 same scene carries both). When something doesn't behave on the headset, open
-the **Scene Doctor** (also in the dock): it checks the scene + project for
-everything that fails silently at runtime, with one-click fixes.
+the **Scene Validator** (also in the dock): it checks scene structure for
+everything that fails silently at runtime, with one-click fixes. Project
+Doctor handles export presets, addons, and project settings.
 
 ## Test without a headset
 
@@ -44,10 +49,9 @@ interaction (grabs, teleports, sockets, gestures) for on-device debugging.
 |---|---|---|
 | `godot_webxr_kit` | Platform & embodiment | Session bootstraps (WebXR browser + OpenXR editor/native), the pre-wired rig, input adapters, per-hand input modality, profile-matched controller models, export shell. |
 | `godot_xr_hands` | Hands provider | Hand visualization, the **Gesture Studio** (data-driven poses, record-first authoring, ghost-hand preview), thumb microgesture recognition. |
-| `godot_xr_interaction_toolkit` | Interaction (consumer) | Interactors (ray, direct, poke, socket), interactables + affordances, locomotion, in-world UI panels + keyboard, the XR Blocks dock. |
+| `godot_xr_interaction_toolkit` | Interaction (consumer) | Interactors (ray, direct, poke, socket), interactables + affordances, locomotion, in-world UI panels + keyboard, the XR Suite authoring dock. |
 | `godot_xr_scene_understanding` | Perception | Shared depth/scene-mesh managers with capability-selected WebXR, Meta OpenXR, and Android XR providers. |
-| `godot_webxr_scene_understanding` | Perception compatibility | Existing WebXR bridges plus light estimation and hit-test/anchors; old depth/mesh paths forward to the shared managers. |
-| `godot_blender_principled` | Materials | Blender Principled BSDF parity helpers + benchmark sample. |
+| `godot_webxr_scene_understanding` | Optional WebXR perception provider | Browser acquisition for the neutral depth/mesh blocks, plus WebXR light estimation, hit-test/anchors, and compatibility paths. |
 | `godot_webgpu` | Export | WebGPU web-export toggle + shader bake anchors (see Renderers below). |
 | `godot_universal_xr_apk` | Export | One arm64 OpenXR development APK for Quest 3 + Android XR, with an idempotent setup command and manifest validator. |
 
@@ -55,9 +59,85 @@ interaction (grabs, teleports, sockets, gestures) for on-device debugging.
 consumers turn input into interaction. Consumers may depend softly downward
 (soft-loaded, inert when absent); providers never know consumers exist.
 
-## The block catalog
+## Self-describing package graph
 
-Everything below is in the **XR Blocks dock**. "Self-wiring" means drop it
+Every suite addon carries an `xr_package.cfg` declaring its stable package ID,
+targets, capabilities, dependencies, layer, and runtime/export footprint.
+The XR Suite dock combines those manifests with the Web/Android presets already
+defined under Project > Export, then resolves transitive dependencies.
+
+The interaction toolkit also carries a fallback catalog. This is intentional:
+an addon that is not installed cannot provide its own manifest, but it still
+needs to appear as a clearly named missing package. Installed manifests
+override the fallback metadata. Incremental adoption is therefore:
+
+1. Select the feature now.
+2. Copy the listed addon folder later.
+3. Reopen **Project Validator**; opening it always performs a fresh recheck.
+
+Project Validator resumes configuration when all requirements are available.
+
+The test suite enforces parity between installed manifests and the fallback
+catalog so the missing-package view cannot silently drift. Both are authoring
+metadata and are excluded from Web and APK runtime packages.
+
+Keeping all suite addons in the Godot project is supported and is the easiest
+team workflow. “Installed” does not mean “shipped”: the neutral XR Suite
+export plugin removes editor metadata and opposite-platform providers/tooling
+from each artifact automatically.
+
+The Project Validator report separates required or missing addons from addons
+installed locally for another target. Target changes never delete project
+files; keeping all addons available makes switching immediate while automatic
+export-time cleanup controls what ships.
+
+Before every export, XR Suite applies platform exclusions selected from the
+active Godot export preset: Web
+exports strip OpenXR vendor binaries, Universal APK tooling, and native
+perception providers; Android exports strip browser shells, WebGPU tooling, and
+WebXR-only perception providers/bridges. Editor-only files are stripped from
+both. No validator button is required before building.
+
+### Optional feature footprint
+
+Enhanced Hands and Scene Understanding use **Auto (Recommended)** by default.
+Auto scans project-owned `.gd`, `.tscn`, and `.tres` files for explicit suite
+references; simply installing an addon does not count as using it. Adding or
+removing a block is reflected automatically on the next export.
+
+Project Validator says that automatic cleanup needs no action. Its collapsed
+**Show Optional Feature Overrides** disclosure offers:
+
+- **Force Include** for dynamic loading that static reference scanning cannot
+  see.
+- **Force Strip** for deliberately minimal exports. The dialog names the exact
+  addon folders excluded and warns with the referring project files when a
+  forced strip conflicts with detected usage.
+
+In the checked-in suite, the installed source footprints are currently small:
+roughly 0.41 MiB for Enhanced Hands and 0.29 MiB for shared + Web perception.
+Final PCK/APK savings are usually smaller after compression and Godot import
+processing. Stripping is therefore mostly dependency/build hygiene today, but
+becomes more valuable when projects add larger hand models, recordings,
+textures, or perception assets.
+
+## Vocabulary used in the editor
+
+| Term | Meaning |
+|---|---|
+| **Export Preset** | The source of truth for whether the project ships to Web, Android, or both. |
+| **Project Validator** | Preset-driven validation and idempotent repair of addons and XR settings; package cleanup is automatic at export. |
+| **Automatic Feature** | Hands or perception inferred from project scene/script references. |
+| **Build Choice** | A preset-local decision such as WebGPU on one Web export. |
+| **Required Addon** | An installable package selected automatically from the target and features. |
+| **Scene Block** | A reusable node or scene the author adds to the current scene. |
+
+“Capability” and “package” remain internal architecture terms. The editor uses
+the more direct “Feature” and “Addon” wording.
+
+## The Scene Blocks catalog
+
+Everything below is in **XR Suite → Scene Blocks**. "Self-wiring" means drop it
 anywhere — under the rig, under a hands mount, at the scene root — and it
 finds the rig by itself (NodePath exports are overrides, not setup).
 
@@ -160,7 +240,7 @@ which renderer is active.
 so every project sees edits instantly:
 
 ```powershell
-foreach ($a in @("godot_webxr_kit","godot_xr_hands","godot_xr_interaction_toolkit","godot_xr_scene_understanding","godot_webxr_scene_understanding","godot_webgpu","godot_universal_xr_apk","godot_blender_principled")) {
+foreach ($a in @("godot_webxr_kit","godot_xr_hands","godot_xr_interaction_toolkit","godot_xr_scene_understanding","godot_webxr_scene_understanding","godot_webgpu","godot_universal_xr_apk")) {
   New-Item -ItemType Junction -Path "<project>\addons\$a" -Target "<this repo>\addons\$a"
 }
 ```

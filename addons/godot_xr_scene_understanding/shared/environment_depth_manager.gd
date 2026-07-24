@@ -1,5 +1,5 @@
 @tool
-@icon("res://addons/godot_webxr_scene_understanding/icons/environment_depth_manager.svg")
+@icon("res://addons/godot_xr_scene_understanding/icons/environment_depth_manager.svg")
 class_name EnvironmentDepthManager
 extends Node3D
 
@@ -13,7 +13,7 @@ extends Node3D
 ##   zero per-object setup.
 ## - SOFT: listed objects fade behind real surfaces with feathered edges (the
 ##   Meta/Unity per-object technique). Choose the objects by dragging them into
-##   [member occludees], by adding them to the 'webxr_occludable' group, or at
+##   [member occludees], by adding them to the 'xr_occludable' group, or at
 ##   runtime via [method add_occludee] - their occlusion materials are generated
 ##   automatically from the addon's pre-baked shader (WebGPU-export safe).
 ##
@@ -36,7 +36,9 @@ const _ROUTER_SCRIPT := preload(
 ## Pre-baked occlusion material template (occlusion_object.gdshader). Duplicated
 ## per occludee with the object's own colour/roughness copied into uniforms -
 ## uniform changes reuse the baked shader, so this stays WebGPU-export safe.
-const _OCC_TEMPLATE := preload("res://addons/godot_webxr_scene_understanding/runtime/grab_cube_material.tres")
+const _OCC_TEMPLATE := preload(
+	"res://addons/godot_xr_scene_understanding/runtime/occlusion_material.tres"
+)
 
 ## What hides virtual objects behind the real world. HARD = depth-mesh punch
 ## (everything, crisp). SOFT = per-object feathered fade (occludees only).
@@ -118,10 +120,10 @@ func add_occludee(node: Node) -> void:
 ## Remove an object from SOFT occlusion at runtime.
 func remove_occludee(node: Node) -> void:
 	for mesh in _meshes_under(node):
-		if mesh.is_in_group("webxr_occludable"):
+		if mesh.is_in_group("xr_occludable"):
 			if mesh.has_meta("opaque_material"):
 				mesh.set_surface_override_material(0, mesh.get_meta("opaque_material"))
-			mesh.remove_from_group("webxr_occludable")
+			mesh.remove_from_group("xr_occludable")
 	_refresh_soft()
 
 
@@ -208,8 +210,8 @@ func _refresh_soft() -> void:
 
 
 ## Give a mesh everything the bridge's occlusion contract needs: membership in
-## 'webxr_occludable' + an occ_material generated from the baked template with
-## the object's own look copied in.
+## 'xr_occludable' + an occ_material generated from the neutral baked template
+## with the object's own look copied in.
 func _prepare_occludee(mesh: MeshInstance3D) -> void:
 	if not mesh.has_meta("occ_material"):
 		var occ := _OCC_TEMPLATE.duplicate() as ShaderMaterial
@@ -219,8 +221,8 @@ func _prepare_occludee(mesh: MeshInstance3D) -> void:
 			occ.set_shader_parameter("metallic", source.metallic)
 			occ.set_shader_parameter("roughness", source.roughness)
 		mesh.set_meta("occ_material", occ)
-	if not mesh.is_in_group("webxr_occludable"):
-		mesh.add_to_group("webxr_occludable")
+	if not mesh.is_in_group("xr_occludable"):
+		mesh.add_to_group("xr_occludable")
 
 
 func _resolve_occludee_meshes() -> Array[MeshInstance3D]:
@@ -253,5 +255,5 @@ func _get_configuration_warnings() -> PackedStringArray:
 		elif _meshes_under(node).is_empty():
 			warnings.append("Occludee '%s' has no MeshInstance3D - nothing to occlude." % node.name)
 	if occlusion_mode == OcclusionMode.SOFT and occludees.is_empty():
-		warnings.append("SOFT occlusion with an empty Occludees list only affects objects already in the 'webxr_occludable' group - drag your objects into Occludees.")
+		warnings.append("SOFT occlusion with an empty Occludees list only affects objects already in the 'xr_occludable' group - drag your objects into Occludees.")
 	return warnings
