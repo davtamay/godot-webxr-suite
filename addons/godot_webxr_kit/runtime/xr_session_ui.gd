@@ -2,10 +2,10 @@
 class_name XRSessionUI
 extends CanvasLayer
 
-## The drop-in session HUD block: Enter VR / Enter AR buttons, a status line,
-## and a browser-capabilities readout. Instance xr_session_ui.tscn anywhere in
-## a scene that has a WebXRBootstrap and the bootstrap adopts it automatically
-## (no NodePath wiring). Hides itself during immersive sessions.
+## The drop-in WebXR Session UI block: browser Enter VR / Enter AR buttons, a
+## status line, and a browser-capabilities readout. Instance xr_session_ui.tscn
+## anywhere in a scene that has a WebXRBootstrap and the bootstrap adopts it
+## automatically (no NodePath wiring). Hides itself during immersive sessions.
 ##
 ## Scene-specific controls (extra buttons, labels) can be added as children of
 ## Panel/Margin/VBox in the host scene - the block is a start, not a cage.

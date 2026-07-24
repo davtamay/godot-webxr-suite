@@ -144,9 +144,9 @@ finds the rig by itself (NodePath exports are overrides, not setup).
 ### Sessions & rig (`godot_webxr_kit`)
 | Block | What you get |
 |---|---|
-| **XR Prefab** | Everything XR in one drop: runtime-neutral rig + conditional WebXR/OpenXR bootstraps + hands. Browser entry UI exists only in web exports. |
+| **XR Prefab** | Everything XR in one drop: runtime-neutral rig + conditional WebXR/OpenXR bootstraps + hands. On Web, the prefab automatically creates the browser Enter VR/AR UI. Native OpenXR starts directly without that browser UI. |
 | **XR Rig** | The shared rig alone (origin, camera, controllers, interactors, modality, locomotion, poke) — for scenes with their own HUD. |
-| **Session UI** | Enter VR/AR buttons + status HUD; the WebXR bootstrap adopts it automatically. |
+| **WebXR Session UI** | Browser-only Enter VR/AR buttons, capability readout, and status HUD; the WebXR bootstrap adopts it automatically. |
 | **WebXR / OpenXR Bootstrap** | Session lifecycle per platform; each is inert on the other's platform, so ship both. |
 | **Hands Mount** | Procedural or realistic tracked hands (`hand_style`); virtual meshes hide per hand while it drives a controller. |
 | **Realistic Hands** | Rigged hand meshes (WebXR Input Profiles, MIT, bundled) skinned live to the tracked joints. |
